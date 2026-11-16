@@ -109,7 +109,7 @@ object GeminiWorkflowAuthoring {
             Mọi Skill phải có ID trong danh sách và pin version cụ thể.
             Chỉ gọi API trong allow-list; nếu danh sách trống thì không dùng call. Điều kiện hỗ trợ nhóm all / any / not và các toán tử not_exists, starts_with, ends_with, greater_or_equal, less_or_equal, not_in.
             Tham chiếu biến bằng object có khóa $refKey, ví dụ {"$refKey":"vars.observation"}.
-            Bổ sung 1-5 tests có name, inputs và expectOutputs hoặc expectReturn; mockApis chỉ chứa kết quả giả lập. Bổ sung 1-5 tests có name, inputs và expectOutputs hoặc expectReturn; mockApis chỉ chứa kết quả giả lập. Không sinh mã nguồn hay lệnh tùy ý. Không tự đánh dấu Verified.
+            Bổ sung 1-5 tests có name, inputs và expectOutputs hoặc expectReturn; mockApis chỉ chứa kết quả giả lập. Không sinh mã nguồn hay lệnh tùy ý. Không tự đánh dấu Verified.
         """.trimIndent()
         return runCatching {
             val raw = GeminiClient.generate(apiKey, prompt)
