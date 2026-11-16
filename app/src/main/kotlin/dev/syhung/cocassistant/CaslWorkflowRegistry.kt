@@ -9,6 +9,7 @@ enum class WorkflowLifecycle { DRAFT, TESTING, VERIFIED, DISABLED }
 /** Workflow programs are first-class CADSS records, separate from Skill manifests. */
 class CaslWorkflowRegistry(context: Context) {
     private val prefs = context.getSharedPreferences("cadss_store_v1", Context.MODE_PRIVATE)
+    private val skillRegistry = AgentSkillRegistry(context)
 
     @Synchronized
     fun all(): List<JSONObject> {
@@ -77,6 +78,11 @@ class CaslWorkflowRegistry(context: Context) {
             it.optString("id") == id && it.optInt("version") == version
         }
         if (index < 0 || current[index].optString("lifecycle") != WorkflowLifecycle.TESTING.name) return false
+        val requiredSkills = collectSkillVersions(current[index].optJSONArray("steps") ?: JSONArray())
+        if (requiredSkills.any { (skillId, skillVersion) ->
+                val skill = skillRegistry.find(skillId, skillVersion)
+                skill == null || skill.status != SkillLifecycle.VERIFIED || skill.scriptJson.isBlank()
+            }) return false
         current[index] = JSONObject(current[index].toString())
             .put("lifecycle", WorkflowLifecycle.VERIFIED.name)
             .put("testPassed", passed)
@@ -84,6 +90,26 @@ class CaslWorkflowRegistry(context: Context) {
             .put("testedAt", System.currentTimeMillis())
         persist(current)
         return true
+    }
+
+    private fun collectSkillVersions(steps: JSONArray): Map<String, Int> {
+        val found = linkedMapOf<String, Int>()
+        for (index in 0 until steps.length()) {
+            val step = steps.optJSONObject(index) ?: continue
+            when (step.optString("op")) {
+                "skill" -> {
+                    val id = step.optString("id")
+                    val version = step.optInt("version", 0)
+                    if (id.isNotBlank() && version > 0) found[id] = version
+                }
+                "if" -> {
+                    found.putAll(collectSkillVersions(step.optJSONArray("then") ?: JSONArray()))
+                    found.putAll(collectSkillVersions(step.optJSONArray("else") ?: JSONArray()))
+                }
+                "repeat" -> found.putAll(collectSkillVersions(step.optJSONArray("steps") ?: JSONArray()))
+            }
+        }
+        return found
     }
 
     private fun validate(program: JSONObject): Boolean = runCatching {
