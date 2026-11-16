@@ -219,6 +219,7 @@ private fun CoCAssistantApp() {
                             }
                         }
                         item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Lối tắt nhanh") }
+                        item { PanelCard { AutomationControlPanel(onStatus = { status = it }) } }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 QuickCard("Phân tích hình ảnh", "OpenCV cục bộ", Icons.Default.ImageSearch, Modifier.weight(1f)) { selectedTab = 1 }
