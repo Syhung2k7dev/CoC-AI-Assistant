@@ -47,3 +47,8 @@ CI thành công chỉ xác nhận quá trình build; vẫn cần cài và kiểm
 ## CASL và Workflow Engine
 
 - [Đặc tả CASL JSON DSL, Script Runtime, Workflow Engine và Scheduler](docs/CASL_WORKFLOW_ENGINE.md)
+
+
+### Workflow Engine
+
+Workflow đã VERIFIED được chạy hoặc lên lịch qua WorkManager; CASL Skill script dùng chung interpreter và API allow-list. Test runner dùng API mock trước khi chuyển Workflow sang VERIFIED. Xem [CASL_WORKFLOW_ENGINE.md](docs/CASL_WORKFLOW_ENGINE.md) để biết schema, lifecycle, run state và giới hạn thực thi.
