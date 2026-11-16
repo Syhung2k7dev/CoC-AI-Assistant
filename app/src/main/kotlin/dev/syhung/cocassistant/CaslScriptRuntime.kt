@@ -184,7 +184,59 @@ class CaslScriptRuntime(
         require(program.optString("kind") in setOf("workflow", "skill")) { "CASL kind phải là workflow hoặc skill." }
         require(program.optString("id").matches(Regex("[a-z0-9][a-z0-9._-]{1,79}"))) { "CASL ID không hợp lệ." }
         require(program.optInt("version", 0) >= 1) { "CASL version không hợp lệ." }
-        require(program.optJSONArray("steps") != null) { "CASL steps phải là array." }
+        val steps = program.optJSONArray("steps")
+            ?: throw CaslRuntimeException("CASL steps phải là array.")
+        validateSteps(steps, 0, intArrayOf(0))
+    }
+
+    private fun validateSteps(steps: JSONArray, depth: Int, count: IntArray) {
+        if (depth > maxDepth) throw CaslRuntimeException("CASL lồng nhau quá sâu.")
+        for (index in 0 until steps.length()) {
+            count[0]++
+            if (count[0] > maxSteps) throw CaslRuntimeException("CASL vượt giới hạn $maxSteps step.")
+            val step = steps.optJSONObject(index)
+                ?: throw CaslRuntimeException("CASL step phải là object.")
+            when (step.optString("op")) {
+                "set" -> requireName(step.optString("name"))
+                "call" -> {
+                    if (!step.optString("api").matches(Regex("[a-z][a-z0-9_.-]{1,79}"))) {
+                        throw CaslRuntimeException("Tên API CASL không hợp lệ.")
+                    }
+                }
+                "skill" -> {
+                    if (!step.optString("id").matches(Regex("[a-z0-9][a-z0-9._-]{1,79}"))) {
+                        throw CaslRuntimeException("Skill ID không hợp lệ.")
+                    }
+                }
+                "if", "assert" -> {
+                    val condition = step.optJSONObject("condition")
+                        ?: throw CaslRuntimeException("Điều kiện CASL không hợp lệ.")
+                    if (condition.optString("path").isBlank() ||
+                        condition.optString("op") !in setOf("exists", "equals", "not_equals", "contains", "greater_than", "less_than", "in")) {
+                        throw CaslRuntimeException("Toán tử hoặc đường dẫn điều kiện không hợp lệ.")
+                    }
+                    if (step.optString("op") == "if") {
+                        validateSteps(step.optJSONArray("then") ?: JSONArray(), depth + 1, count)
+                        validateSteps(step.optJSONArray("else") ?: JSONArray(), depth + 1, count)
+                    }
+                }
+                "repeat" -> {
+                    if (step.optInt("count", -1) !in 1..maxRepeat) {
+                        throw CaslRuntimeException("REPEAT phải từ 1 đến $maxRepeat.")
+                    }
+                    validateSteps(step.optJSONArray("steps")
+                        ?: throw CaslRuntimeException("REPEAT thiếu steps."), depth + 1, count)
+                }
+                "wait" -> if (step.optLong("ms", -1L) !in 0L..60_000L) {
+                    throw CaslRuntimeException("WAIT phải từ 0 đến 60000 ms.")
+                }
+                "log" -> if (step.optString("message").length > 500) {
+                    throw CaslRuntimeException("Thông điệp log quá dài.")
+                }
+                "return" -> Unit
+                else -> throw CaslRuntimeException("CASL operation không được hỗ trợ: " + step.optString("op"))
+            }
+        }
     }
 
     private fun resolveObject(source: JSONObject, context: JSONObject): JSONObject {
