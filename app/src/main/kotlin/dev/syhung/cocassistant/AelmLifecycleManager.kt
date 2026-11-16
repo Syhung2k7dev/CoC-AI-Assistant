@@ -197,8 +197,8 @@ class AelmLifecycleManager(context: Context) {
         }
         if (!requireSingleTestingSkill(skillId)) return false
         if (!skills.setLifecycle(skillId, SkillLifecycle.TESTING, version)) return false
-        val released = skills.completeTest(skillId, skill.testTotal.takeIf { it > 0 } ?: receiptTotal("skill", skillId, version),
-            receiptTotal("skill", skillId, version))
+        val total = receiptTotal("skill", skillId, version)
+        val released = skills.completeTest(skillId, total, total)
         if (!released) skills.setLifecycle(skillId, SkillLifecycle.EXPERIMENTAL, version)
         return released
     }
