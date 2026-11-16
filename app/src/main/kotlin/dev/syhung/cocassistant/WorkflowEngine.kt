@@ -396,6 +396,13 @@ object WorkflowScheduler {
         WorkManager.getInstance(context).cancelUniqueWork(scheduleId)
     }
 
+    fun cancelForWorkflow(context: Context, workflowId: String, version: Int) {
+        require(workflowId.matches(Regex("[a-z0-9][a-z0-9._-]{1,79}")) && version > 0)
+        val manager = WorkManager.getInstance(context)
+        manager.cancelUniqueWork("workflow:$workflowId:$version:once")
+        manager.cancelUniqueWork("workflow:$workflowId:$version:periodic")
+    }
+
     private fun validateSchedule(context: Context, id: String, version: Int, inputs: JSONObject) {
         require(id.matches(Regex("[a-z0-9][a-z0-9._-]{1,79}")))
         require(version > 0)
