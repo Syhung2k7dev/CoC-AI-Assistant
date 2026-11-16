@@ -18,6 +18,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +35,7 @@ fun AutomationControlPanel(onStatus: (String) -> Unit) {
     var x by remember { mutableStateOf("540") }
     var y by remember { mutableStateOf("900") }
     var showConfirm by remember { mutableStateOf(false) }
+    var ocrBusy by remember { mutableStateOf(false) }
     val enabled = isAutomationAccessibilityEnabled(context)
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -44,6 +48,22 @@ fun AutomationControlPanel(onStatus: (String) -> Unit) {
             OutlinedTextField(value = x, onValueChange = { x = it.take(6) }, label = { Text("Tọa độ X") }, modifier = Modifier.weight(1f), singleLine = true)
             OutlinedTextField(value = y, onValueChange = { y = it.take(6) }, label = { Text("Tọa độ Y") }, modifier = Modifier.weight(1f), singleLine = true)
         }
+        OutlinedButton(onClick = {
+            if (ocrBusy) return@OutlinedButton
+            ocrBusy = true
+            val accepted = CoCAccessibilityService.captureScreen { bitmap ->
+                if (bitmap == null) {
+                    ocrBusy = false
+                    onStatus("Không thể chụp màn hình. Android có thể không hỗ trợ hoặc cửa sổ đang được bảo vệ.")
+                } else {
+                    LocalOcrProcessor.recognize(bitmap) { text ->
+                        ocrBusy = false
+                        onStatus(if (text == null) "OCR cục bộ thất bại." else "OCR cục bộ hoàn tất: " + text.take(180))
+                    }
+                }
+            }
+            if (!accepted) { ocrBusy = false; onStatus("Accessibility chưa kết nối.") }
+        }, enabled = enabled && !ocrBusy, modifier = Modifier.fillMaxWidth()) { Text(if (ocrBusy) "Đang nhận diện..." else "Chụp màn hình và OCR cục bộ") }
         Button(onClick = { showConfirm = true }, enabled = enabled && x.toFloatOrNull() != null && y.toFloatOrNull() != null, modifier = Modifier.fillMaxWidth()) {
             Text("Xác nhận và chạy thử thao tác chạm")
         }
