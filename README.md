@@ -15,7 +15,7 @@ A local-first Android companion with a premium dark dashboard, versioned persona
 
 ## UI
 
-The Compose interface contains five destinations: Overview, Vision, CASL, Scheduler, and Settings. The design uses a dark navy palette, violet primary actions, cyan status accents, metric cards, and a persistent bottom navigation bar.
+The Compose interface contains five destinations: Overview, Vision, CASL, Scheduler, and Settings. The design uses a dark navy palette, violet primary actions, cyan status accents, metric cards, a persistent bottom navigation bar, and an in-app floating quick dashboard. The session timer supports 30- and 60-minute countdowns.
 
 ## Build
 
@@ -37,5 +37,6 @@ Run the **Android APK** GitHub Actions workflow. Successful runs publish the `Co
 ## Current limitations
 
 - The maintenance worker is a lightweight scheduled hook; detailed cleanup policies and user-configurable schedules remain future work.
+- The floating dashboard is an in-app quick panel, not a system-wide overlay.
 - Backup restore validates the archive and schema but does not yet provide a merge/replace choice.
 - The app requires an on-device install and manual smoke test before release. A successful CI build alone is not proof of runtime correctness.
