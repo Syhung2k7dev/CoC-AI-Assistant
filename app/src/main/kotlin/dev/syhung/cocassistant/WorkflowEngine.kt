@@ -324,8 +324,13 @@ class WorkflowTestRunner(
                     val version = step.optInt("version", 0)
                     val key = "$id@$version"
                     if (id.isNotBlank() && version > 0 && visitedSkills.add(key)) {
+                        val skill = skills.find(id, version)
+                            ?: throw CaslRuntimeException("Không tìm thấy Skill dependency $key.")
                         val script = skills.findVerifiedScript(id, version)
-                        if (script != null) found.addAll(collectApiNames(script.optJSONArray("steps") ?: JSONArray(), visitedSkills))
+                            ?: throw CaslRuntimeException("Skill $key chưa VERIFIED hoặc dependency chưa sẵn sàng.")
+                        val skillSteps = script.optJSONArray("steps") ?: JSONArray()
+                        validateSkillApiCapabilities(skillSteps, skill.capabilities, key)
+                        found.addAll(collectApiNames(skillSteps, visitedSkills))
                     }
                 }
                 "if" -> {
@@ -336,6 +341,34 @@ class WorkflowTestRunner(
             }
         }
         return found
+    }
+
+    private fun validateSkillApiCapabilities(
+        steps: JSONArray,
+        capabilities: Set<SkillActionCapability>,
+        skillRef: String
+    ) {
+        for (index in 0 until steps.length()) {
+            val step = steps.optJSONObject(index) ?: continue
+            when (step.optString("op")) {
+                "call" -> {
+                    val required = when (step.optString("api")) {
+                        "action.tap" -> SkillActionCapability.TAP
+                        "action.swipe" -> SkillActionCapability.SWIPE
+                        "action.wait" -> SkillActionCapability.WAIT
+                        else -> null
+                    }
+                    if (required != null && required !in capabilities) {
+                        throw CaslRuntimeException("Skill $skillRef gọi ${step.optString("api")} nhưng không khai báo capability $required.")
+                    }
+                }
+                "if" -> {
+                    validateSkillApiCapabilities(step.optJSONArray("then") ?: JSONArray(), capabilities, skillRef)
+                    validateSkillApiCapabilities(step.optJSONArray("else") ?: JSONArray(), capabilities, skillRef)
+                }
+                "repeat" -> validateSkillApiCapabilities(step.optJSONArray("steps") ?: JSONArray(), capabilities, skillRef)
+            }
+        }
     }
 
     private fun sameJsonValue(expected: Any?, actual: Any?): Boolean {
