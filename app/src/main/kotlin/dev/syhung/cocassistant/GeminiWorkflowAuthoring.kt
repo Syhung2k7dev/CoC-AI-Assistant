@@ -36,15 +36,15 @@ object GeminiWorkflowAuthoring {
             $apiInventory
 
             Trả về một JSON object duy nhất với format=CASL, schemaVersion=1,
-            id, version, kind=workflow, inputs, outputs, dependencies, steps.
-            Chỉ dùng operations: set, call, skill, if, repeat, wait, assert, log, return.
+            id, version, kind=workflow, inputs, outputs, dependencies, steps và tests.
+            Chỉ dùng operations: set, output, call, skill, if, repeat, wait, assert, log, return.
             Chỉ gọi Skill ID trong danh sách; mỗi operation skill phải pin version cụ thể.
             Chỉ gọi API name trong allow-list; nếu danh sách trống thì không được dùng call.
-            Điều kiện hỗ trợ: exists, equals, not_equals, contains, greater_than, less_than, in.
+            Điều kiện hỗ trợ: exists, not_exists, equals, not_equals, contains, starts_with, ends_with, greater_than, less_than, greater_or_equal, less_or_equal, in, not_in; nhóm all / any / not.
             Tham chiếu biến bằng object có khóa $refKey, ví dụ {"$refKey":"vars.observation"}.
             Không tạo mã Kotlin/Java/JavaScript/shell, reflection hoặc lệnh tùy ý.
             Không tự đánh dấu Verified. Workflow luôn được lưu ở Draft để kiểm thử.
-            Thiết kế có nhánh lỗi và log; không giả định API thành công nếu chưa kiểm tra kết quả.
+            Tạo 1-5 test cases trong tests; mỗi test có name, inputs và expectOutputs hoặc expectReturn. Không dùng API thật khi test; mockApis chỉ mô tả kết quả giả lập. Thiết kế có nhánh lỗi và log; không giả định API thành công nếu chưa kiểm tra kết quả.
         """.trimIndent()
         return runCatching {
             val raw = GeminiClient.generate(apiKey, prompt)
@@ -105,11 +105,11 @@ object GeminiWorkflowAuthoring {
 
             Trả về một JSON CASL Workflow hoàn chỉnh với cùng id=$workflowId,
             version=$nextVersion, kind=workflow, schemaVersion=1.
-            Chỉ dùng operations: set, call, skill, if, repeat, wait, assert, log, return.
+            Chỉ dùng operations: set, output, call, skill, if, repeat, wait, assert, log, return.
             Mọi Skill phải có ID trong danh sách và pin version cụ thể.
-            Chỉ gọi API trong allow-list; nếu danh sách trống thì không dùng call.
+            Chỉ gọi API trong allow-list; nếu danh sách trống thì không dùng call. Điều kiện hỗ trợ nhóm all / any / not và các toán tử not_exists, starts_with, ends_with, greater_or_equal, less_or_equal, not_in.
             Tham chiếu biến bằng object có khóa $refKey, ví dụ {"$refKey":"vars.observation"}.
-            Không sinh mã nguồn hay lệnh tùy ý. Không tự đánh dấu Verified.
+            Bổ sung 1-5 tests có name, inputs và expectOutputs hoặc expectReturn; mockApis chỉ chứa kết quả giả lập. Không sinh mã nguồn hay lệnh tùy ý. Không tự đánh dấu Verified.
         """.trimIndent()
         return runCatching {
             val raw = GeminiClient.generate(apiKey, prompt)
