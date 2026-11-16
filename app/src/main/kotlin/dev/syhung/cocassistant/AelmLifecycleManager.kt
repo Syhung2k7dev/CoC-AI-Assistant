@@ -163,7 +163,7 @@ class AelmLifecycleManager(context: Context) {
             }
         }
         val report = AelmTestReport("skill", skillId, version, passed, cases.size, failures)
-        if (report.successful) saveReceipt(report, program)
+        if (report.successful) saveReceipt(report, skill.toJson())
         return report
     }
 
@@ -204,7 +204,7 @@ class AelmLifecycleManager(context: Context) {
 
     fun releaseSkill(skillId: String, version: Int): Boolean {
         val skill = skills.find(skillId, version) ?: return false
-        if (skill.status != SkillLifecycle.DRAFT || !hasValidReceipt("skill", skillId, version, JSONObject(skill.scriptJson))) {
+        if (skill.status != SkillLifecycle.DRAFT || !hasValidReceipt("skill", skillId, version, skill.toJson())) {
             return false
         }
         if (!requireSingleTestingSkill(skillId)) return false
