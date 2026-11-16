@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 
+/** Tác vụ bảo trì nhẹ; thời điểm thực thi do Android WorkManager điều phối. */
 class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = Result.success()
 }
