@@ -83,7 +83,7 @@ fun SkillLibraryPanel(
                             statusState.value = "Gemini đang nghiên cứu và tạo bản nháp..."
                             scope.launch {
                                 when (val result = GeminiSkillAuthoring.createDraft(
-                                    apiKey, goalState.value, registry, referenceImage
+                                    apiKey, goalState.value, registry, referenceImage, WorkflowEngine.AVAILABLE_API_NAMES
                                 )) {
                                     is SkillDraftOutcome.Created -> {
                                         skillsState.value = registry.all()
