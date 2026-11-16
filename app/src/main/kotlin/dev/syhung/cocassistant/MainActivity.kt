@@ -283,7 +283,7 @@ private fun CoCAssistantApp() {
                             PanelCard {
                                 Text("Ví dụ quy tắc", color = Cyan, fontWeight = FontWeight.Bold)
                                 Text("NẾU điều kiện đúng → THỰC HIỆN nhánh ĐÚNG → NGƯỢC LẠI thực hiện nhánh SAI", color = White, fontSize = 15.sp)
-                                Text("CASL hiện hỗ trợ các phép kiểm tra: tồn tại (exists), bằng (equals), khác (not_equals), chứa (contains), lớn hơn (greater_than), nhỏ hơn (less_than) và thuộc danh sách (in). Hành động chỉ được mô tả hoặc kiểm tra, không tự thao tác ứng dụng khác.", color = Muted, fontSize = 12.sp)
+                                Text("CASL hỗ trợ all / any / not, so sánh kiểu dữ liệu, truy cập object/array, set/output, call API allow-list, gọi Skill theo version pin, IF/ELSE, repeat, wait, assert và return. Mã tùy ý, reflection và shell không được thực thi.", color = Muted, fontSize = 12.sp)
                                 Button(onClick = {
                                     val rule = JSONObject()
                                         .put("condition", JSONObject().put("path", "vision.confidence").put("op", "greater_than").put("value", 0.8))
@@ -315,13 +315,12 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Icon(Icons.Default.Bedtime, null, tint = Cyan, modifier = Modifier.size(30.dp))
-                                Text("Chế độ ngủ sâu", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                                Text("Cho phép Android tự quản lý thời điểm chạy tác vụ nền. Ứng dụng không duy trì vòng lặp chạy liên tục.", color = Muted, fontSize = 13.sp)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { SchedulerManager.scheduleDaily(context); status = "Đã lên lịch bảo trì hằng ngày" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) { Text("Lên lịch") }
-                                    OutlinedButton(onClick = { SchedulerManager.cancel(context); status = "Đã hủy lịch" }, modifier = Modifier.weight(1f)) { Text("Hủy lịch") }
+                                Text("Bộ lập lịch Workflow", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                Text("Workflow đã VERIFIED có thể chạy một lần hoặc định kỳ bằng Android WorkManager. Hệ thống không giữ vòng lặp nền liên tục; Doze và chính sách pin có thể trì hoãn thời điểm chạy.", color = Muted, fontSize = 13.sp)
+                                Button(onClick = { selectedTab = 3 }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+                                    Icon(Icons.Default.AccountTree, null); Spacer(Modifier.width(8.dp)); Text("Mở Workflow Studio để lập lịch")
                                 }
-                                Text(status, color = Cyan, fontSize = 12.sp)
+                                Text("Lịch chạy được cấu hình trên từng Workflow đã xác minh.", color = Cyan, fontSize = 12.sp)
                             }
                         }
                         item {
