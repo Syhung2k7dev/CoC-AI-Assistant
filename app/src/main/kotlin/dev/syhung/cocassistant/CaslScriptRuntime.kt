@@ -121,6 +121,10 @@ class CaslScriptRuntime(
                     val requestedVersion = if (step.has("version")) step.optInt("version") else null
                     val skillProgram = skillScriptProvider(skillId, requestedVersion)
                         ?: throw CaslRuntimeException("Không tìm thấy Skill Verified tương thích: $skillId")
+                    if (skillProgram.optString("id") != skillId ||
+                        (requestedVersion != null && skillProgram.optInt("version") != requestedVersion)) {
+                        throw CaslRuntimeException("Skill script không khớp ID/version đã pin: $skillId")
+                    }
                     val args = resolveObject(step.optJSONObject("args") ?: JSONObject(), context)
                     val skillContext = JSONObject()
                         .put("inputs", args)
@@ -210,11 +214,14 @@ class CaslScriptRuntime(
                     if (!step.optString("api").matches(Regex("[a-z][a-z0-9_.-]{1,79}"))) {
                         throw CaslRuntimeException("Tên API CASL không hợp lệ.")
                     }
+                    step.optString("assign").takeIf(String::isNotBlank)?.let(::requireName)
                 }
                 "skill" -> {
-                    if (!step.optString("id").matches(Regex("[a-z0-9][a-z0-9._-]{1,79}"))) {
-                        throw CaslRuntimeException("Skill ID không hợp lệ.")
+                    if (!step.optString("id").matches(Regex("[a-z0-9][a-z0-9._-]{1,79}")) ||
+                        !step.has("version") || step.optInt("version", 0) < 1) {
+                        throw CaslRuntimeException("Skill ID và version pin không hợp lệ.")
                     }
+                    step.optString("assign").takeIf(String::isNotBlank)?.let(::requireName)
                 }
                 "if", "assert" -> {
                     val condition = step.optJSONObject("condition")
