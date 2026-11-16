@@ -63,7 +63,7 @@ private fun CoCAssistantApp() {
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Sẵn sàng") }
     var timerSeconds by remember { mutableIntStateOf(0) }
-    var templateCount by remember { mutableIntStateOf(store.count("vision_memory")) }
+    var templateCount by remember { mutableIntStateOf(store.count("template_memory")) }
     var history by remember { mutableStateOf(store.getRecords("vision_memory")) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
@@ -97,7 +97,7 @@ private fun CoCAssistantApp() {
         }
     }
 
-    val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+    val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) runCatching { BackupManager.export(context, uri, store) }
             .onSuccess { status = "Đã xuất bản sao lưu CADSS" }
             .onFailure { status = "Xuất backup thất bại: ${it.message}" }
@@ -340,12 +340,12 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("CADSS Backup / Restore", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text("Xuất hoặc khôi phục ghi chú, Vision Memory, mẫu đã học và metadata bằng tệp JSON có phiên bản.", color = Muted, fontSize = 12.sp)
+                                Text("Xuất hoặc khôi phục dữ liệu CADSS cùng ảnh gốc, ảnh crop và metadata trong một gói ZIP có phiên bản.", color = Muted, fontSize = 12.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { exportPicker.launch("coc-cadss-backup.json") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+                                    Button(onClick = { exportPicker.launch("coc-cadss-backup.zip") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
                                         Icon(Icons.Default.FileUpload, null); Spacer(Modifier.width(6.dp)); Text("Xuất")
                                     }
-                                    OutlinedButton(onClick = { importPicker.launch(arrayOf("application/json", "text/json")) }, modifier = Modifier.weight(1f)) {
+                                    OutlinedButton(onClick = { importPicker.launch(arrayOf("application/zip", "application/octet-stream")) }, modifier = Modifier.weight(1f)) {
                                         Icon(Icons.Default.FileDownload, null); Spacer(Modifier.width(6.dp)); Text("Khôi phục")
                                     }
                                 }
