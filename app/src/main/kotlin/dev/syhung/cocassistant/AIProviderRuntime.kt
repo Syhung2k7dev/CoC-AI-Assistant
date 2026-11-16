@@ -190,7 +190,7 @@ internal class GeminiProviderAdapter(
                     }
 
                     if (status !in 200..299) {
-                        throw httpFailure(status, responseBody, connection.getHeaderField("Retry-After"))
+                        throw httpFailure(status, connection.getHeaderField("Retry-After"))
                     }
 
                     val result = try {
@@ -257,7 +257,7 @@ internal class GeminiProviderAdapter(
         )
     }
 
-    private fun httpFailure(status: Int, body: String, retryAfter: String?): AIProviderException {
+    private fun httpFailure(status: Int, retryAfter: String?): AIProviderException {
         val failure = when (status) {
             400 -> AIProviderFailure.INVALID_REQUEST
             401, 403 -> AIProviderFailure.AUTHENTICATION
