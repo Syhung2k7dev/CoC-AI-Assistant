@@ -185,6 +185,7 @@ class AgentSkillRegistry(context: Context) {
         val index = current.indexOfLast { it.id == id && it.status == SkillLifecycle.TESTING }
         if (index < 0) return false
         val skill = current[index]
+        if (skill.scriptJson.isBlank()) return false
         val byId = current.associateBy { it.id }
         if (skill.dependencies.any { dependency ->
                 val found = byId[dependency]
