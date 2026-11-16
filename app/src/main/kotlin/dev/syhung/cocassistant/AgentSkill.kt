@@ -43,6 +43,9 @@ data class AgentSkill(
             inputs.size <= 40 && outputs.size <= 40 &&
             dependencies.size <= 40 && instructions.length <= 12_000
 
+    fun supportsAgentVersion(agentVersion: Int): Boolean =
+        agentVersion >= minAgentVersion && (maxAgentVersion == null || agentVersion <= maxAgentVersion)
+
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("description", description)
         .put("category", category).put("version", version).put("status", status.name)
