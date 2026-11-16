@@ -238,7 +238,10 @@ data class WorkflowTestReport(
 )
 
 /** Runs declared workflow tests with mocked APIs; verification never invokes real device actions. */
-class WorkflowTestRunner(context: Context) {
+class WorkflowTestRunner(
+    context: Context,
+    private val availableApiNames: Set<String> = WorkflowEngine.AVAILABLE_API_NAMES.toSet()
+) {
     private val workflows = CaslWorkflowRegistry(context)
     private val skills = AgentSkillRegistry(context)
 
@@ -259,6 +262,10 @@ class WorkflowTestRunner(context: Context) {
             ?: throw CaslRuntimeException("Workflow chưa khai báo tests.")
         require(tests.length() in 1..20) { "Workflow phải có từ 1 đến 20 test cases." }
         val apiNames = collectApiNames(program.optJSONArray("steps") ?: JSONArray(), linkedSetOf())
+        val unavailableApis = apiNames - availableApiNames
+        require(unavailableApis.isEmpty()) {
+            "Workflow gọi API chưa được đăng ký: " + unavailableApis.joinToString()
+        }
         val results = mutableListOf<WorkflowTestCaseResult>()
         for (index in 0 until tests.length()) {
             val test = tests.optJSONObject(index)
