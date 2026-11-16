@@ -1,19 +1,15 @@
 package dev.syhung.cocassistant
 
 import android.content.Context
+import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import android.content.Context as AndroidContext
 import java.util.concurrent.TimeUnit
 
-class MaintenanceWorker(context: AndroidContext, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result {
-        // Lightweight maintenance hook; no foreground loop or external-app interaction.
-        return Result.success()
-    }
+class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result = Result.success()
 }
 
 object SchedulerManager {
