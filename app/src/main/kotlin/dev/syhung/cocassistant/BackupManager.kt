@@ -12,10 +12,9 @@ object BackupManager {
         } ?: error("Cannot open destination")
     }
 
-    fun import(context: Context, uri: Uri, store: CadssStore) {
+    fun restore(context: Context, uri: Uri, store: CadssStore) {
         val raw = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
             ?: error("Cannot open backup")
-        val parsed = JSONObject(raw)
-        store.importDocument(parsed)
+        store.importDocument(JSONObject(raw))
     }
 }
