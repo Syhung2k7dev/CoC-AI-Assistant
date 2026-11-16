@@ -68,6 +68,77 @@ object GeminiWorkflowAuthoring {
         }
     }
 
+    suspend fun reviseDraft(
+        apiKey: String,
+        workflowId: String,
+        baseVersion: Int,
+        changeRequest: String,
+        workflows: CaslWorkflowRegistry,
+        skills: AgentSkillRegistry,
+        availableApiNames: List<String> = emptyList()
+    ): WorkflowDraftOutcome {
+        if (changeRequest.isBlank()) return WorkflowDraftOutcome.Failed("Yêu cầu sửa đổi không được để trống.")
+        val base = workflows.find(workflowId, baseVersion)
+            ?: return WorkflowDraftOutcome.Failed("Không tìm thấy phiên bản Workflow gốc.")
+        val baseJson = base.toString()
+        val nextVersion = baseVersion + 1
+        val skillInventory = skills.all()
+            .filter { it.status == SkillLifecycle.VERIFIED && it.scriptJson.isNotBlank() }
+            .joinToString("\n") { it.id + "@" + it.version + ": " + it.description }
+        val apiInventory = availableApiNames.distinct().sorted().joinToString("\n")
+            .ifBlank { "(chưa có API adapter được đăng ký)" }
+        val refKey = "$" + "ref"
+        val prompt = """
+            Bạn là Workflow Maintainer của CoC AI Agent.
+            Hãy sửa Workflow hiện có theo yêu cầu, giữ nguyên phần không liên quan.
+            Workflow gốc:
+            $baseJson
+
+            Yêu cầu sửa đổi:
+            $changeRequest
+
+            Skill đã Verified:
+            $skillInventory
+
+            API adapter allow-list:
+            $apiInventory
+
+            Trả về một JSON CASL Workflow hoàn chỉnh với cùng id=$workflowId,
+            version=$nextVersion, kind=workflow, schemaVersion=1.
+            Chỉ dùng operations: set, call, skill, if, repeat, wait, assert, log, return.
+            Mọi Skill phải có ID trong danh sách và pin version cụ thể.
+            Chỉ gọi API trong allow-list; nếu danh sách trống thì không dùng call.
+            Tham chiếu biến bằng object có khóa $refKey, ví dụ {"$refKey":"vars.observation"}.
+            Không sinh mã nguồn hay lệnh tùy ý. Không tự đánh dấu Verified.
+        """.trimIndent()
+        return runCatching {
+            val raw = GeminiClient.generate(apiKey, prompt)
+            val start = raw.indexOf('{')
+            val end = raw.lastIndexOf('}')
+            require(start >= 0 && end > start) { "Gemini không trả về Workflow JSON." }
+            val program = JSONObject(raw.substring(start, end + 1))
+            require(program.optString("id") == workflowId &&
+                program.optInt("version") == nextVersion &&
+                program.optString("kind") == "workflow") {
+                "Workflow mới phải giữ ID và tăng đúng một phiên bản."
+            }
+            require(program.optString("format") == "CASL" &&
+                program.optInt("schemaVersion", -1) == CaslScriptRuntime.SCHEMA_VERSION) {
+                "Workflow không đúng CASL schema."
+            }
+            val known = skills.all().filter { it.status == SkillLifecycle.VERIFIED }
+                .associateBy { it.id }
+            val refs = collectSkillRefs(program.optJSONArray("steps") ?: JSONArray())
+            val missing = refs.filter { (id, version) -> known[id]?.version != version }.keys.toList()
+            require(workflows.saveDraft(program)) {
+                "Không thể lưu phiên bản mới. Hãy kiểm tra CASL AST và version."
+            }
+            WorkflowDraftOutcome.Created(program, missing)
+        }.getOrElse { error ->
+            WorkflowDraftOutcome.Failed(error.message ?: "Không thể sửa Workflow.")
+        }
+    }
+
     private fun collectSkillRefs(steps: JSONArray): Map<String, Int> {
         val found = linkedMapOf<String, Int>()
         for (index in 0 until steps.length()) {
