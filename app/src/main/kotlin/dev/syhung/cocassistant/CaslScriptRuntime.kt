@@ -1,6 +1,8 @@
 package dev.syhung.cocassistant
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -40,12 +42,13 @@ class CaslApiRegistry {
  */
 class CaslScriptRuntime(
     private val apiRegistry: CaslApiRegistry,
-    private val skillScriptProvider: (String) -> JSONObject?,
+    private val skillScriptProvider: (String, Int?) -> JSONObject?,
     private val maxSteps: Int = 500,
     private val maxDepth: Int = 12,
     private val maxRepeat: Int = 20,
     private val maxTotalWaitMs: Long = 120_000L
 ) {
+    private val executionMutex = Mutex()
     private var executedSteps = 0
     private var totalWaitMs = 0L
     private val trace = mutableListOf<String>()
@@ -55,7 +58,7 @@ class CaslScriptRuntime(
         program: JSONObject,
         inputs: JSONObject = JSONObject(),
         userApproved: Boolean = false
-    ): CaslExecutionResult {
+    ): CaslExecutionResult = executionMutex.withLock {
         if (!userApproved) throw CaslRuntimeException("Cần xác nhận trước khi khởi chạy Workflow.")
         executedSteps = 0
         totalWaitMs = 0L
@@ -67,7 +70,7 @@ class CaslScriptRuntime(
             .put("vars", JSONObject())
             .put("outputs", JSONObject())
         val returned = runProgram(program, context, 0)
-        return CaslExecutionResult(
+        CaslExecutionResult(
             outputs = JSONObject(context.getJSONObject("outputs").toString()),
             returnValue = (returned as? CaslReturn)?.value,
             trace = trace.toList(),
@@ -115,8 +118,9 @@ class CaslScriptRuntime(
                 "skill" -> {
                     val skillId = step.optString("id")
                     if (skillId.isBlank()) throw CaslRuntimeException("Thiếu Skill ID.")
-                    val skillProgram = skillScriptProvider(skillId)
-                        ?: throw CaslRuntimeException("Không tìm thấy script của Skill: $skillId")
+                    val requestedVersion = if (step.has("version")) step.optInt("version") else null
+                    val skillProgram = skillScriptProvider(skillId, requestedVersion)
+                        ?: throw CaslRuntimeException("Không tìm thấy Skill Verified tương thích: $skillId")
                     val args = resolveObject(step.optJSONObject("args") ?: JSONObject(), context)
                     val skillContext = JSONObject()
                         .put("inputs", args)
