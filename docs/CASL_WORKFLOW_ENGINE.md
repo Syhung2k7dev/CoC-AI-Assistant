@@ -72,9 +72,13 @@ Operation `skill` yêu cầu:
 - Skill có trạng thái VERIFIED, script hợp lệ và dependency VERIFIED tương thích
 - Không cho phép đệ quy Skill hoặc gọi version không khớp
 
-Kết quả Skill được đưa vào biến được chỉ định bởi `assign`, bao gồm outputs của Skill và giá trị return. Skill không thể gọi API chưa được đăng ký.
+Kết quả Skill được đưa vào biến được chỉ định bởi `assign`, bao gồm outputs của Skill và giá trị return. Skill không thể gọi API chưa được đăng ký. Native adapter hiện có `action.tap`, `action.swipe`, `action.wait`: mỗi lệnh chỉ được gọi trong context của Skill đã pin version, Skill phải VERIFIED và phải khai báo capability tương ứng. ActionExecutor kiểm tra quyền, trạng thái Accessibility và giới hạn tọa độ/thời lượng; interpreter chờ kết quả thao tác trước khi chạy step kế tiếp.
 
-## 7. Workflow lifecycle và run state
+## 7. Kiểm thử và xác minh
+
+Workflow có thể khai báo 1-20 test cases trong `tests`; mỗi test gồm `name`, `inputs`, `expectOutputs` hoặc `expectReturn`, và tùy chọn `mockApis`. WorkflowTestRunner chạy cùng interpreter nhưng thay mọi API được gọi bằng mock, kể cả API lồng trong Skill. Test runner không thực hiện thao tác Accessibility hoặc gọi API thiết bị thật. Chỉ khi tất cả test đạt và mọi Skill dependency đã VERIFIED đúng version thì Registry mới chuyển Workflow sang VERIFIED.
+
+## 8. Workflow lifecycle và run state
 
 Lifecycle của định nghĩa Workflow:
 - DRAFT: AI/user có thể tạo phiên bản mới; không được chạy
@@ -88,7 +92,7 @@ Run state của mỗi lần thực thi:
 
 Workflow Registry giữ các phiên bản bất biến theo ID/version. Workflow Engine chỉ lấy phiên bản VERIFIED; bản mới không ghi đè bản cũ. Execution history lưu ID/version, thời gian, trạng thái, số bước và trace giới hạn; không lưu API key, prompt, ảnh hay nội dung phản hồi AI.
 
-## 8. Scheduler
+## 9. Scheduler
 
 `WorkflowScheduler` hỗ trợ:
 - Chạy một lần vào mốc thời gian tương lai
@@ -97,7 +101,7 @@ Workflow Registry giữ các phiên bản bất biến theo ID/version. Workflow
 
 WorkManager bảo đảm lưu lịch qua việc process bị dừng và tương thích Doze, nhưng Android có quyền trì hoãn thời điểm thực thi để tiết kiệm pin. Đây không phải bộ lập lịch thời gian thực hoặc bảo đảm chạy đúng từng giây.
 
-## 9. API allow-list và bảo mật
+## 10. API allow-list và bảo mật
 
 Runtime mặc định chỉ cung cấp các API CADSS cục bộ:
 - `memory.read`
@@ -105,8 +109,8 @@ Runtime mặc định chỉ cung cấp các API CADSS cục bộ:
 - `memory.append`
 - `system.time`
 
-Ứng dụng có thể đăng ký thêm native adapter đáng tin cậy qua điểm cấu hình API của WorkflowEngine. Không đưa credential vào CASL. Không cho script tự khai báo API, endpoint, quyền Android hay capability. Tương tác Accessibility/thiết bị phải đi qua adapter native có kiểm tra quyền, xác nhận người dùng và xác minh trạng thái riêng.
+Ứng dụng có thể đăng ký thêm native adapter đáng tin cậy qua điểm cấu hình API của WorkflowEngine. Allow-list hiện tại: `memory.read`, `memory.write`, `memory.append`, `system.time`, `action.tap`, `action.swipe`, `action.wait`. Không đưa credential vào CASL. Không cho script tự khai báo API, endpoint, quyền Android hay capability. Tương tác Accessibility/thiết bị phải đi qua adapter native có kiểm tra quyền, xác nhận người dùng và xác minh trạng thái riêng.
 
-## 10. AI Core Provider Runtime
+## 11. AI Core Provider Runtime
 
 AI Core có Provider Registry/Adapter và Connection Runtime độc lập với Workflow DSL. Gemini adapter có connect/read timeout, hủy kết nối khi coroutine bị hủy, phân loại lỗi HTTP, retry giới hạn với exponential backoff/jitter và tôn trọng Retry-After dạng giây. Lỗi xác thực/đầu vào không retry; không tự động chuyển provider. Thông tin lỗi hiển thị không đính kèm body phản hồi máy chủ.
