@@ -114,8 +114,29 @@ fun WorkflowStudioPanel(
                                 runStatus.value = "Đã hủy lịch."
                             }, enabled = activeSchedule.value.isNotBlank(), modifier = Modifier.weight(1f)) { Text("Hủy lịch") }
                         }
+                    } else if (selectedRecord?.optString("lifecycle") in listOf(WorkflowLifecycle.DRAFT.name, WorkflowLifecycle.TESTING.name)) {
+                        Button(
+                            onClick = {
+                                busy.value = true
+                                runStatus.value = "Đang chạy test cases với API mock..."
+                                scope.launch {
+                                    try {
+                                        val report = WorkflowTestRunner(context).runAndVerify(selected.first, selected.second)
+                                        workflows.value = registry.all()
+                                        runStatus.value = "Kiểm thử: ${report.passed}/${report.total}. " +
+                                            if (report.verified) "Workflow đã VERIFIED." else "Chưa đủ điều kiện xác minh."
+                                    } catch (error: Exception) {
+                                        runStatus.value = "Kiểm thử thất bại: ${error.message ?: "lỗi không xác định"}"
+                                    } finally { busy.value = false }
+                                }
+                            },
+                            enabled = !busy.value,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF267D75))
+                        ) { Text("Kiểm thử & xác minh bằng API giả lập") }
+                        Text("Test runner không chạm màn hình hoặc gọi API thiết bị thật; chỉ khi toàn bộ test và Skill dependency hợp lệ mới chuyển sang VERIFIED.", color = Color(0xFF9AA8C0), fontSize = 10.sp)
                     } else {
-                        Text("Chỉ phiên bản VERIFIED mới được chạy hoặc lên lịch.", color = Color(0xFFFFC66D), fontSize = 10.sp)
+                        Text("Workflow không ở trạng thái có thể chạy hoặc kiểm thử.", color = Color(0xFFFFC66D), fontSize = 10.sp)
                     }
                     if (runStatus.value.isNotBlank()) Text(runStatus.value, color = Color(0xFF4DD8D0), fontSize = 11.sp)
                     Text("Đang chọn " + selected.first + " · v" + selected.second, color = Color(0xFFFFC66D), fontSize = 11.sp)
