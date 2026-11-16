@@ -137,6 +137,12 @@ class AgentSkillRegistry(context: Context) {
     fun findVerifiedScript(id: String, version: Int? = null): JSONObject? {
         val skill = find(id, version) ?: return null
         if (skill.status != SkillLifecycle.VERIFIED || skill.scriptJson.isBlank()) return null
+        val versions = all().filter { it.status == SkillLifecycle.VERIFIED }.associateBy { it.id }
+        val dependenciesReady = skill.dependencies.all { dependency ->
+            val target = versions[dependency]
+            target != null && (skill.dependencyVersions[dependency]?.let { target.version >= it } ?: true)
+        }
+        if (!dependenciesReady) return null
         return runCatching { JSONObject(skill.scriptJson) }.getOrNull()
     }
 
