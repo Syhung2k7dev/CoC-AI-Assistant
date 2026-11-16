@@ -20,7 +20,7 @@ object GeminiWorkflowAuthoring {
         if (goal.isBlank()) return WorkflowDraftOutcome.Failed("Mục tiêu Workflow không được để trống.")
         val skillInventory = skills.all()
             .filter { it.status == SkillLifecycle.VERIFIED && it.scriptJson.isNotBlank() }
-            .joinToString("\n") { "\${it.id}@\${it.version}: \${it.description}" }
+            .joinToString("\n") { "${it.id}@${it.version}: ${it.description}" }
         val apiInventory = availableApiNames.distinct().sorted().joinToString("\n").ifBlank { "(chưa có API adapter được đăng ký)" }
         val prompt = """
             Bạn là Workflow Architect của CoC AI Agent.
