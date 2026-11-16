@@ -381,7 +381,7 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Quyền riêng tư", fontWeight = FontWeight.Bold)
-                                Text("Ứng dụng không yêu cầu quyền Trợ năng, quyền hiển thị trên ứng dụng khác hoặc quyền chụp màn hình. Hình ảnh chỉ được xử lý khi bạn chủ động chọn. Ứng dụng không tự điều khiển trò chơi.", color = Muted, fontSize = 12.sp)
+                                Text("Quyền Trợ năng chỉ được sử dụng sau khi người dùng chủ động bật trong Android Settings. Workflow phải được xác nhận trước khi chạy và có Pause/Resume/Stop. Ảnh màn hình chỉ được chụp theo yêu cầu; OCR và phân tích ảnh xử lý cục bộ theo mặc định.", color = Muted, fontSize = 12.sp)
                             }
                         }
                     }
