@@ -72,7 +72,7 @@ Operation `skill` yêu cầu:
 - Skill có trạng thái VERIFIED, script hợp lệ và dependency VERIFIED tương thích
 - Không cho phép đệ quy Skill hoặc gọi version không khớp
 
-Kết quả Skill được đưa vào biến được chỉ định bởi `assign`, bao gồm outputs của Skill và giá trị return. Skill không thể gọi API chưa được đăng ký. Native adapter hiện có `action.tap`, `action.swipe`, `action.wait`: mỗi lệnh chỉ được gọi trong context của Skill đã pin version, Skill phải VERIFIED và phải khai báo capability tương ứng. ActionExecutor kiểm tra quyền, trạng thái Accessibility và giới hạn tọa độ/thời lượng; interpreter chờ kết quả thao tác trước khi chạy step kế tiếp.
+Kết quả Skill được đưa vào biến được chỉ định bởi `assign`, bao gồm outputs của Skill và giá trị return. Workflow không được gọi trực tiếp `action.*`; các thao tác này chỉ được gọi từ bên trong Skill. Skill không thể gọi API chưa được đăng ký. Native adapter hiện có `action.tap`, `action.swipe`, `action.wait`: mỗi lệnh chỉ được gọi trong context của Skill đã pin version, Skill phải VERIFIED và phải khai báo capability tương ứng. ActionExecutor kiểm tra quyền, trạng thái Accessibility và giới hạn tọa độ/thời lượng; interpreter chờ kết quả thao tác trước khi chạy step kế tiếp.
 
 ## 7. Kiểm thử và xác minh
 
