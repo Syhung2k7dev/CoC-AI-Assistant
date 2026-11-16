@@ -437,7 +437,7 @@ object WorkflowScheduler {
         intervalMinutes: Long,
         inputs: JSONObject = JSONObject()
     ): String {
-        validateSchedule(workflowId, version, inputs)
+        validateSchedule(context, workflowId, version, inputs)
         require(intervalMinutes >= 15L) { "WorkManager yêu cầu chu kỳ tối thiểu 15 phút." }
         val id = "workflow:$workflowId:$version:periodic"
         val request = PeriodicWorkRequestBuilder<WorkflowExecutionWorker>(intervalMinutes, TimeUnit.MINUTES)
