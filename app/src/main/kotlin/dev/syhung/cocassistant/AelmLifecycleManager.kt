@@ -247,20 +247,46 @@ class AelmLifecycleManager(context: Context) {
         }
     }
 
-    private fun sandboxRegistry(): CaslApiRegistry = CaslApiRegistry().apply {
-        register("memory.read") { _, _ -> JSONObject().put("records", JSONArray()) }
-        register("memory.write") { _, _ -> JSONObject().put("written", true) }
-        register("memory.append") { _, _ -> JSONObject().put("appended", true) }
-        register("system.time") { _, _ -> JSONObject().put("epochMillis", 1_700_000_000_000L) }
-        register("test.echo") { arguments, _ -> JSONObject(arguments.toString()) }
-        register("test.constant") { arguments, _ ->
-            JSONObject().put("value", arguments.opt("value") ?: JSONObject.NULL)
+    private fun sandboxRegistry(): CaslApiRegistry {
+        val memory = linkedMapOf<String, MutableList<JSONObject>>()
+        return CaslApiRegistry().apply {
+            register("memory.read") { arguments, _ ->
+                val collection = arguments.optString("collection")
+                require(collection.matches(Regex("[a-zA-Z0-9_.-]{1,80}")))
+                val key = arguments.optString("key")
+                val records = memory[collection].orEmpty().filter {
+                    key.isBlank() || it.optString("key") == key
+                }
+                JSONObject().put("records", JSONArray(records.map { JSONObject(it.toString()) }))
+            }
+            register("memory.write") { arguments, _ ->
+                val collection = arguments.optString("collection")
+                require(collection.matches(Regex("[a-zA-Z0-9_.-]{1,80}")))
+                val record = arguments.optJSONObject("record")
+                    ?: throw CaslRuntimeException("memory.write cần record object.")
+                memory.getOrPut(collection) { mutableListOf() }.add(JSONObject(record.toString()))
+                JSONObject().put("written", true).put("collection", collection)
+            }
+            register("memory.append") { arguments, _ ->
+                val collection = arguments.optString("collection", "workflow_events")
+                require(collection.matches(Regex("[a-zA-Z0-9_.-]{1,80}")))
+                val event = arguments.optJSONObject("event")
+                    ?: throw CaslRuntimeException("memory.append cần event object.")
+                memory.getOrPut(collection) { mutableListOf() }
+                    .add(JSONObject(event.toString()).put("recordedAt", 1_700_000_000_000L))
+                JSONObject().put("appended", true)
+            }
+            register("system.time") { _, _ -> JSONObject().put("epochMillis", 1_700_000_000_000L) }
+            register("test.echo") { arguments, _ -> JSONObject(arguments.toString()) }
+            register("test.constant") { arguments, _ ->
+                JSONObject().put("value", arguments.opt("value") ?: JSONObject.NULL)
+            }
+            register("test.input") { arguments, context ->
+                val path = arguments.optString("path")
+                resolvePath(context, path)?.let { JSONObject().put("value", it) } ?: JSONObject()
+            }
+            register("test.clock") { _, _ -> JSONObject().put("epochMillis", 1_700_000_000_000L) }
         }
-        register("test.input") { arguments, context ->
-            val path = arguments.optString("path")
-            resolvePath(context, path)?.let { JSONObject().put("value", it) } ?: JSONObject()
-        }
-        register("test.clock") { _, _ -> JSONObject().put("epochMillis", 1_700_000_000_000L) }
     }
 
     private fun sandboxApiNames(): List<String> =
