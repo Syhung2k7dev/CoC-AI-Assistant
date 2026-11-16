@@ -109,4 +109,19 @@ class AIProviderRuntimeTest {
         assertEquals(true, job.isCancelled)
     }
 
+    @Test
+    fun registryExposesGeminiCapabilitiesAndRejectsMissingCredentials() {
+        val descriptor = AIProviderRegistry.descriptors().single()
+        assertEquals(AIProviderId.GEMINI, descriptor.id)
+        assertEquals(true, descriptor.supportsImageInput)
+        assertEquals(false, descriptor.supportsStreaming)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            AIProviderRegistry.createAdapter(
+                AIProviderConfiguration(AIProviderId.GEMINI),
+                " "
+            )
+        }
+    }
+
 }
