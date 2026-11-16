@@ -35,6 +35,8 @@ Các phần OCR, workflow editor JSON hoàn chỉnh, vòng lặp Agent tự xác
 
 ## Tài liệu
 
+- [AELM – Agent Evolution Lifecycle Manager](docs/AELM_LIFECYCLE.md)
+
 - [Hướng dẫn sử dụng](docs/HUONG_DAN_SU_DUNG.md)
 - [Kiến trúc AI Core Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md)
 - [Kiến trúc CADSS/CASL](docs/KIEN_TRUC_CADSS_CASL.md)
