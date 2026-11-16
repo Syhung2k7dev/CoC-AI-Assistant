@@ -92,8 +92,9 @@ class CaslWorkflowRegistry(context: Context) {
         require(program.optString("kind") == "workflow")
         require(program.optString("id").matches(Regex("[a-z0-9][a-z0-9._-]{1,79}")))
         require(program.optInt("version", 0) >= 1)
-        require(program.optJSONArray("steps") != null)
         require(program.toString().length <= 128_000)
+        CaslScriptRuntime(CaslApiRegistry(), { _, _ -> null })
+            .validateProgramDocument(program)
     }.isSuccess
 
     private fun persist(records: List<JSONObject>) {
