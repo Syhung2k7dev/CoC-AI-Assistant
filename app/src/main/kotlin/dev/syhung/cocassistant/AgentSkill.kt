@@ -27,6 +27,9 @@ data class AgentSkill(
     val instructions: String = "",
     val source: String = "user_or_agent",
     val confidence: Float = 0f,
+    val minAgentVersion: Int = 1,
+    val maxAgentVersion: Int? = null,
+    val dependencyVersions: Map<String, Int> = emptyMap(),
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     fun validate(): Boolean =
@@ -35,6 +38,8 @@ data class AgentSkill(
             description.isNotBlank() && description.length <= 500 &&
             category.isNotBlank() && category.length <= 60 &&
             version >= 1 && confidence in 0f..1f &&
+            minAgentVersion >= 1 && (maxAgentVersion == null || maxAgentVersion >= minAgentVersion) &&
+            dependencyVersions.size <= 40 && dependencyVersions.values.all { it >= 1 } &&
             inputs.size <= 40 && outputs.size <= 40 &&
             dependencies.size <= 40 && instructions.length <= 12_000
 
@@ -45,7 +50,11 @@ data class AgentSkill(
         .put("dependencies", JSONArray(dependencies))
         .put("capabilities", JSONArray(capabilities.map { it.name }))
         .put("instructions", instructions).put("source", source)
-        .put("confidence", confidence.toDouble()).put("updatedAt", updatedAt)
+        .put("confidence", confidence.toDouble())
+        .put("minAgentVersion", minAgentVersion)
+        .put("maxAgentVersion", maxAgentVersion ?: JSONObject.NULL)
+        .put("dependencyVersions", JSONObject().apply { dependencyVersions.forEach { (id, required) -> put(id, required) } })
+        .put("updatedAt", updatedAt)
 
     companion object {
         fun fromJson(json: JSONObject): AgentSkill? = runCatching {
@@ -65,9 +74,19 @@ data class AgentSkill(
                 instructions = json.optString("instructions", ""),
                 source = json.optString("source", "unknown"),
                 confidence = json.optDouble("confidence", 0.0).toFloat(),
+                minAgentVersion = json.optInt("minAgentVersion", 1),
+                maxAgentVersion = if (json.isNull("maxAgentVersion")) null else json.optInt("maxAgentVersion"),
+                dependencyVersions = json.optJSONObject("dependencyVersions").toIntMap(),
                 updatedAt = json.optLong("updatedAt", 0L)
             ).let { it.takeIf(AgentSkill::validate) }
         }.getOrNull()
+
+        private fun JSONObject?.toIntMap(): Map<String, Int> {
+            if (this == null) return emptyMap()
+            val result = linkedMapOf<String, Int>()
+            keys().forEach { key -> result[key] = optInt(key, 0) }
+            return result
+        }
 
         private fun JSONArray?.toStringList(): List<String> {
             if (this == null) return emptyList()
@@ -141,10 +160,11 @@ data class SkillActionRequest(
     val normalizedY: Int? = null,
     val endNormalizedX: Int? = null,
     val endNormalizedY: Int? = null,
-    val durationMs: Long? = null
+    val durationMs: Long? = null,
+    val userApproved: Boolean = false
 ) {
     fun validate(): Boolean {
-        if (skillId.isBlank()) return false
+        if (skillId.isBlank() || !userApproved) return false
         if (capability == SkillActionCapability.TAP) {
             return normalizedX != null && normalizedX in 0..1000 &&
                 normalizedY != null && normalizedY in 0..1000 &&
