@@ -50,7 +50,7 @@ class CaslRuntimeTest {
                         .put(JSONObject().put("not", JSONObject().put("path", "inputs.blocked").put("op", "equals").put("value", true)))))
                     .put("then", JSONArray().put(JSONObject().put("op", "output").put("name", "decision").put("value", "approved")))
                     .put("else", JSONArray().put(JSONObject().put("op", "output").put("name", "decision").put("value", "rejected"))))
-                .put(JSONObject().put("output").put("name", "echo").put("value", JSONObject().put("$ref", "inputs.score"))))
+                .put(JSONObject().put("op", "output").put("name", "echo").put("value", JSONObject().put("$ref", "inputs.score"))))
         val runtime = CaslScriptRuntime(CaslApiRegistry()) { _, _ -> null }
         val result = runtime.execute(program, JSONObject().put("score", 9).put("blocked", false), userApproved = true)
         assertEquals("approved", result.outputs.getString("decision"))
