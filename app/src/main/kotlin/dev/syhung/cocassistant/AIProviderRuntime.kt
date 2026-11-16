@@ -7,6 +7,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
 import org.json.JSONException
@@ -77,17 +79,30 @@ internal object AIProviderRuntime {
     suspend fun generate(
         adapter: AIProviderAdapter,
         request: AIProviderRequest,
-        retryPolicy: AIRetryPolicy = AIRetryPolicy()
+        retryPolicy: AIRetryPolicy = AIRetryPolicy(),
+        requestTimeoutMillis: Long = 60_000L
     ): String {
         require(request.prompt.isNotBlank()) { "Nội dung yêu cầu chưa được nhập" }
+        require(requestTimeoutMillis in 1_000L..300_000L) { "Request timeout không hợp lệ." }
         var retries = 0
         while (true) {
             currentCoroutineContext().ensureActive()
             try {
-                return adapter.generate(request)
+                return withTimeout(requestTimeoutMillis) { adapter.generate(request) }
             } catch (error: AIProviderException) {
                 if (!error.retryable || retries >= retryPolicy.maxRetries) throw error
                 delay(computeDelay(retries, error.retryAfterMillis, retryPolicy))
+                retries++
+            } catch (error: TimeoutCancellationException) {
+                if (retries >= retryPolicy.maxRetries) {
+                    throw AIProviderException(
+                        AIProviderFailure.TIMEOUT,
+                        "Yêu cầu AI vượt quá thời gian chờ tổng thể.",
+                        retryable = false,
+                        cause = error
+                    )
+                }
+                delay(computeDelay(retries, null, retryPolicy))
                 retries++
             } catch (error: SocketTimeoutException) {
                 if (retries >= retryPolicy.maxRetries) {
