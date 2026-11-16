@@ -50,6 +50,10 @@ Có thể chạy quy trình **Android APK** trong GitHub Actions. Khi quy trình
 - Khôi phục bản sao lưu có kiểm tra gói ZIP và phiên bản dữ liệu, nhưng chưa có lựa chọn hợp nhất hoặc thay thế dữ liệu.
 - Cần cài đặt và kiểm tra thực tế trên thiết bị Android. Việc CI biên dịch thành công không tự chứng minh mọi chức năng đều hoạt động đúng trên thiết bị.
 
-## 6. Ngôn ngữ
+## 6. Kiến trúc AI Core
+
+Thiết kế mục tiêu cho AI Provider, adapter, quản lý kết nối, timeout, retry, streaming và phân loại lỗi được mô tả tại [Kiến trúc AI Core và quản lý kết nối AI Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md). Tài liệu phân biệt rõ phần đang có trong mã nguồn với kiến trúc mục tiêu; không coi backend Express/SSE là thành phần đã tồn tại trong repository hiện tại.
+
+## 7. Ngôn ngữ
 
 Giao diện và tài liệu hướng đến tiếng Việt. Các tên công nghệ, giao thức và định danh kỹ thuật như CADSS, CASL, OpenCV, pHash, JSON, Gemini và WorkManager được giữ nguyên để bảo đảm tính chính xác.
