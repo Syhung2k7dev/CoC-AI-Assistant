@@ -109,6 +109,22 @@ class AIProviderRuntimeTest {
         assertEquals(true, job.isCancelled)
     }
 
+
+    @Test
+    fun overallRequestTimeoutIsClassifiedAsTimeout() = runBlocking {
+        val adapter = AIProviderAdapter { awaitCancellation() }
+        assertThrows(AIProviderException::class.java) {
+            runBlocking {
+                AIProviderRuntime.generate(
+                    adapter,
+                    AIProviderRequest("hello"),
+                    noWait,
+                    requestTimeoutMillis = 1_000L
+                )
+            }
+        }
+    }
+
     @Test
     fun registryExposesGeminiCapabilitiesAndRejectsMissingCredentials() {
         val descriptor = AIProviderRegistry.descriptors().single()
