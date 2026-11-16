@@ -8,7 +8,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
-/** Portable CADSS archive: versioned JSON plus original/crop Vision Memory assets. */
+/** Gói sao lưu CADSS có phiên bản: JSON cùng tài nguyên ảnh gốc/ảnh cắt của bộ nhớ hình ảnh. */
 object BackupManager {
     fun export(context: Context, uri: Uri, store: CadssStore) {
         val document = store.exportDocument()
@@ -20,7 +20,7 @@ object BackupManager {
                 }
             }
         }
-        val output = context.contentResolver.openOutputStream(uri) ?: error("Cannot open destination")
+        val output = context.contentResolver.openOutputStream(uri) ?: error("Không thể mở vị trí lưu tệp")
         ZipOutputStream(output.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry("cadss.json"))
             zip.write(document.toString(2).toByteArray(Charsets.UTF_8))
@@ -38,11 +38,11 @@ object BackupManager {
         val staging = File(context.cacheDir, "cadss-restore-${System.currentTimeMillis()}").apply { mkdirs() }
         var document: JSONObject? = null
         try {
-            val input = context.contentResolver.openInputStream(uri) ?: error("Cannot open backup")
+            val input = context.contentResolver.openInputStream(uri) ?: error("Không thể mở tệp sao lưu")
             ZipInputStream(input.buffered()).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
-                    require(!entry.isDirectory) { "Unexpected directory entry" }
+                    require(!entry.isDirectory) { "Gói sao lưu chứa mục thư mục không hợp lệ" }
                     when {
                         entry.name == "cadss.json" -> {
                             val raw = zip.readBytes().toString(Charsets.UTF_8)
@@ -51,17 +51,17 @@ object BackupManager {
                         entry.name.startsWith("vision/") -> {
                             val name = entry.name.removePrefix("vision/")
                             require(name.isNotBlank() && '/' !in name && '\\' !in name && !name.contains("..")) {
-                                "Invalid asset path"
+                                "Đường dẫn tài nguyên không hợp lệ"
                             }
                             File(staging, name).outputStream().use { zip.copyTo(it) }
                         }
-                        else -> error("Unknown backup entry")
+                        else -> error("Gói sao lưu chứa thành phần không được hỗ trợ")
                     }
                     zip.closeEntry()
                 }
             }
-            val parsed = document ?: error("Backup manifest is missing")
-            // Validate schema and collection JSON before changing local state.
+            val parsed = document ?: error("Không tìm thấy tệp mô tả CADSS trong bản sao lưu")
+            // Kiểm tra phiên bản và cấu trúc dữ liệu trước khi thay đổi dữ liệu cục bộ.
             require(parsed.optString("format") == "CADSS")
             require(parsed.optInt("schemaVersion") in 1..CadssStore.SCHEMA_VERSION)
             val target = File(context.filesDir, "vision-memory").apply { mkdirs() }
