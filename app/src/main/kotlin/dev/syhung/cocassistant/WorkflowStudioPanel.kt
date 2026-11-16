@@ -201,7 +201,7 @@ fun WorkflowStudioPanel(
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF26354D))
                         ) {
-                            Text("Chọn để AI sửa", fontSize = 10.sp)
+                            Text("Chọn Workflow", fontSize = 10.sp)
                         }
                     }
                 }
