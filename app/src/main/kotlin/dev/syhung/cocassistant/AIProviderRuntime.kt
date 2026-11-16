@@ -229,6 +229,7 @@ internal class GeminiProviderAdapter(
             400 -> AIProviderFailure.INVALID_REQUEST
             401, 403 -> AIProviderFailure.AUTHENTICATION
             404 -> AIProviderFailure.MODEL_UNAVAILABLE
+            408 -> AIProviderFailure.TIMEOUT
             429 -> AIProviderFailure.RATE_LIMITED
             in 500..599 -> AIProviderFailure.SERVER
             else -> AIProviderFailure.UNKNOWN
@@ -237,7 +238,8 @@ internal class GeminiProviderAdapter(
             status == 500 || status == 502 || status == 503 || status == 504
         val retryAfterMillis = retryAfter?.trim()?.toLongOrNull()
             ?.takeIf { it >= 0L }
-            ?.let { (it * 1_000L).coerceAtMost(30_000L) }
+            ?.coerceAtMost(30L)
+            ?.times(1_000L)
         val detail = body.replace(Regex("\\s+"), " ").take(240)
         return AIProviderException(
             failure = failure,
