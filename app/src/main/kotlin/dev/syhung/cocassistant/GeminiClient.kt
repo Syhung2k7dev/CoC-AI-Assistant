@@ -12,8 +12,8 @@ import java.net.URL
 
 object GeminiClient {
     suspend fun generate(apiKey: String, prompt: String, image: Bitmap? = null): String = withContext(Dispatchers.IO) {
-        require(apiKey.isNotBlank()) { "API key is empty" }
-        require(prompt.isNotBlank()) { "Prompt is empty" }
+        require(apiKey.isNotBlank()) { "Khóa API chưa được nhập" }
+        require(prompt.isNotBlank()) { "Nội dung yêu cầu chưa được nhập" }
         val parts = JSONArray().put(JSONObject().put("text", prompt))
         if (image != null) {
             val bytes = ByteArrayOutputStream().use { output ->
@@ -42,7 +42,7 @@ object GeminiClient {
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val response = stream.bufferedReader().use { it.readText() }
-            if (code !in 200..299) error("Gemini HTTP $code: ${response.take(300)}")
+            if (code !in 200..299) error("Gemini trả về lỗi HTTP $code: ${response.take(300)}")
             val root = JSONObject(response)
             root.optJSONArray("candidates")?.optJSONObject(0)
                 ?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)
