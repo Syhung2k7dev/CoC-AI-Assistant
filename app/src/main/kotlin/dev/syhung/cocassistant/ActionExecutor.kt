@@ -12,8 +12,10 @@ object ActionExecutor {
     fun execute(
         context: Context,
         registry: AgentSkillRegistry,
-        request: SkillActionRequest
+        request: SkillActionRequest,
+        userApproved: Boolean = false
     ): ActionDispatchResult {
+        if (!userApproved) return ActionDispatchResult.Rejected("Cần xác nhận của người dùng trước khi thực thi.")
         if (!request.validate()) return ActionDispatchResult.Rejected("Yêu cầu thao tác không hợp lệ.")
         val skill = registry.find(request.skillId)
             ?: return ActionDispatchResult.Rejected("Không tìm thấy Skill.")
