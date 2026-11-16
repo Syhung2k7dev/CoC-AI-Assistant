@@ -14,12 +14,15 @@ object GeminiSkillAuthoring {
         apiKey: String,
         goal: String,
         registry: AgentSkillRegistry,
-        referenceImage: Bitmap? = null
+        referenceImage: Bitmap? = null,
+        availableApiNames: List<String> = emptyList()
     ): SkillDraftOutcome {
         if (goal.isBlank()) return SkillDraftOutcome.Failed("Mục tiêu nghiên cứu không được để trống.")
         val inventory = registry.all().joinToString("\n") {
             "${it.id} | ${it.category} | ${it.description} | ${it.status.name}"
         }
+        val apiInventory = availableApiNames.distinct().sorted().joinToString("\n")
+            .ifBlank { "(chưa có API adapter được đăng ký)" }
         val prompt = """
             Bạn là Skill Researcher của CoC AI Agent.
             Hãy nghiên cứu yêu cầu và đề xuất đúng MỘT Skill khai báo mới hoặc một phiên bản cải tiến.
@@ -27,6 +30,9 @@ object GeminiSkillAuthoring {
 
             Skill hiện có:
             $inventory
+
+            API adapter allow-list:
+            $apiInventory
 
             Trả về duy nhất một JSON object, không Markdown, theo các trường:
             id, name, description, category, version, inputs, outputs, dependencies,
@@ -40,7 +46,7 @@ object GeminiSkillAuthoring {
             instructions là mô tả ngắn. script là CASL JSON AST hoàn chỉnh, kind=skill,
             id trùng id Skill, version trùng version Skill, schemaVersion=1.
             script.steps chỉ dùng các op: set, call, skill, if, repeat, wait, assert, log, return.
-            Mỗi call phải gọi tên API trong danh sách API được cung cấp; không được tự bịa API.
+            Mỗi call phải gọi tên API trong allow-list; nếu danh sách trống thì không được dùng call.
             Không tạo mã Kotlin, Java, JavaScript, shell, reflection hoặc nội dung thực thi tùy ý.
         """.trimIndent()
         return runCatching {
