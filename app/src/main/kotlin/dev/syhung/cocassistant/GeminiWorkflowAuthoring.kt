@@ -58,7 +58,7 @@ object GeminiWorkflowAuthoring {
             val known = skills.all().filter { it.status == SkillLifecycle.VERIFIED }
                 .associateBy { it.id }
             val refs = collectSkillRefs(program.optJSONArray("steps") ?: JSONArray())
-            val missing = refs.filter { id -> known[id] == null }
+            val missing = refs.filter { (id, version) -> known[id]?.version != version }.keys.toList()
             require(workflows.saveDraft(program)) {
                 "Không thể lưu Workflow. Hãy kiểm tra ID, version hoặc CASL AST."
             }
@@ -68,17 +68,21 @@ object GeminiWorkflowAuthoring {
         }
     }
 
-    private fun collectSkillRefs(steps: JSONArray): Set<String> {
-        val found = linkedSetOf<String>()
+    private fun collectSkillRefs(steps: JSONArray): Map<String, Int> {
+        val found = linkedMapOf<String, Int>()
         for (index in 0 until steps.length()) {
             val step = steps.optJSONObject(index) ?: continue
             when (step.optString("op")) {
-                "skill" -> step.optString("id").takeIf(String::isNotBlank)?.let(found::add)
-                "if" -> {
-                    found.addAll(collectSkillRefs(step.optJSONArray("then") ?: JSONArray()))
-                    found.addAll(collectSkillRefs(step.optJSONArray("else") ?: JSONArray()))
+                "skill" -> {
+                    val id = step.optString("id")
+                    val version = step.optInt("version", 0)
+                    if (id.isNotBlank() && version > 0) found[id] = version
                 }
-                "repeat" -> found.addAll(collectSkillRefs(step.optJSONArray("steps") ?: JSONArray()))
+                "if" -> {
+                    found.putAll(collectSkillRefs(step.optJSONArray("then") ?: JSONArray()))
+                    found.putAll(collectSkillRefs(step.optJSONArray("else") ?: JSONArray()))
+                }
+                "repeat" -> found.putAll(collectSkillRefs(step.optJSONArray("steps") ?: JSONArray()))
             }
         }
         return found
