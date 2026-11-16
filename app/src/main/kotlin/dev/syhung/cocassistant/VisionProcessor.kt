@@ -9,11 +9,11 @@ import org.opencv.core.Mat
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 
-/** Native OpenCV image fingerprinting. Source images are never uploaded by this class. */
+/** Tạo mã nhận dạng hình ảnh bằng OpenCV native. Lớp này không tải ảnh nguồn lên mạng. */
 object VisionProcessor {
     @Synchronized
     fun perceptualHash(bitmap: Bitmap): String {
-        check(OpenCVLoader.initLocal()) { "OpenCV native runtime could not be loaded" }
+        check(OpenCVLoader.initLocal()) { "Không thể khởi tạo bộ xử lý OpenCV native" }
         val source = Mat()
         val gray = Mat()
         val resized = Mat()
