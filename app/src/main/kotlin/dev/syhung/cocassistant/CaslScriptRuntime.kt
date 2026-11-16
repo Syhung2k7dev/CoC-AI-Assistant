@@ -8,6 +8,7 @@ class CaslRuntimeException(message: String) : IllegalStateException(message)
 
 data class CaslExecutionResult(
     val outputs: JSONObject,
+    val returnValue: Any?,
     val trace: List<String>,
     val executedSteps: Int
 )
@@ -65,9 +66,10 @@ class CaslScriptRuntime(
             .put("inputs", JSONObject(inputs.toString()))
             .put("vars", JSONObject())
             .put("outputs", JSONObject())
-        runProgram(program, context, 0)
+        val returned = runProgram(program, context, 0)
         return CaslExecutionResult(
             outputs = JSONObject(context.getJSONObject("outputs").toString()),
+            returnValue = (returned as? CaslReturn)?.value,
             trace = trace.toList(),
             executedSteps = executedSteps
         )
@@ -126,7 +128,7 @@ class CaslScriptRuntime(
                         context.getJSONObject("vars").put(
                             assign,
                             JSONObject(skillContext.getJSONObject("outputs").toString())
-                                .put("_return", skillResult ?: JSONObject.NULL)
+                                .put("_return", (skillResult as? CaslReturn)?.value ?: JSONObject.NULL)
                         )
                     }
                 }
@@ -140,7 +142,7 @@ class CaslScriptRuntime(
                         ).passed) "then" else "else"
                     val nested = step.optJSONArray(branch) ?: JSONArray()
                     val returned = executeSteps(nested, context, depth + 1)
-                    if (returned is CaslReturn) return returned.value
+                    if (returned is CaslReturn) return returned
                 }
                 "repeat" -> {
                     val count = step.optInt("count", -1)
@@ -149,7 +151,7 @@ class CaslScriptRuntime(
                         ?: throw CaslRuntimeException("REPEAT thiếu steps.")
                     repeat(count) {
                         val returned = executeSteps(nested, context, depth + 1)
-                        if (returned is CaslReturn) return returned.value
+                        if (returned is CaslReturn) return returned
                     }
                 }
                 "wait" -> {
