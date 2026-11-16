@@ -157,6 +157,133 @@ class WorkflowEngine(
     companion object { const val MAX_RUN_TIME_MS = 10 * 60 * 1000L }
 }
 
+
+data class WorkflowTestCaseResult(
+    val name: String,
+    val passed: Boolean,
+    val reason: String
+)
+
+data class WorkflowTestReport(
+    val workflowId: String,
+    val version: Int,
+    val passed: Int,
+    val total: Int,
+    val verified: Boolean,
+    val cases: List<WorkflowTestCaseResult>
+)
+
+/** Runs declared workflow tests with mocked APIs; verification never invokes real device actions. */
+class WorkflowTestRunner(context: Context) {
+    private val workflows = CaslWorkflowRegistry(context)
+    private val skills = AgentSkillRegistry(context)
+
+    suspend fun runAndVerify(workflowId: String, version: Int): WorkflowTestReport {
+        val program = workflows.find(workflowId, version)
+            ?: throw CaslRuntimeException("Không tìm thấy Workflow cần kiểm thử.")
+        val lifecycle = program.optString("lifecycle", WorkflowLifecycle.DRAFT.name)
+        if (lifecycle == WorkflowLifecycle.DRAFT.name) {
+            require(workflows.setLifecycle(workflowId, version, WorkflowLifecycle.TESTING)) {
+                "Không thể chuyển Workflow sang TESTING."
+            }
+        } else {
+            require(lifecycle == WorkflowLifecycle.TESTING.name) {
+                "Chỉ Workflow DRAFT hoặc TESTING mới được kiểm thử."
+            }
+        }
+        val tests = program.optJSONArray("tests")
+            ?: throw CaslRuntimeException("Workflow chưa khai báo tests.")
+        require(tests.length() in 1..20) { "Workflow phải có từ 1 đến 20 test cases." }
+        val apiNames = collectApiNames(program.optJSONArray("steps") ?: JSONArray(), linkedSetOf())
+        val results = mutableListOf<WorkflowTestCaseResult>()
+        for (index in 0 until tests.length()) {
+            val test = tests.optJSONObject(index)
+                ?: throw CaslRuntimeException("Test case $index không hợp lệ.")
+            val name = test.optString("name", "test-$index").take(80)
+            val expectedOutputs = test.optJSONObject("expectOutputs")
+            val hasReturnExpectation = test.has("expectReturn")
+            require(expectedOutputs != null || hasReturnExpectation) {
+                "Test $name phải khai báo expectOutputs hoặc expectReturn."
+            }
+            val mocks = test.optJSONObject("mockApis") ?: JSONObject()
+            val apiRegistry = CaslApiRegistry()
+            apiNames.forEach { apiName ->
+                apiRegistry.register(apiName) { _, _ -> mocks.optJSONObject(apiName) ?: JSONObject() }
+            }
+            try {
+                val runtime = CaslScriptRuntime(
+                    apiRegistry,
+                    skills::findVerifiedScript,
+                    maxSteps = 500,
+                    maxDepth = 12,
+                    maxRepeat = 20,
+                    maxTotalWaitMs = 1_000L
+                )
+                val inputs = test.optJSONObject("inputs") ?: JSONObject()
+                val result = runtime.execute(program, inputs, userApproved = true)
+                var mismatch: String? = null
+                if (expectedOutputs != null) {
+                    expectedOutputs.keys().forEach { key ->
+                        if (!sameJsonValue(expectedOutputs.opt(key), result.outputs.opt(key))) {
+                            mismatch = "Output '$key' không khớp."
+                        }
+                    }
+                }
+                if (hasReturnExpectation && !sameJsonValue(test.opt("expectReturn"), result.returnValue)) {
+                    mismatch = "Giá trị return không khớp."
+                }
+                results.add(WorkflowTestCaseResult(name, mismatch == null, mismatch ?: "Đạt"))
+            } catch (error: Exception) {
+                results.add(WorkflowTestCaseResult(name, false, (error.message ?: "Test thất bại").take(240)))
+            }
+        }
+        val passed = results.count { it.passed }
+        val verified = passed == tests.length() && workflows.completeTest(workflowId, version, passed, tests.length())
+        return WorkflowTestReport(workflowId, version, passed, tests.length(), verified, results)
+    }
+
+    private fun collectApiNames(steps: JSONArray, visitedSkills: MutableSet<String>): Set<String> {
+        val found = linkedSetOf<String>()
+        for (index in 0 until steps.length()) {
+            val step = steps.optJSONObject(index) ?: continue
+            when (step.optString("op")) {
+                "call" -> step.optString("api").takeIf(String::isNotBlank)?.let(found::add)
+                "skill" -> {
+                    val id = step.optString("id")
+                    val version = step.optInt("version", 0)
+                    val key = "$id@$version"
+                    if (id.isNotBlank() && version > 0 && visitedSkills.add(key)) {
+                        val script = skills.findVerifiedScript(id, version)
+                        if (script != null) found.addAll(collectApiNames(script.optJSONArray("steps") ?: JSONArray(), visitedSkills))
+                    }
+                }
+                "if" -> {
+                    found.addAll(collectApiNames(step.optJSONArray("then") ?: JSONArray(), visitedSkills))
+                    found.addAll(collectApiNames(step.optJSONArray("else") ?: JSONArray(), visitedSkills))
+                }
+                "repeat" -> found.addAll(collectApiNames(step.optJSONArray("steps") ?: JSONArray(), visitedSkills))
+            }
+        }
+        return found
+    }
+
+    private fun sameJsonValue(expected: Any?, actual: Any?): Boolean {
+        if (expected == null || expected == JSONObject.NULL) return actual == null || actual == JSONObject.NULL
+        if (actual == null || actual == JSONObject.NULL) return false
+        if (expected is Number && actual is Number) return expected.toDouble() == actual.toDouble()
+        if (expected is JSONObject && actual is JSONObject) {
+            val keys = expected.keys().asSequence().toSet()
+            if (keys != actual.keys().asSequence().toSet()) return false
+            return keys.all { sameJsonValue(expected.opt(it), actual.opt(it)) }
+        }
+        if (expected is JSONArray && actual is JSONArray) {
+            if (expected.length() != actual.length()) return false
+            return (0 until expected.length()).all { sameJsonValue(expected.opt(it), actual.opt(it)) }
+        }
+        return expected == actual || expected.toString() == actual.toString()
+    }
+}
+
 /** WorkManager-backed time triggers. Android may defer execution under Doze/battery limits. */
 object WorkflowScheduler {
     private const val INPUT_ID = "workflow_id"
