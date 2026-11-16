@@ -1,42 +1,103 @@
-# CoC Agent: Skill Framework và HVCS
+# CoC Agent: Script-Driven Runtime, Skill Framework và HVCS
 
-## Mục tiêu
-Ứng dụng được tổ chức theo mô hình Agent Core + Skill Library. Gemini là AI Core phân tích và lập kế hoạch; Knowledge Base lưu kiến thức; Skill Library chứa năng lực có phiên bản; OpenCV/OCR là lớp quan sát cục bộ; Accessibility là lớp thực thi; CADSS lưu trạng thái và Vision Memory; CASL điều phối điều kiện và workflow.
+## 1. Nguyên tắc kiến trúc
 
-Multi-account, Attack, Farm và Village Management là Skill cấp cao được ghép từ năng lực quan sát, tri thức, lập kế hoạch, tương tác và xác minh; không phải các tính năng đóng độc lập.
+CoC Agent vận hành theo mô hình **Script-Driven Agent Runtime**.
 
-## Phân lớp
-- System Prompt: vai trò Agent, mục tiêu, nguyên tắc, giới hạn và quy trình sử dụng Skill.
-- Knowledge Base: tri thức dạng văn bản, hình ảnh, OCR và nguồn tham chiếu.
-- Skill Registry: metadata, phiên bản, phụ thuộc, capability, trạng thái kiểm thử và độ tin cậy.
-- Skill Runtime: nạp Skill và chuyển yêu cầu thành hành động có kiểu.
-- ActionExecutor: đầu mối duy nhất chuyển yêu cầu hợp lệ tới Accessibility Runtime.
-- Vision Memory: ảnh gốc, crop, pHash, nhãn, tọa độ và đặc trưng thị giác.
-- CADSS: lưu trạng thái, Skill, kiến thức, lịch sử và tham chiếu tài nguyên.
-- CASL: điều kiện, IF/ELSE, vòng lặp giới hạn và phối hợp Skill.
+- Workflow là đơn vị công việc cấp cao nhất và là thứ người dùng giao cho Agent.
+- Skill là module năng lực có thể tái sử dụng, được Workflow hoặc Skill khác gọi.
+- Primitive Skill là năng lực bậc thấp nhất, bao bọc một API/service cụ thể như quan sát màn hình, OCR, tính toán, ghi dữ liệu, tap, swipe hoặc wait.
+- Workflow và Skill đều là CASL program, dùng chung một ngôn ngữ kịch bản và một interpreter.
+- Runtime máy chủ nhiệm vụ, trạng thái, lịch, thời gian, điều kiện, vòng lặp, timeout, retry, checkpoint và lỗi. Script quyết định logic nghiệp vụ và việc gọi Skill/API nào.
+- Gemini là AI Core để nghiên cứu, tạo mới, sửa, kiểm thử, ghép nối và nâng phiên bản Workflow/Skill. Gemini không phải nơi thực thi thao tác trực tiếp.
 
-## Skill lifecycle
-1. Research: thu thập nguồn văn bản/ảnh và trạng thái giao diện.
-2. Draft: AI tạo mô tả, đầu vào/đầu ra, phụ thuộc và quy trình khai báo.
-3. Testing: kiểm thử trên dữ liệu mẫu hoặc môi trường thử nghiệm.
-4. Verified: chỉ gán khi bộ kiểm thử đạt.
-5. Experimental: thử nghiệm có giám sát và ghi kết quả.
-6. Disabled: vô hiệu hóa Skill lỗi thời hoặc không tương thích.
+Multi-account, Attack, Farm và Village Management là các Workflow/Skill có thể tạo, sửa và phối hợp bằng CASL, không phải các module nghiệp vụ cố định được hard-code vào giao diện ứng dụng.
 
-Gemini-generated Skill luôn bắt đầu ở Draft. Skill là dữ liệu khai báo, không phải mã Kotlin/Java hay script tùy ý. Registry kiểm tra ID, độ dài, phiên bản, capability và giới hạn dữ liệu. Draft không được nhảy thẳng sang Verified.
+## 2. Phân cấp
 
-## Nhóm Skill cấp cao
-- Observation & Research: ScreenObserver, ScreenshotCapture, ImageGridAnalyzer, RegionCropper, OCRReader, UIElementDetector, GameStateRecognizer, UnknownScreenResearch, KnowledgeExtractor, SkillResearcher.
-- Interaction: AutoClick, SmartClick, LongPress, Swipe, DragAndDrop, WaitForState, WaitForText, ActionVerifier, RecoveryAction.
-- Multi-account: AccountDiscovery, AccountProfileReader, AccountSwitcher, AccountStateSync, AccountScheduler, AccountTaskQueue, AccountIsolation.
-- Attack analysis: BaseScout, BaseClassifier, DefenseRecognizer, TrapAnalyzer, ArmyInspector, ArmyBuilder, AttackPlanner, EntryPointSelector, DeploymentPlanner, SpellTimingPlanner, BattleObserver, AttackVerifier, AttackLearning.
-- Farming: LootScanner, LootEstimator, TargetFinder, TargetEvaluator, FarmPlanner, ResourceTracker, UpgradePlanner, BuilderManager, ResearchManager, FarmPerformanceAnalyzer.
-- Village: BuildingRecognizer, BuildingLevelReader, UpgradeSelector, ConstructionTracker, ArmyTrainingManager, HeroStatusManager, PetManager, EquipmentManager, VillageProgressAnalyzer.
-- Agent: GoalManager, WorkflowComposer, TaskScheduler, DeepSleepManager, GeminiRetryManager, LocalFallback, FailureAnalyzer, SkillGenerator, SkillComposer, SkillTester, SkillImprover, SkillVersionManager, SkillRollback.
+1. **System Prompt / Goal:** vai trò Agent, mục tiêu, ngữ cảnh và yêu cầu của người dùng.
+2. **AI Core – Gemini:** phân tích mục tiêu, nghiên cứu tri thức, chọn Workflow/Skill hiện có hoặc đề xuất phiên bản mới.
+3. **Workflow Engine – CASL Runtime:** chạy Workflow, quản lý clock/scheduler, state, context, nhánh IF/ELSE, loop, timeout, retry, checkpoint và recovery.
+4. **Skill Runtime:** cùng interpreter CASL, chạy script của Skill trong context riêng; Skill có thể gọi Primitive Skill/API hoặc Skill khác.
+5. **Primitive Skills:** giao diện năng lực bậc thấp, ví dụ observe.screen, vision.ocr, memory.write, interaction.tap, interaction.swipe, time.wait và calculator.evaluate.
+6. **API & Service Layer:** Accessibility, OpenCV, OCR, Gemini Gateway, CADSS, Vision Memory, Scheduler và Android platform APIs.
 
-Danh mục trên là định danh năng lực mục tiêu; không đồng nghĩa các Skill đã được triển khai hoặc xác minh.
+Workflow không gọi Android API trực tiếp. Skill không gọi Android API tùy ý. Cả hai chỉ gọi API name đã đăng ký trong allow-list; API adapter thực hiện kiểm tra đầu vào và quyền.
 
-## HVCS – Hybrid Visual Coordinate System
+## 3. Workflow và Skill là chương trình CASL
+
+Cả hai có manifest và script document:
+- format: CASL
+- schemaVersion: phiên bản schema của ngôn ngữ
+- id: ID ổn định
+- version: phiên bản chương trình
+- kind: workflow hoặc skill
+- inputs / outputs: hợp đồng dữ liệu
+- dependencies: Skill/API phụ thuộc
+- steps: danh sách AST operation
+
+Một Workflow gọi Skill qua operation skill; một Skill gọi API qua call, hoặc gọi Skill con qua skill. Các operation được interpreter hỗ trợ gồm:
+- set: gán biến trong context
+- call: gọi API đã đăng ký
+- skill: gọi Skill theo ID
+- if: điều kiện với nhánh then/else
+- repeat: lặp hữu hạn
+- wait: chờ theo thời gian
+- assert: kiểm tra điều kiện
+- log: ghi trace
+- return: trả kết quả
+
+Giá trị động tham chiếu bằng object có khóa $ref với path trong context, ví dụ inputs.accountId, vars.screen hoặc vars.result. Không có eval, reflection, shell, Kotlin/Java/JavaScript tùy ý hoặc tải mã thực thi từ xa.
+
+## 4. Ví dụ luồng Workflow
+
+Workflow cấp cao có thể gọi Skill quan sát, kiểm tra trường trạng thái, rồi gọi Skill ghi nhận hoặc chọn nhánh khác. Một Skill có thể gọi API vision.observe, lưu kết quả qua memory.write, rồi trả dữ liệu cho Workflow. Những API name này chỉ hoạt động khi app đăng ký adapter tương ứng; script không thể tự tạo quyền API mới.
+
+Ví dụ cấu trúc logic:
+1. Gọi Skill village.observe và lưu kết quả vào vars.observation.
+2. IF vars.observation.state equals ready:
+   - Gọi Skill village.record với observation.
+3. ELSE:
+   - Ghi log yêu cầu quan sát lại.
+4. RETURN vars.observation.
+
+Đây là ví dụ kiến trúc. Workflow chỉ chạy được khi các Skill được tham chiếu tồn tại, tương thích và đã Verified.
+
+## 5. Runtime responsibilities
+
+Workflow Engine chịu trách nhiệm:
+- Lập lịch và chạy theo trigger/time window.
+- Tạo execution context riêng cho từng workflow run và account profile.
+- Điều phối Skill, lưu checkpoint và khôi phục sau gián đoạn.
+- Thực hiện IF/ELSE, loop, wait, timeout, retry và cancellation.
+- Giới hạn step count, loop count, độ sâu gọi lồng nhau và tổng thời gian chờ.
+- Ghi trace, kết quả, lỗi và trạng thái vào CADSS.
+- Không tiếp tục khi API thất bại hoặc điều kiện xác minh không đạt.
+
+Skill Runtime dùng chung interpreter nhưng có input/output contract và context riêng. Skill chỉ trả dữ liệu; Workflow mới quyết định bước tiếp theo.
+
+## 6. Skill lifecycle và AI authoring
+
+Research → Draft → Testing → Verified / Experimental → Disabled.
+
+- Gemini tạo/sửa CASL program ở dạng Draft.
+- Schema validator kiểm tra format, version, operation, dependency, API allow-list và resource limits.
+- Test runner kiểm thử dữ liệu vào/ra, nhánh, lỗi, dependency và regression.
+- Verified chỉ được cấp sau khi test pass và dependency phù hợp.
+- Version cũ được giữ để rollback; không ghi đè lịch sử.
+- Workflow và Skill được version độc lập; Workflow manifest ghi rõ version dependency để tránh thay đổi hành vi ngoài ý muốn.
+
+## 7. CADSS và compatibility
+
+- Skill manifests nằm trong collection:skill_registry.
+- Workflow scripts nằm trong collection:workflow_registry.
+- CASL schemaVersion xác định cú pháp AST; program version xác định phiên bản nghiệp vụ.
+- Manifest có min/max Agent version và dependency versions.
+- Bổ sung trường tùy chọn là thay đổi tương thích; đổi ý nghĩa operation hoặc kiểu dữ liệu là breaking change, cần schema mới và migration.
+- Backup CADSS phải chứa cả manifest, script, dependency, lifecycle, test evidence, execution history và reference IDs của Vision Memory.
+
+## 8. HVCS – Hybrid Visual Coordinate System
+
 HVCS kết hợp:
 - Grid cell ID để Gemini tham chiếu vùng ảnh bằng nhãn ổn định.
 - Adaptive crop chia nhỏ vùng nghi vấn.
@@ -44,21 +105,36 @@ HVCS kết hợp:
 - RGB/HSV, luminance và edge density làm đặc trưng.
 - OCR text + bounding box để gắn chữ vào vùng ảnh.
 - pHash/template reference để tìm mẫu tương tự.
-- Tọa độ chuẩn hóa 0..1000 để độc lập kích thước màn hình.
+- Tọa độ chuẩn hóa 0..1000 độc lập kích thước màn hình.
 
-Luồng: ảnh toàn màn hình → grid thưa → chọn vùng nghi vấn → crop → grid dày hơn → OCR/template → bounding box → chuẩn hóa tọa độ → ActionExecutor kiểm tra kích thước và trạng thái mới nhất.
+Luồng: ảnh toàn màn hình → grid thưa → chọn vùng nghi vấn → crop → grid dày hơn → OCR/template → bounding box → tọa độ chuẩn hóa → xác minh lại trạng thái trước hành động.
 
-Grid không thay thế bounding box. Màu không được dùng làm căn cứ duy nhất để tự động chạm. Mọi tọa độ phải gắn với kích thước và thời điểm chụp ảnh.
+Grid không thay thế bounding box. Màu không được dùng làm căn cứ duy nhất để tương tác. Tọa độ phải gắn với kích thước và timestamp của frame.
 
-## Quyền tương tác
-Skill khai báo capability như OBSERVE_SCREEN, READ_TEXT, ANALYZE_IMAGE, TAP, SWIPE, WAIT và VERIFY_STATE. Skill chỉ gửi yêu cầu có kiểu; ActionExecutor kiểm tra quyền Accessibility, kích thước màn hình, giới hạn bước/thời lượng và trạng thái xác minh. Không cho phép Skill sinh lệnh hệ thống hoặc mã thực thi tùy ý.
+## 9. Quyền tương tác và an toàn thực thi
 
-## CADSS và tương thích
-- Skill registry dùng collection riêng, có ID ổn định và version tăng đơn điệu.
-- Thay đổi metadata tương thích có thể bổ sung trường tùy chọn.
-- Thay đổi không tương thích cần schema version mới và migration.
-- Khi tích hợp đầy đủ, Skill metadata cần khai báo minAgentVersion, maxAgentVersion và dependency version.
-- Backup cần giữ metadata, phiên bản, nguồn và trạng thái kiểm thử; ảnh được lưu riêng và tham chiếu bằng ID.
+Một lần người dùng xác nhận bắt đầu Workflow sẽ cấp quyền chạy Workflow đó theo phạm vi đã duyệt; không cần hỏi lại cho từng thao tác trong cùng run. Pause/Resume/Stop luôn khả dụng. Workflow không được tự mở rộng phạm vi quyền hoặc tự tạo API adapter.
 
-## Trạng thái hiện tại
-Đã có nền tảng registry cục bộ, lifecycle có kiểm tra chuyển trạng thái, capability enum, request có kiểu và HVCS grid analyzer với RGB/HSV/luminance/edge density, tọa độ chuẩn hóa và crop. Chưa có Gemini tool-calling tích hợp với registry, full ActionExecutor, OCR-to-bounding-box fusion, UI editor và end-to-end device tests.
+Tất cả thao tác UI đi qua API adapter tập trung và Accessibility Runtime. Adapter kiểm tra trạng thái service, kích thước màn hình, tọa độ, giới hạn thời lượng và kết quả thao tác. Khi trạng thái không chắc chắn, runtime pause hoặc stop thay vì đoán.
+
+## 10. Trạng thái triển khai
+
+Đã có:
+- Skill Registry trong CADSS, Skill Library và 43 định danh năng lực built-in.
+- Gemini Skill Researcher tạo Skill Draft và yêu cầu CASL script.
+- CASL interpreter dùng chung cho Workflow/Skill, hỗ trợ set/call/skill/if/repeat/wait/assert/log/return.
+- Allow-list API registry, giới hạn bước/lặp/độ sâu/tổng thời gian chờ.
+- CADSS Workflow Registry với version và lifecycle.
+- HVCS grid, RGB/HSV, luminance, edge density, crop và normalized coordinates.
+- Accessibility runtime Tap/Swipe/Wait và ActionExecutor nền tảng.
+
+Còn thiếu:
+- API adapters thực tế cho vision, OCR, memory, calculator, interaction và scheduler.
+- Nối Workflow Registry/Skill Registry vào UI editor và Agent planner.
+- Execution engine nền có clock/scheduler/checkpoint/resume bền vững.
+- Gemini tool calling với API/Skill catalog có grounding và dependency resolution.
+- Test runner thật, migration và version pinning xuyên suốt.
+- Observe → Decide → Act → Verify end-to-end.
+- Floating dashboard, deep sleep và device tests.
+
+Không được coi catalog hay script mẫu là năng lực đã hoạt động nếu API adapter và test thực tế chưa có.
