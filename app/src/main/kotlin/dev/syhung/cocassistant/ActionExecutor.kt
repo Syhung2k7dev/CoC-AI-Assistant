@@ -1,7 +1,6 @@
 package dev.syhung.cocassistant
 
 import android.content.Context
-import kotlinx.coroutines.CancellationException
 
 sealed class ActionDispatchResult {
     data class Accepted(val skillId: String) : ActionDispatchResult()
