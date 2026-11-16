@@ -139,7 +139,11 @@ class AelmLifecycleManager(context: Context) {
         }
         requireDependenciesReady(skill)
         val program = JSONObject(skill.scriptJson)
+        require(program.optString("id") == skill.id && program.optInt("version", 0) == skill.version) {
+            "CASL script không khớp Skill manifest ID/version."
+        }
         CaslScriptRuntime(CaslApiRegistry(), { _, _ -> null }).validateProgramDocument(program)
+        receipts.edit().remove(receiptKey("skill", skillId, version)).apply()
         val failures = mutableListOf<String>()
         var passed = 0
         cases.forEach { test ->
@@ -170,7 +174,11 @@ class AelmLifecycleManager(context: Context) {
         require(program.optString("lifecycle") == WorkflowLifecycle.DRAFT.name) {
             "Chỉ Workflow Draft mới được kiểm thử phát hành."
         }
+        require(program.optString("id") == workflowId && program.optInt("version", 0) == version) {
+            "CASL program không khớp Workflow ID/version."
+        }
         CaslScriptRuntime(CaslApiRegistry(), { _, _ -> null }).validateProgramDocument(program)
+        receipts.edit().remove(receiptKey("workflow", workflowId, version)).apply()
         val failures = mutableListOf<String>()
         var passed = 0
         cases.forEach { test ->
