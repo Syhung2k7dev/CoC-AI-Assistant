@@ -296,31 +296,12 @@ class AelmLifecycleManager(context: Context) {
                 require(arguments.optLong("durationMs", -1L) in 100L..60_000L)
                 JSONObject().put("completed", true).put("skillId", context.optString("skillId"))
             }
-            register("test.echo") { arguments, _ -> JSONObject(arguments.toString()) }
-            register("test.constant") { arguments, _ ->
-                JSONObject().put("value", arguments.opt("value") ?: JSONObject.NULL)
-            }
-            register("test.input") { arguments, context ->
-                val path = arguments.optString("path")
-                resolvePath(context, path)?.let { JSONObject().put("value", it) } ?: JSONObject()
-            }
-            register("test.clock") { _, _ -> JSONObject().put("epochMillis", 1_700_000_000_000L) }
         }
     }
 
     private fun sandboxApiNames(): List<String> =
-        listOf("memory.read", "memory.write", "memory.append", "system.time", "action.tap", "action.swipe", "action.wait", "test.echo", "test.constant", "test.input", "test.clock")
+        listOf("memory.read", "memory.write", "memory.append", "system.time", "action.tap", "action.swipe", "action.wait")
 
-    private fun resolvePath(root: JSONObject, path: String): Any? {
-        var current: Any? = root
-        for (part in path.split('.')) {
-            current = when (val value = current) {
-                is JSONObject -> value.opt(part)
-                else -> return null
-            }
-        }
-        return current
-    }
 
     private fun assertExpected(expected: JSONObject, actual: JSONObject) {
         expected.keys().forEach { key ->
