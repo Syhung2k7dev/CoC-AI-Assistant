@@ -75,13 +75,19 @@ private fun CoCAssistantApp() {
                     }
                     if (bitmap != null) {
                         val hash = withContext(Dispatchers.Default) { VisionProcessor.perceptualHash(bitmap) }
-                        val record = JSONObject().put("id", System.currentTimeMillis().toString())
-                            .put("hash", hash).put("createdAt", System.currentTimeMillis())
-                            .put("label", "Ảnh đã phân tích")
+                        val match = VisionWatchdog.nearest(hash, history)
+                        val novel = VisionWatchdog.learnIfNovel(hash, history)
+                        val record = VisionMemory.save(context, bitmap, hash)
                         store.addRecord("vision_memory", record)
+                        if (novel) store.addRecord("template_memory", JSONObject(record.toString()).put("learnedAt", System.currentTimeMillis()))
                         history = store.getRecords("vision_memory")
-                        templateCount = history.size
-                        visionResult = "Đã xử lý ảnh cục bộ bằng OpenCV.\npHash: $hash"
+                        templateCount = store.count("template_memory")
+                        visionResult = if (match.record == null) {
+                            "Đã xử lý ảnh bằng OpenCV và học mẫu mới.\npHash: $hash"
+                        } else {
+                            "Đã xử lý ảnh bằng OpenCV.\nĐộ khác biệt với mẫu gần nhất: ${match.distance}/64\n" +
+                                if (novel) "Đã học mẫu mới." else "Đã nhận diện mẫu tương tự."
+                        }
                         status = "Vision hoạt động"
                     } else visionResult = "Không thể đọc ảnh đã chọn."
                 } catch (e: Exception) {
@@ -89,6 +95,22 @@ private fun CoCAssistantApp() {
                 } finally { busy = false }
             }
         }
+    }
+
+    val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) runCatching { BackupManager.export(context, uri, store) }
+            .onSuccess { status = "Đã xuất bản sao lưu CADSS" }
+            .onFailure { status = "Xuất backup thất bại: ${it.message}" }
+    }
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching { BackupManager.restore(context, uri, store) }
+            .onSuccess {
+                note = store.getText("note", "")
+                history = store.getRecords("vision_memory")
+                templateCount = history.size
+                status = "Đã khôi phục dữ liệu CADSS"
+            }
+            .onFailure { status = "Khôi phục thất bại: ${it.message}" }
     }
 
     MaterialTheme(
@@ -313,6 +335,20 @@ private fun CoCAssistantApp() {
                             PanelCard {
                                 Text("CADSS / CASL", fontWeight = FontWeight.Bold)
                                 Text("Schema hiện tại: ${CadssStore.SCHEMA_VERSION}\nLưu trữ: JSON versioned, local-first\nVision Memory: metadata + pHash\nBackup: xuất / nhập dữ liệu qua bộ chọn tệp (đang hoàn thiện).", color = Muted, fontSize = 12.sp)
+                            }
+                        }
+                        item {
+                            PanelCard {
+                                Text("CADSS Backup / Restore", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Xuất hoặc khôi phục ghi chú, Vision Memory, mẫu đã học và metadata bằng tệp JSON có phiên bản.", color = Muted, fontSize = 12.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { exportPicker.launch("coc-cadss-backup.json") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+                                        Icon(Icons.Default.FileUpload, null); Spacer(Modifier.width(6.dp)); Text("Xuất")
+                                    }
+                                    OutlinedButton(onClick = { importPicker.launch(arrayOf("application/json", "text/json")) }, modifier = Modifier.weight(1f)) {
+                                        Icon(Icons.Default.FileDownload, null); Spacer(Modifier.width(6.dp)); Text("Khôi phục")
+                                    }
+                                }
                             }
                         }
                         item {
