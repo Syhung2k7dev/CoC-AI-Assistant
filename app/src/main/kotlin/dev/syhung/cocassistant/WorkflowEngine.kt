@@ -261,7 +261,11 @@ class WorkflowTestRunner(
         val tests = program.optJSONArray("tests")
             ?: throw CaslRuntimeException("Workflow chưa khai báo tests.")
         require(tests.length() in 1..20) { "Workflow phải có từ 1 đến 20 test cases." }
-        val apiNames = collectApiNames(program.optJSONArray("steps") ?: JSONArray(), linkedSetOf())
+        val workflowSteps = program.optJSONArray("steps") ?: JSONArray()
+        require(!hasDirectNativeActionCall(workflowSteps)) {
+            "Workflow chỉ được gọi action.* thông qua Skill đã VERIFIED."
+        }
+        val apiNames = collectApiNames(workflowSteps, linkedSetOf())
         val unavailableApis = apiNames - availableApiNames
         require(unavailableApis.isEmpty()) {
             "Workflow gọi API chưa được đăng ký: " + unavailableApis.joinToString()
@@ -341,6 +345,19 @@ class WorkflowTestRunner(
             }
         }
         return found
+    }
+
+    private fun hasDirectNativeActionCall(steps: JSONArray): Boolean {
+        for (index in 0 until steps.length()) {
+            val step = steps.optJSONObject(index) ?: continue
+            when (step.optString("op")) {
+                "call" -> if (step.optString("api").startsWith("action.")) return true
+                "if" -> if (hasDirectNativeActionCall(step.optJSONArray("then") ?: JSONArray()) ||
+                    hasDirectNativeActionCall(step.optJSONArray("else") ?: JSONArray())) return true
+                "repeat" -> if (hasDirectNativeActionCall(step.optJSONArray("steps") ?: JSONArray())) return true
+            }
+        }
+        return false
     }
 
     private fun validateSkillApiCapabilities(
