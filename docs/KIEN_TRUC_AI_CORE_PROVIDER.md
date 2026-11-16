@@ -97,6 +97,7 @@ Tài liệu này mô tả kiến trúc mục tiêu và phân biệt rõ phần �
 
 Trong nhánh triển khai AI Provider Runtime:
 
+- Đã có `AIProviderRegistry` công bố Provider ID, capability và tạo adapter; hiện đăng ký Gemini, chưa có Provider thứ hai.
 - Đã có `AIProviderAdapter` làm ranh giới chuẩn hóa yêu cầu.
 - Đã có `AIProviderRuntime` quản lý timeout cấu hình, phân loại lỗi, retry giới hạn, exponential backoff, jitter và Retry-After dạng giây.
 - Đã có `GeminiProviderAdapter` đóng gói HTTP request/response và chuẩn hóa phản hồi Gemini.
@@ -105,7 +106,7 @@ Trong nhánh triển khai AI Provider Runtime:
 
 Các phần vẫn chưa được triển khai đầy đủ:
 
-- Provider Registry/cấu hình nhiều provider và fallback có chính sách.
+- Đăng ký Provider hiện mới có Gemini; chưa có cấu hình Provider thứ hai, lưu credential an toàn hoặc fallback có chính sách.
 - Cancellation: Gemini adapter chạy request trên Dispatchers.IO; khi coroutine bị hủy, cancellation handler đóng HttpURLConnection đang hoạt động. Cần CI và kiểm thử thiết bị để xác nhận hành vi trên các tình huống mạng thực tế.
 - Streaming/SSE và idle-timeout cho stream.
 - Usage/Diagnostics bền vững và chính sách redaction nâng cao.
