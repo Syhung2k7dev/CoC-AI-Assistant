@@ -12,6 +12,7 @@ import androidx.work.WorkerParameters
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
@@ -109,6 +110,12 @@ class WorkflowEngine(
                 .put("executedSteps", result.executedSteps)
                 .put("trace", JSONArray(result.trace.take(100))))
             result
+        } catch (timeout: TimeoutCancellationException) {
+            runs.update(runId, WorkflowRunState.FAILED, JSONObject()
+                .put("finishedAt", System.currentTimeMillis())
+                .put("errorType", "TIMEOUT")
+                .put("error", "Workflow vượt quá thời gian chạy tối đa."))
+            throw timeout
         } catch (cancelled: CancellationException) {
             runs.update(runId, WorkflowRunState.CANCELLED, JSONObject().put("finishedAt", System.currentTimeMillis()))
             throw cancelled
@@ -354,7 +361,7 @@ object WorkflowScheduler {
         runAtMillis: Long,
         inputs: JSONObject = JSONObject()
     ): String {
-        validateSchedule(workflowId, version, inputs)
+        validateSchedule(context, workflowId, version, inputs)
         val delay = (runAtMillis - System.currentTimeMillis()).coerceAtLeast(0L)
         val id = "workflow:$workflowId:$version:once"
         val request = OneTimeWorkRequestBuilder<WorkflowExecutionWorker>()
@@ -389,10 +396,13 @@ object WorkflowScheduler {
         WorkManager.getInstance(context).cancelUniqueWork(scheduleId)
     }
 
-    private fun validateSchedule(id: String, version: Int, inputs: JSONObject) {
+    private fun validateSchedule(context: Context, id: String, version: Int, inputs: JSONObject) {
         require(id.matches(Regex("[a-z0-9][a-z0-9._-]{1,79}")))
         require(version > 0)
         require(inputs.toString().length <= 8_000)
+        require(CaslWorkflowRegistry(context).findVerified(id, version) != null) {
+            "Chỉ Workflow VERIFIED đúng phiên bản mới được lên lịch."
+        }
     }
 
     private fun workData(id: String, version: Int, inputs: JSONObject): Data =
