@@ -123,7 +123,7 @@ class WorkflowEngine(
             runs.update(runId, WorkflowRunState.FAILED, JSONObject()
                 .put("finishedAt", System.currentTimeMillis())
                 .put("errorType", error::class.java.simpleName)
-                .put("error", (error.message ?: "Workflow thất bại").take(300)))
+                .put("error", "Workflow execution failed."))
             throw error
         }
     }
