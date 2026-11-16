@@ -220,10 +220,11 @@ data class SkillActionRequest(
     val normalizedY: Int? = null,
     val endNormalizedX: Int? = null,
     val endNormalizedY: Int? = null,
-    val durationMs: Long? = null
+    val durationMs: Long? = null,
+    val skillVersion: Int? = null
 ) {
     fun validate(): Boolean {
-        if (skillId.isBlank()) return false
+        if (skillId.isBlank() || (skillVersion != null && skillVersion < 1)) return false
         if (capability == SkillActionCapability.TAP) {
             return normalizedX != null && normalizedX in 0..1000 &&
                 normalizedY != null && normalizedY in 0..1000 &&
