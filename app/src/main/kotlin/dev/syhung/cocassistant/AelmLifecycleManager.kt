@@ -148,9 +148,12 @@ class AelmLifecycleManager(context: Context) {
         var passed = 0
         cases.forEach { test ->
             try {
-                val runtime = CaslScriptRuntime(sandboxRegistry()) { dependencyId, dependencyVersion ->
-                    skills.findVerifiedScript(dependencyId, dependencyVersion)
-                }
+                val runtime = CaslScriptRuntime(
+                    apiRegistry = sandboxRegistry(),
+                    skillScriptProvider = { dependencyId, dependencyVersion ->
+                        skills.findVerifiedScript(dependencyId, dependencyVersion)
+                    }
+                )
                 val result = runtime.execute(program, test.inputs, userApproved = true)
                 assertExpected(test.expectedOutputs, result.outputs)
                 passed++
