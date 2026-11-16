@@ -138,6 +138,8 @@ class CaslScriptRuntime(
                         .put("inputs", args)
                         .put("vars", JSONObject())
                         .put("outputs", JSONObject())
+                        .put("skillId", skillId)
+                        .put("skillVersion", skillProgram.optInt("version"))
                     val skillResult = runProgram(skillProgram, skillContext, depth + 1)
                     val assign = step.optString("assign")
                     if (assign.isNotBlank()) {
