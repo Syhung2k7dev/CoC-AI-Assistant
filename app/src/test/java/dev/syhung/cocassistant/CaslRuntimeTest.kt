@@ -79,7 +79,7 @@ class CaslRuntimeTest {
             .put("kind", "workflow").put("id", "test.workflow").put("version", 1)
             .put("steps", JSONArray().put(JSONObject().put("op", "skill").put("id", "vision.ocr")))
         val runtime = CaslScriptRuntime(CaslApiRegistry()) { _, _ -> null }
-        assertThrows(IllegalArgumentException::class.java) {
+        assertThrows(CaslRuntimeException::class.java) {
             runtime.validateProgramDocument(program)
         }
     }
