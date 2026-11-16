@@ -56,3 +56,12 @@ HVCS (Hybrid Visual Coordinate System) kết hợp Grid cell ID, Bounding Box, R
 Skill Lifecycle: Research → Draft → Testing → Verified/Experimental → Disabled. Skill do AI tạo luôn bắt đầu ở Draft, được lưu dưới dạng dữ liệu khai báo có schema/version/dependencies/capabilities, không phải mã thực thi tùy ý. Tất cả yêu cầu tương tác đi qua ActionExecutor tập trung.
 
 Đã bổ sung nền tảng AgentSkillRegistry cục bộ và HvcsVision grid analyzer. Danh mục Skill và chi tiết thiết kế nằm trong docs/ARCHITECTURE_SKILLS_HVCS.md. Việc kết nối Gemini, CASL runtime, ActionExecutor, UI quản lý Skill và kiểm thử thiết bị vẫn còn cần triển khai.
+
+
+## Kiến trúc thực thi Script-Driven
+
+Workflow là đơn vị công việc chính. Workflow và Skill đều là CASL program chạy trên cùng interpreter; Workflow gọi Skill, Skill gọi Skill con hoặc Primitive API đã đăng ký. Primitive Skill là lớp năng lực thấp nhất như observe, OCR, memory read/write, calculator, tap, swipe và wait.
+
+Workflow Engine quản lý clock, scheduler, execution context, trạng thái, IF/ELSE, loop, timeout, retry, checkpoint và recovery. Script quyết định logic nghiệp vụ và lựa chọn Skill/API; Gemini tạo hoặc sửa Workflow/Skill dưới dạng Draft, sau đó validator và test runner mới quyết định khả năng kích hoạt.
+
+Đã bổ sung CASL interpreter nền với operation set/call/skill/if/repeat/wait/assert/log/return, API allow-list, giới hạn step/depth/repeat/wait; CADSS Workflow Registry lưu Workflow theo version/lifecycle; Skill manifest hỗ trợ lưu CASL script. Phần này hiện là nền tảng runtime, chưa phải hệ thống end-to-end: API adapters, workflow editor, scheduler bền vững, Agent planner, test runner và checkpoint recovery còn phải tích hợp.
