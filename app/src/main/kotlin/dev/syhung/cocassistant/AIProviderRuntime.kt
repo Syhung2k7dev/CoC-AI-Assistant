@@ -7,6 +7,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -64,7 +66,7 @@ internal data class AIRetryPolicy(
 }
 
 internal fun interface AIProviderAdapter {
-    fun generate(request: AIProviderRequest): String
+    suspend fun generate(request: AIProviderRequest): String
 }
 
 /**
@@ -77,13 +79,13 @@ internal object AIProviderRuntime {
         adapter: AIProviderAdapter,
         request: AIProviderRequest,
         retryPolicy: AIRetryPolicy = AIRetryPolicy()
-    ): String = withContext(Dispatchers.IO) {
+    ): String {
         require(request.prompt.isNotBlank()) { "Nội dung yêu cầu chưa được nhập" }
         var retries = 0
         while (true) {
             currentCoroutineContext().ensureActive()
             try {
-                return@withContext adapter.generate(request)
+                return adapter.generate(request)
             } catch (error: AIProviderException) {
                 if (!error.retryable || retries >= retryPolicy.maxRetries) throw error
                 delay(computeDelay(retries, error.retryAfterMillis, retryPolicy))
@@ -140,47 +142,73 @@ internal class GeminiProviderAdapter(
     private val connectTimeoutMillis: Int = 15_000,
     private val readTimeoutMillis: Int = 45_000
 ) : AIProviderAdapter {
-    override fun generate(request: AIProviderRequest): String {
-        require(apiKey.isNotBlank()) { "Khóa API chưa được nhập" }
-        val endpoint = URL("$BASE_URL/$model:generateContent")
-        val connection = (endpoint.openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = connectTimeoutMillis
-            readTimeout = readTimeoutMillis
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            setRequestProperty("x-goog-api-key", apiKey)
+    override suspend fun generate(request: AIProviderRequest): String =
+        suspendCancellableCoroutine { continuation ->
+            require(apiKey.isNotBlank()) { "Khóa API chưa được nhập" }
+            val activeConnection = AtomicReference<HttpURLConnection?>(null)
+            val workerThread = AtomicReference<Thread?>(null)
+
+            continuation.invokeOnCancellation {
+                activeConnection.getAndSet(null)?.disconnect()
+                workerThread.get()?.interrupt()
+            }
+
+            Dispatchers.IO.dispatch(continuation.context, Runnable {
+                if (!continuation.isActive) return@Runnable
+                workerThread.set(Thread.currentThread())
+                var connection: HttpURLConnection? = null
+                try {
+                    val endpoint = URL("$BASE_URL/$model:generateContent")
+                    connection = (endpoint.openConnection() as HttpURLConnection).apply {
+                        requestMethod = "POST"
+                        connectTimeout = connectTimeoutMillis
+                        readTimeout = readTimeoutMillis
+                        doOutput = true
+                        setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                        setRequestProperty("x-goog-api-key", apiKey)
+                    }
+                    activeConnection.set(connection)
+                    if (!continuation.isActive) {
+                        connection.disconnect()
+                        return@Runnable
+                    }
+
+                    val payload = createPayload(request)
+                    connection.outputStream.use {
+                        it.write(payload.toByteArray(Charsets.UTF_8))
+                    }
+
+                    val status = connection.responseCode
+                    val responseBody = (if (status in 200..299) connection.inputStream else connection.errorStream)
+                        ?.bufferedReader(Charsets.UTF_8)
+                        ?.use { it.readText() }
+                        .orEmpty()
+
+                    if (status !in 200..299) {
+                        throw httpFailure(status, responseBody, connection.getHeaderField("Retry-After"))
+                    }
+
+                    val result = try {
+                        extractText(JSONObject(responseBody))
+                    } catch (error: JSONException) {
+                        throw AIProviderException(
+                            AIProviderFailure.MALFORMED_RESPONSE,
+                            "Phản hồi từ Gemini không đúng định dạng.",
+                            cause = error
+                        )
+                    }
+                    if (continuation.isActive) {
+                        continuation.resumeWith(Result.success(result))
+                    }
+                } catch (error: Throwable) {
+                    if (continuation.isActive) continuation.resumeWith(Result.failure(error))
+                } finally {
+                    activeConnection.set(null)
+                    connection?.disconnect()
+                    workerThread.set(null)
+                }
+            })
         }
-
-        try {
-            val payload = createPayload(request)
-            connection.outputStream.use {
-                it.write(payload.toByteArray(Charsets.UTF_8))
-            }
-
-            val status = connection.responseCode
-            val responseBody = (if (status in 200..299) connection.inputStream else connection.errorStream)
-                ?.bufferedReader(Charsets.UTF_8)
-                ?.use { it.readText() }
-                .orEmpty()
-
-            if (status !in 200..299) {
-                throw httpFailure(status, responseBody, connection.getHeaderField("Retry-After"))
-            }
-
-            return try {
-                extractText(JSONObject(responseBody))
-            } catch (error: JSONException) {
-                throw AIProviderException(
-                    AIProviderFailure.MALFORMED_RESPONSE,
-                    "Phản hồi từ Gemini không đúng định dạng.",
-                    cause = error
-                )
-            }
-        } finally {
-            connection.disconnect()
-        }
-    }
 
     private fun createPayload(request: AIProviderRequest): String {
         val parts = JSONArray().put(JSONObject().put("text", request.prompt))
