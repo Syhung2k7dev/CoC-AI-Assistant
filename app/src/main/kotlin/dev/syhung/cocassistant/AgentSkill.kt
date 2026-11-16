@@ -129,11 +129,13 @@ class AgentSkillRegistry(context: Context) {
     }
 
     @Synchronized
-    fun find(id: String): AgentSkill? = all().firstOrNull { it.id == id }
+    fun find(id: String, version: Int? = null): AgentSkill? =
+        all().filter { it.id == id && (version == null || it.version == version) }
+            .maxByOrNull { it.version }
 
     @Synchronized
-    fun findVerifiedScript(id: String): JSONObject? {
-        val skill = find(id) ?: return null
+    fun findVerifiedScript(id: String, version: Int? = null): JSONObject? {
+        val skill = find(id, version) ?: return null
         if (skill.status != SkillLifecycle.VERIFIED || skill.scriptJson.isBlank()) return null
         return runCatching { JSONObject(skill.scriptJson) }.getOrNull()
     }
@@ -142,20 +144,19 @@ class AgentSkillRegistry(context: Context) {
     fun saveDraft(skill: AgentSkill): Boolean {
         if (!skill.validate()) return false
         val current = all().toMutableList()
-        val index = current.indexOfFirst { it.id == skill.id }
+        if (current.any { it.id == skill.id && it.version == skill.version }) return false
+        val highestVersion = current.filter { it.id == skill.id }.maxOfOrNull { it.version } ?: 0
+        if (skill.version <= highestVersion) return false
         val draft = skill.copy(status = SkillLifecycle.DRAFT, updatedAt = System.currentTimeMillis())
-        if (index >= 0) {
-            if (draft.version <= current[index].version) return false
-            current[index] = draft
-        } else current.add(draft)
+        current.add(draft)
         persist(current)
         return true
     }
 
     @Synchronized
-    fun setLifecycle(id: String, next: SkillLifecycle): Boolean {
+    fun setLifecycle(id: String, next: SkillLifecycle, version: Int? = null): Boolean {
         val current = all().toMutableList()
-        val index = current.indexOfFirst { it.id == id }
+        val index = current.indexOfLast { it.id == id && (version == null || it.version == version) }
         if (index < 0) return false
         val old = current[index]
         val allowed = when (next) {
@@ -175,8 +176,8 @@ class AgentSkillRegistry(context: Context) {
     fun completeTest(id: String, passed: Int, total: Int): Boolean {
         if (total <= 0 || passed != total || passed < 0) return false
         val current = all().toMutableList()
-        val index = current.indexOfFirst { it.id == id }
-        if (index < 0 || current[index].status != SkillLifecycle.TESTING) return false
+        val index = current.indexOfLast { it.id == id && it.status == SkillLifecycle.TESTING }
+        if (index < 0) return false
         val skill = current[index]
         val byId = current.associateBy { it.id }
         if (skill.dependencies.any { dependency ->
