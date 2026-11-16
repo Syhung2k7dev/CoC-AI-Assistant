@@ -110,10 +110,10 @@ fun WorkflowStudioPanel(
                                 runStatus.value = "Đã lên lịch lặp 15 phút."
                             }, modifier = Modifier.weight(1f)) { Text("Lặp 15 phút") }
                             Button(onClick = {
-                                if (activeSchedule.value.isNotBlank()) WorkflowScheduler.cancel(context, activeSchedule.value)
+                                WorkflowScheduler.cancelForWorkflow(context, selected.first, selected.second)
                                 activeSchedule.value = ""
-                                runStatus.value = "Đã hủy lịch."
-                            }, enabled = activeSchedule.value.isNotBlank(), modifier = Modifier.weight(1f)) { Text("Hủy lịch") }
+                                runStatus.value = "Đã hủy mọi lịch của phiên bản Workflow này."
+                            }, modifier = Modifier.weight(1f)) { Text("Hủy mọi lịch") }
                         }
                     } else if ((selectedRecord?.optString("lifecycle") == WorkflowLifecycle.DRAFT.name || selectedRecord?.optString("lifecycle") == WorkflowLifecycle.TESTING.name)) {
                         Button(
