@@ -25,6 +25,7 @@ data class AgentSkill(
     val dependencies: List<String> = emptyList(),
     val capabilities: Set<SkillActionCapability> = emptySet(),
     val instructions: String = "",
+    val scriptJson: String = "",
     val source: String = "user_or_agent",
     val confidence: Float = 0f,
     val minAgentVersion: Int = 1,
@@ -45,7 +46,14 @@ data class AgentSkill(
             dependencyVersions.size <= 40 && dependencyVersions.values.all { it >= 1 } &&
             testPassed >= 0 && testTotal >= 0 && testPassed <= testTotal &&
             inputs.size <= 40 && outputs.size <= 40 &&
-            dependencies.size <= 40 && instructions.length <= 12_000
+            dependencies.size <= 40 && instructions.length <= 12_000 &&
+            scriptJson.length <= 32_000 && (scriptJson.isBlank() || runCatching {
+                val script = JSONObject(scriptJson)
+                script.optString("format") == "CASL" &&
+                    script.optInt("schemaVersion", -1) == CaslScriptRuntime.SCHEMA_VERSION &&
+                    script.optString("kind") == "skill" &&
+                    script.optJSONArray("steps") != null
+            }.getOrDefault(false))
 
     fun supportsAgentVersion(agentVersion: Int): Boolean =
         agentVersion >= minAgentVersion && (maxAgentVersion == null || agentVersion <= maxAgentVersion)
@@ -56,7 +64,7 @@ data class AgentSkill(
         .put("inputs", JSONArray(inputs)).put("outputs", JSONArray(outputs))
         .put("dependencies", JSONArray(dependencies))
         .put("capabilities", JSONArray(capabilities.map { it.name }))
-        .put("instructions", instructions).put("source", source)
+        .put("instructions", instructions).put("script", scriptJson).put("source", source)
         .put("confidence", confidence.toDouble())
         .put("minAgentVersion", minAgentVersion)
         .put("maxAgentVersion", maxAgentVersion ?: JSONObject.NULL)
@@ -81,6 +89,7 @@ data class AgentSkill(
                 capabilities = json.optJSONArray("capabilities").toStringList()
                     .mapNotNull { runCatching { SkillActionCapability.valueOf(it) }.getOrNull() }.toSet(),
                 instructions = json.optString("instructions", ""),
+                scriptJson = json.optString("script", ""),
                 source = json.optString("source", "unknown"),
                 confidence = json.optDouble("confidence", 0.0).toFloat(),
                 minAgentVersion = json.optInt("minAgentVersion", 1),
@@ -121,6 +130,13 @@ class AgentSkillRegistry(context: Context) {
 
     @Synchronized
     fun find(id: String): AgentSkill? = all().firstOrNull { it.id == id }
+
+    @Synchronized
+    fun findVerifiedScript(id: String): JSONObject? {
+        val skill = find(id) ?: return null
+        if (skill.status != SkillLifecycle.VERIFIED || skill.scriptJson.isBlank()) return null
+        return runCatching { JSONObject(skill.scriptJson) }.getOrNull()
+    }
 
     @Synchronized
     fun saveDraft(skill: AgentSkill): Boolean {
