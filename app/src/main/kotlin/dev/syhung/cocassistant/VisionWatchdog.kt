@@ -2,7 +2,7 @@ package dev.syhung.cocassistant
 
 import org.json.JSONObject
 
-/** Similarity monitor and conservative template learner based on perceptual hashes. */
+/** Theo dõi độ tương đồng và học mẫu có kiểm soát dựa trên mã pHash. */
 object VisionWatchdog {
     data class Match(val record: JSONObject?, val distance: Int)
 
