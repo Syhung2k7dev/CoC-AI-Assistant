@@ -106,7 +106,7 @@ Trong nhánh triển khai AI Provider Runtime:
 Các phần vẫn chưa được triển khai đầy đủ:
 
 - Provider Registry/cấu hình nhiều provider và fallback có chính sách.
-- Hủy kết nối HTTP tức thời khi coroutine bị hủy; hiện vẫn dựa vào timeout kết nối/đọc và cleanup khi request thoát.
+- Cancellation: Gemini adapter chạy request trên Dispatchers.IO; khi coroutine bị hủy, cancellation handler đóng HttpURLConnection đang hoạt động. Cần CI và kiểm thử thiết bị để xác nhận hành vi trên các tình huống mạng thực tế.
 - Streaming/SSE và idle-timeout cho stream.
 - Usage/Diagnostics bền vững và chính sách redaction nâng cao.
 - Backend Express, `server.ts` hoặc SSE endpoint không thuộc ứng dụng Android hiện tại.
