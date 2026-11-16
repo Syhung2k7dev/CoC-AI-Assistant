@@ -182,6 +182,10 @@ class CaslScriptRuntime(
         return null
     }
 
+    fun validateProgramDocument(program: JSONObject) {
+        validateProgram(program)
+    }
+
     private fun validateProgram(program: JSONObject) {
         require(program.optString("format") == "CASL") { "Program format phải là CASL." }
         require(program.optInt("schemaVersion", -1) == SCHEMA_VERSION) { "CASL schemaVersion không tương thích." }
