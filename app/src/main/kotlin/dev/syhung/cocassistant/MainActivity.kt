@@ -60,6 +60,7 @@ private fun CoCAssistantApp() {
     var prompt by rememberSaveable { mutableStateOf("Phân tích ảnh và tóm tắt những thông tin quan trọng.") }
     var aiResult by remember { mutableStateOf("") }
     var visionResult by remember { mutableStateOf("") }
+    var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Sẵn sàng") }
     var timerSeconds by remember { mutableIntStateOf(0) }
@@ -74,6 +75,7 @@ private fun CoCAssistantApp() {
                         context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
                     }
                     if (bitmap != null) {
+                        selectedBitmap = bitmap
                         val hash = withContext(Dispatchers.Default) { VisionProcessor.perceptualHash(bitmap) }
                         val match = VisionWatchdog.nearest(hash, history)
                         val novel = VisionWatchdog.learnIfNovel(hash, history)
@@ -313,20 +315,20 @@ private fun CoCAssistantApp() {
                         item { PageIntro("Cài đặt", "Quản lý kết nối AI, dữ liệu và quyền riêng tư.") }
                         item {
                             PanelCard {
-                                Text("Gemini API", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text("Khóa API chỉ dùng trong phiên hiện tại và không được ghi vào Vision Memory hoặc log.", color = Muted, fontSize = 12.sp)
+                                Text("Gemini 3.8 Flash", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Có thể phân tích văn bản và ảnh đang chọn. Khóa API chỉ dùng trong phiên hiện tại, không lưu vào CADSS.", color = Muted, fontSize = 12.sp)
                                 OutlinedTextField(value = apiKey, onValueChange = { apiKey = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Gemini API key") }, singleLine = true, colors = darkFieldColors())
                                 OutlinedTextField(value = prompt, onValueChange = { prompt = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Yêu cầu phân tích") }, minLines = 3, colors = darkFieldColors())
                                 Button(onClick = {
                                     if (apiKey.isBlank()) { aiResult = "Hãy nhập API key để kết nối Gemini."; return@Button }
                                     busy = true
                                     scope.launch {
-                                        aiResult = try { GeminiClient.generate(apiKey, prompt) }
+                                        aiResult = try { GeminiClient.generate(apiKey, prompt, selectedBitmap) }
                                         catch (e: Exception) { "Gemini chưa phản hồi: ${e.message ?: "lỗi kết nối"}" }
                                         busy = false
                                     }
                                 }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-                                    Icon(Icons.Default.AutoAwesome, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang kết nối..." else "Gửi yêu cầu Gemini")
+                                    Icon(Icons.Default.AutoAwesome, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang kết nối..." else if (selectedBitmap != null) "Phân tích ảnh + văn bản" else "Gửi yêu cầu Gemini")
                                 }
                                 if (aiResult.isNotBlank()) Text(aiResult, color = Cyan, fontSize = 12.sp)
                             }
