@@ -34,5 +34,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("org.opencv:opencv:4.10.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
