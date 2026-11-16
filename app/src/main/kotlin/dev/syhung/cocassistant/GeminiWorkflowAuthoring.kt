@@ -22,6 +22,7 @@ object GeminiWorkflowAuthoring {
             .filter { it.status == SkillLifecycle.VERIFIED && it.scriptJson.isNotBlank() }
             .joinToString("\n") { "${it.id}@${it.version}: ${it.description}" }
         val apiInventory = availableApiNames.distinct().sorted().joinToString("\n").ifBlank { "(chưa có API adapter được đăng ký)" }
+        val refKey = "$" + "ref"
         val prompt = """
             Bạn là Workflow Architect của CoC AI Agent.
             Hãy tạo đúng một Workflow CASL có thể kiểm tra và lưu thành Draft.
@@ -39,7 +40,7 @@ object GeminiWorkflowAuthoring {
             Chỉ gọi Skill ID trong danh sách; mỗi operation skill phải pin version cụ thể.
             Chỉ gọi API name trong allow-list; nếu danh sách trống thì không được dùng call.
             Điều kiện hỗ trợ: exists, equals, not_equals, contains, greater_than, less_than, in.
-            Tham chiếu biến bằng object có khóa ${'
+            Tham chiếu biến bằng object có khóa $refKey, ví dụ {"$refKey":"vars.observation"}.
             Không tạo mã Kotlin/Java/JavaScript/shell, reflection hoặc lệnh tùy ý.
             Không tự đánh dấu Verified. Workflow luôn được lưu ở Draft để kiểm thử.
             Thiết kế có nhánh lỗi và log; không giả định API thành công nếu chưa kiểm tra kết quả.
