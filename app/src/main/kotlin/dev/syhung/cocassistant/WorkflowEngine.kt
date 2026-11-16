@@ -151,6 +151,57 @@ class WorkflowEngine(
         registry.register("system.time") { _, _ ->
             JSONObject().put("epochMillis", System.currentTimeMillis())
         }
+        registry.register("action.tap") { args, executionContext ->
+            val skillId = executionContext.optString("skillId")
+            val skillVersion = executionContext.optInt("skillVersion", 0)
+            if (skillId.isBlank() || skillVersion < 1) throw CaslRuntimeException("Native action chỉ được gọi bên trong Skill đã pin version.")
+            val request = SkillActionRequest(
+                skillId = skillId,
+                capability = SkillActionCapability.TAP,
+                normalizedX = args.optInt("x", -1),
+                normalizedY = args.optInt("y", -1),
+                durationMs = if (args.has("durationMs")) args.optLong("durationMs") else null,
+                skillVersion = skillVersion
+            )
+            when (val outcome = ActionExecutor.executeAwait(context, skills, request, userApproved = true)) {
+                is ActionDispatchResult.Accepted -> JSONObject().put("accepted", true).put("skillId", outcome.skillId)
+                is ActionDispatchResult.Rejected -> throw CaslRuntimeException(outcome.reason)
+            }
+        }
+        registry.register("action.swipe") { args, executionContext ->
+            val skillId = executionContext.optString("skillId")
+            val skillVersion = executionContext.optInt("skillVersion", 0)
+            if (skillId.isBlank() || skillVersion < 1) throw CaslRuntimeException("Native action chỉ được gọi bên trong Skill đã pin version.")
+            val request = SkillActionRequest(
+                skillId = skillId,
+                capability = SkillActionCapability.SWIPE,
+                normalizedX = args.optInt("x", -1),
+                normalizedY = args.optInt("y", -1),
+                endNormalizedX = args.optInt("endX", -1),
+                endNormalizedY = args.optInt("endY", -1),
+                durationMs = args.optLong("durationMs", -1L),
+                skillVersion = skillVersion
+            )
+            when (val outcome = ActionExecutor.executeAwait(context, skills, request, userApproved = true)) {
+                is ActionDispatchResult.Accepted -> JSONObject().put("accepted", true).put("skillId", outcome.skillId)
+                is ActionDispatchResult.Rejected -> throw CaslRuntimeException(outcome.reason)
+            }
+        }
+        registry.register("action.wait") { args, executionContext ->
+            val skillId = executionContext.optString("skillId")
+            val skillVersion = executionContext.optInt("skillVersion", 0)
+            if (skillId.isBlank() || skillVersion < 1) throw CaslRuntimeException("Native action chỉ được gọi bên trong Skill đã pin version.")
+            val request = SkillActionRequest(
+                skillId = skillId,
+                capability = SkillActionCapability.WAIT,
+                durationMs = args.optLong("durationMs", -1L),
+                skillVersion = skillVersion
+            )
+            when (val outcome = ActionExecutor.executeAwait(context, skills, request, userApproved = true)) {
+                is ActionDispatchResult.Accepted -> JSONObject().put("completed", true).put("skillId", outcome.skillId)
+                is ActionDispatchResult.Rejected -> throw CaslRuntimeException(outcome.reason)
+            }
+        }
         return registry
     }
 
