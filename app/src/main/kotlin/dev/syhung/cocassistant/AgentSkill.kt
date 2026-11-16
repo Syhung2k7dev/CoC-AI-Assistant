@@ -30,6 +30,9 @@ data class AgentSkill(
     val minAgentVersion: Int = 1,
     val maxAgentVersion: Int? = null,
     val dependencyVersions: Map<String, Int> = emptyMap(),
+    val testPassed: Int = 0,
+    val testTotal: Int = 0,
+    val testedAt: Long? = null,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     fun validate(): Boolean =
@@ -40,6 +43,7 @@ data class AgentSkill(
             version >= 1 && confidence in 0f..1f &&
             minAgentVersion >= 1 && (maxAgentVersion == null || maxAgentVersion >= minAgentVersion) &&
             dependencyVersions.size <= 40 && dependencyVersions.values.all { it >= 1 } &&
+            testPassed >= 0 && testTotal >= 0 && testPassed <= testTotal &&
             inputs.size <= 40 && outputs.size <= 40 &&
             dependencies.size <= 40 && instructions.length <= 12_000
 
@@ -57,6 +61,8 @@ data class AgentSkill(
         .put("minAgentVersion", minAgentVersion)
         .put("maxAgentVersion", maxAgentVersion ?: JSONObject.NULL)
         .put("dependencyVersions", JSONObject().apply { dependencyVersions.forEach { (id, required) -> put(id, required) } })
+        .put("testPassed", testPassed).put("testTotal", testTotal)
+        .put("testedAt", testedAt ?: JSONObject.NULL)
         .put("updatedAt", updatedAt)
 
     companion object {
@@ -80,6 +86,9 @@ data class AgentSkill(
                 minAgentVersion = json.optInt("minAgentVersion", 1),
                 maxAgentVersion = if (json.isNull("maxAgentVersion")) null else json.optInt("maxAgentVersion"),
                 dependencyVersions = json.optJSONObject("dependencyVersions").toIntMap(),
+                testPassed = json.optInt("testPassed", 0),
+                testTotal = json.optInt("testTotal", 0),
+                testedAt = if (json.isNull("testedAt")) null else json.optLong("testedAt"),
                 updatedAt = json.optLong("updatedAt", 0L)
             ).let { it.takeIf(AgentSkill::validate) }
         }.getOrNull()
@@ -135,13 +144,37 @@ class AgentSkillRegistry(context: Context) {
         val old = current[index]
         val allowed = when (next) {
             SkillLifecycle.TESTING -> old.status == SkillLifecycle.DRAFT || old.status == SkillLifecycle.EXPERIMENTAL
-            SkillLifecycle.VERIFIED -> old.status == SkillLifecycle.TESTING
+            SkillLifecycle.VERIFIED -> false
             SkillLifecycle.EXPERIMENTAL -> old.status == SkillLifecycle.TESTING || old.status == SkillLifecycle.VERIFIED
             SkillLifecycle.DISABLED -> true
             SkillLifecycle.DRAFT -> old.status == SkillLifecycle.DISABLED
         }
         if (!allowed) return false
         current[index] = old.copy(status = next, updatedAt = System.currentTimeMillis())
+        persist(current)
+        return true
+    }
+
+    @Synchronized
+    fun completeTest(id: String, passed: Int, total: Int): Boolean {
+        if (total <= 0 || passed != total || passed < 0) return false
+        val current = all().toMutableList()
+        val index = current.indexOfFirst { it.id == id }
+        if (index < 0 || current[index].status != SkillLifecycle.TESTING) return false
+        val skill = current[index]
+        val byId = current.associateBy { it.id }
+        if (skill.dependencies.any { dependency ->
+                val found = byId[dependency]
+                found == null || found.status != SkillLifecycle.VERIFIED ||
+                    (skill.dependencyVersions[dependency]?.let { found.version < it } == true)
+            }) return false
+        current[index] = skill.copy(
+            status = SkillLifecycle.VERIFIED,
+            testPassed = passed,
+            testTotal = total,
+            testedAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
         persist(current)
         return true
     }
