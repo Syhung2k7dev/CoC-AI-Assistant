@@ -205,7 +205,13 @@ class WorkflowEngine(
         return registry
     }
 
-    companion object { const val MAX_RUN_TIME_MS = 10 * 60 * 1000L }
+    companion object {
+        const val MAX_RUN_TIME_MS = 10 * 60 * 1000L
+        val AVAILABLE_API_NAMES = listOf(
+            "memory.read", "memory.write", "memory.append", "system.time",
+            "action.tap", "action.swipe", "action.wait"
+        )
+    }
 }
 
 
