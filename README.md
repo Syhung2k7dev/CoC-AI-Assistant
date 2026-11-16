@@ -36,6 +36,7 @@ Các phần OCR, workflow editor JSON hoàn chỉnh, vòng lặp Agent tự xác
 ## Tài liệu
 
 - [Hướng dẫn sử dụng](docs/HUONG_DAN_SU_DUNG.md)
+- [Kiến trúc AI Core Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md)
 - [Kiến trúc CADSS/CASL](docs/KIEN_TRUC_CADSS_CASL.md)
 - [Lộ trình CoC Agent](docs/ROADMAP_COC_AGENT.md)
 - [Kiến trúc Skill và HVCS](docs/ARCHITECTURE_SKILLS_HVCS.md)
