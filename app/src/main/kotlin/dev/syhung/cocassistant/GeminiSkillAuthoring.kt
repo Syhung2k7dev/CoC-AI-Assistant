@@ -18,7 +18,7 @@ object GeminiSkillAuthoring {
     ): SkillDraftOutcome {
         if (goal.isBlank()) return SkillDraftOutcome.Failed("Mục tiêu nghiên cứu không được để trống.")
         val inventory = registry.all().joinToString("\n") {
-            "\${it.id} | \${it.category} | \${it.description} | \${it.status.name}"
+            "${it.id} | ${it.category} | ${it.description} | ${it.status.name}"
         }
         val prompt = """
             Bạn là Skill Researcher của CoC AI Agent.
