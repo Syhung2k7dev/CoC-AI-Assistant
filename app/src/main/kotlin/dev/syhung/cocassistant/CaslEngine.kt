@@ -18,8 +18,8 @@ object CaslEngine {
             "equals" -> actual?.toString() == expected?.toString()
             "not_equals" -> actual?.toString() != expected?.toString()
             "contains" -> actual?.toString()?.contains(expected?.toString() ?: "") == true
-            "greater_than" -> (actual as? Number)?.toDouble()?.let { it > (expected as? Number)?.toDouble() ?: Double.NaN } ?: false
-            "less_than" -> (actual as? Number)?.toDouble()?.let { it < (expected as? Number)?.toDouble() ?: Double.NaN } ?: false
+            "greater_than" -> compare(actual, expected) { a, b -> a > b }
+            "less_than" -> compare(actual, expected) { a, b -> a < b }
             "in" -> (expected as? JSONArray)?.let { array -> (0 until array.length()).any { array.opt(it)?.toString() == actual?.toString() } } ?: false
             else -> error("Unsupported CASL operator")
         }
@@ -27,6 +27,12 @@ object CaslEngine {
         val action = rule.optJSONObject(if (passed) "then" else "else")
             ?.let { it.optString("type", "none") + ": " + it.optString("value", "") } ?: "none"
         return Result(branch, action, passed)
+    }
+
+    private fun compare(actual: Any?, expected: Any?, operation: (Double, Double) -> Boolean): Boolean {
+        val a = (actual as? Number)?.toDouble() ?: return false
+        val b = (expected as? Number)?.toDouble() ?: return false
+        return operation(a, b)
     }
 
     private fun resolve(root: JSONObject, path: String): Any? {
