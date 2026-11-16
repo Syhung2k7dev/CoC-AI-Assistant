@@ -117,7 +117,7 @@ class CaslScriptRuntime(
                 "call" -> {
                     val api = step.optString("api")
                     val args = resolveObject(step.optJSONObject("args") ?: JSONObject(), context)
-                    val timeoutMs = step.optLong("timeoutMs", 30_000L)
+                    val timeoutMs = step.optLong("timeoutMs", 120_000L)
                     if (timeoutMs !in 1L..120_000L) throw CaslRuntimeException("CALL timeoutMs phải từ 1 đến 120000.")
                     val result = withTimeout(timeoutMs) { apiRegistry.invoke(api, args, context) }
                     val assign = step.optString("assign")
@@ -226,7 +226,7 @@ class CaslScriptRuntime(
                         throw CaslRuntimeException("Tên API CASL không hợp lệ.")
                     }
                     step.optString("assign").takeIf(String::isNotBlank)?.let(::requireName)
-                    val timeoutMs = step.optLong("timeoutMs", 30_000L)
+                    val timeoutMs = step.optLong("timeoutMs", 120_000L)
                     if (timeoutMs !in 1L..120_000L) throw CaslRuntimeException("CALL timeoutMs không hợp lệ.")
                 }
                 "skill" -> {
