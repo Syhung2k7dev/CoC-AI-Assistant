@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -63,7 +65,17 @@ private fun CoCAssistantApp() {
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Sẵn sàng") }
-    var timerSeconds by remember { mutableIntStateOf(0) }
+    var timerSeconds by rememberSaveable { mutableIntStateOf(0) }
+    var timerRunning by rememberSaveable { mutableStateOf(false) }
+    var showQuickPanel by remember { mutableStateOf(false) }
+
+    LaunchedEffect(timerRunning, timerSeconds) {
+        while (timerRunning && timerSeconds > 0) {
+            delay(1000L)
+            timerSeconds -= 1
+        }
+        if (timerSeconds == 0) timerRunning = false
+    }
     var templateCount by remember { mutableIntStateOf(store.count("template_memory")) }
     var history by remember { mutableStateOf(store.getRecords("vision_memory")) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -123,6 +135,11 @@ private fun CoCAssistantApp() {
     ) {
         Scaffold(
             containerColor = Bg,
+            floatingActionButton = {
+                FloatingActionButton(onClick = { showQuickPanel = true }, containerColor = Accent, contentColor = White) {
+                    Icon(Icons.Default.Dashboard, contentDescription = "Bảng điều khiển nhanh")
+                }
+            },
             topBar = {
                 TopAppBar(
                     title = {
@@ -301,11 +318,12 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Bộ đếm phiên", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text(if (timerSeconds == 0) "Chưa chạy" else "${timerSeconds / 60} phút", color = Cyan, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                Text(if (timerSeconds == 0) "00:00" else String.format("%02d:%02d", timerSeconds / 60, timerSeconds % 60), color = Cyan, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                                Text(if (timerRunning) "ĐANG CHẠY" else "ĐÃ TẠM DỪNG", color = Muted, fontSize = 10.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { timerSeconds = 30 }, modifier = Modifier.weight(1f)) { Text("30 phút") }
-                                    Button(onClick = { timerSeconds = 60 }, modifier = Modifier.weight(1f)) { Text("60 phút") }
-                                    OutlinedButton(onClick = { timerSeconds = 0 }, modifier = Modifier.weight(1f)) { Text("Dừng") }
+                                    Button(onClick = { timerSeconds = 30 * 60; timerRunning = true }, modifier = Modifier.weight(1f)) { Text("30 phút") }
+                                    Button(onClick = { timerSeconds = 60 * 60; timerRunning = true }, modifier = Modifier.weight(1f)) { Text("60 phút") }
+                                    OutlinedButton(onClick = { timerRunning = false; timerSeconds = 0 }, modifier = Modifier.weight(1f)) { Text("Dừng") }
                                 }
                                 Text("Bộ đếm phiên thủ công; không can thiệp ứng dụng khác.", color = Muted, fontSize = 11.sp)
                             }
@@ -362,6 +380,23 @@ private fun CoCAssistantApp() {
                     }
                 }
             }
+        }
+        if (showQuickPanel) {
+            AlertDialog(
+                onDismissRequest = { showQuickPanel = false },
+                containerColor = Panel,
+                title = { Text("Floating Dashboard", color = White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("CADSS · schema ${CadssStore.SCHEMA_VERSION}", color = Cyan)
+                        Text("Vision templates · $templateCount", color = White)
+                        Text("Scheduler · WorkManager", color = White)
+                        Text("Session · " + if (timerRunning) "đang chạy" else "không hoạt động", color = Muted)
+                        Text("Trạng thái · $status", color = Muted, fontSize = 12.sp)
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showQuickPanel = false }) { Text("Đóng", color = Cyan) } }
+            )
         }
     }
 }
