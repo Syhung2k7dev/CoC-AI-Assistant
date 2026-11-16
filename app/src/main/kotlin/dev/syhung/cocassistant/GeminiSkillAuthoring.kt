@@ -59,6 +59,7 @@ object GeminiSkillAuthoring {
             require(script.optString("id") == skill.id && script.optInt("version", 0) == skill.version) {
                 "ID/version trong Skill Manifest và CASL script không khớp."
             }
+            CaslScriptRuntime(CaslApiRegistry(), { _, _ -> null }).validateProgramDocument(script)
             val draft = skill.copy(
                 status = SkillLifecycle.DRAFT,
                 scriptJson = script.toString(),
