@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -35,6 +38,11 @@ fun WorkflowStudioPanel(
     val selectedWorkflow = remember { mutableStateOf<Pair<String, Int>?>(null) }
     val busy = remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val showRunConfirm = remember { mutableStateOf(false) }
+    val runStatus = remember { mutableStateOf("") }
+    val activeSchedule = remember { mutableStateOf("") }
+    val selectedRecord = selectedWorkflow.value?.let { pair -> workflows.value.firstOrNull { it.optString("id") == pair.first && it.optInt("version") == pair.second } }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("WORKFLOW STUDIO", color = Color(0xFF4DD8D0), fontSize = 10.sp)
@@ -87,6 +95,29 @@ fun WorkflowStudioPanel(
                 }
                 if (selectedWorkflow.value != null) {
                     val selected = selectedWorkflow.value!!
+                    if (selectedRecord?.optString("lifecycle") == WorkflowLifecycle.VERIFIED.name) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { showRunConfirm.value = true }, enabled = !busy.value, modifier = Modifier.weight(1f)) { Text("Chạy ngay") }
+                            Button(onClick = {
+                                activeSchedule.value = WorkflowScheduler.scheduleOnce(context, selected.first, selected.second, System.currentTimeMillis() + 300_000L)
+                                runStatus.value = "Đã lên lịch chạy một lần sau 5 phút."
+                            }, modifier = Modifier.weight(1f)) { Text("Sau 5 phút") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                activeSchedule.value = WorkflowScheduler.schedulePeriodic(context, selected.first, selected.second, 15)
+                                runStatus.value = "Đã lên lịch lặp 15 phút."
+                            }, modifier = Modifier.weight(1f)) { Text("Lặp 15 phút") }
+                            Button(onClick = {
+                                if (activeSchedule.value.isNotBlank()) WorkflowScheduler.cancel(context, activeSchedule.value)
+                                activeSchedule.value = ""
+                                runStatus.value = "Đã hủy lịch."
+                            }, enabled = activeSchedule.value.isNotBlank(), modifier = Modifier.weight(1f)) { Text("Hủy lịch") }
+                        }
+                    } else {
+                        Text("Chỉ phiên bản VERIFIED mới được chạy hoặc lên lịch.", color = Color(0xFFFFC66D), fontSize = 10.sp)
+                    }
+                    if (runStatus.value.isNotBlank()) Text(runStatus.value, color = Color(0xFF4DD8D0), fontSize = 11.sp)
                     Text("Đang chọn " + selected.first + " · v" + selected.second, color = Color(0xFFFFC66D), fontSize = 11.sp)
                     Button(
                         onClick = {
@@ -155,5 +186,29 @@ fun WorkflowStudioPanel(
                 }
             }
         }
+    }
+    if (showRunConfirm.value && selectedWorkflow.value != null) {
+        val selected = selectedWorkflow.value!!
+        AlertDialog(
+            onDismissRequest = { showRunConfirm.value = false },
+            title = { Text("Xác nhận chạy Workflow") },
+            text = { Text("Chạy phiên bản VERIFIED ${selected.first} · v${selected.second}?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRunConfirm.value = false
+                    busy.value = true
+                    runStatus.value = "Workflow đang chạy..."
+                    scope.launch {
+                        try {
+                            val result = WorkflowEngine(context).execute(selected.first, selected.second, approved = true)
+                            runStatus.value = "Hoàn tất · ${result.executedSteps} bước."
+                        } catch (error: Exception) {
+                            runStatus.value = "Workflow thất bại: ${error.message ?: "lỗi không xác định"}"
+                        } finally { busy.value = false }
+                    }
+                }) { Text("Xác nhận chạy") }
+            },
+            dismissButton = { TextButton(onClick = { showRunConfirm.value = false }) { Text("Hủy") } }
+        )
     }
 }
