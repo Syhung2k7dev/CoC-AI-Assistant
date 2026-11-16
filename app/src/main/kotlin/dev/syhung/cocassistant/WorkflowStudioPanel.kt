@@ -114,7 +114,7 @@ fun WorkflowStudioPanel(
                                 runStatus.value = "Đã hủy lịch."
                             }, enabled = activeSchedule.value.isNotBlank(), modifier = Modifier.weight(1f)) { Text("Hủy lịch") }
                         }
-                    } else if (selectedRecord?.optString("lifecycle") in listOf(WorkflowLifecycle.DRAFT.name, WorkflowLifecycle.TESTING.name)) {
+                    } else if ((selectedRecord?.optString("lifecycle") == WorkflowLifecycle.DRAFT.name || selectedRecord?.optString("lifecycle") == WorkflowLifecycle.TESTING.name)) {
                         Button(
                             onClick = {
                                 busy.value = true
