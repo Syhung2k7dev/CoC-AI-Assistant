@@ -52,7 +52,7 @@ class CaslRuntimeTest {
                     .put("else", JSONArray().put(JSONObject().put("op", "output").put("name", "decision").put("value", "rejected"))))
                  .put(JSONObject().put("op", "output").put("name", "echo").put("value", JSONObject().put("$ref", "inputs.score")))
                 .put(JSONObject().put("op", "output").put("name", "firstTag").put("value", JSONObject().put("$ref", "inputs.tags.0"))))
-        val runtime = CaslScriptRuntime(CaslApiRegistry()) { _, _ -> null }
+        val runtime = CaslScriptRuntime(apiRegistry = CaslApiRegistry(), skillScriptProvider = { _, _ -> null })
         val result = runtime.execute(program, JSONObject().put("score", 9).put("blocked", false).put("tags", JSONArray().put("first").put("second")), userApproved = true)
         assertEquals("approved", result.outputs.getString("decision"))
         assertEquals(9, result.outputs.getInt("echo"))
@@ -65,7 +65,7 @@ class CaslRuntimeTest {
             .put("format", "CASL").put("schemaVersion", CaslScriptRuntime.SCHEMA_VERSION)
             .put("kind", "workflow").put("id", "test.workflow").put("version", 1)
             .put("steps", JSONArray().put(JSONObject().put("op", "call").put("api", "system.unknown")))
-        val runtime = CaslScriptRuntime(CaslApiRegistry()) { _, _ -> null }
+        val runtime = CaslScriptRuntime(apiRegistry = CaslApiRegistry(), skillScriptProvider = { _, _ -> null })
         assertThrows(CaslRuntimeException::class.java) {
             runBlocking { runtime.execute(program, userApproved = false) }
         }
@@ -80,7 +80,7 @@ class CaslRuntimeTest {
             .put("format", "CASL").put("schemaVersion", CaslScriptRuntime.SCHEMA_VERSION)
             .put("kind", "workflow").put("id", "test.workflow").put("version", 1)
             .put("steps", JSONArray().put(JSONObject().put("op", "skill").put("id", "vision.ocr")))
-        val runtime = CaslScriptRuntime(CaslApiRegistry()) { _, _ -> null }
+        val runtime = CaslScriptRuntime(apiRegistry = CaslApiRegistry(), skillScriptProvider = { _, _ -> null })
         assertThrows(CaslRuntimeException::class.java) {
             runtime.validateProgramDocument(program)
         }
