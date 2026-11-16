@@ -57,6 +57,7 @@ private fun CoCAssistantApp() {
     val scope = rememberCoroutineScope()
     val store = remember { CadssStore(context) }
     val skillRegistry = remember { AgentSkillRegistry(context).also { BuiltinSkillCatalog.install(it) } }
+    val workflowRegistry = remember { CaslWorkflowRegistry(context) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var note by rememberSaveable { mutableStateOf(store.getText("note", "")) }
     var apiKey by rememberSaveable { mutableStateOf("") }
@@ -305,7 +306,8 @@ private fun CoCAssistantApp() {
                         }
                     }
                     3 -> {
-                        item { PageIntro("Skill Library", "Thư viện năng lực mà AI Core có thể tra cứu và phối hợp.") }
+                        item { PageIntro("Agent Workbench", "Tạo công việc bằng Workflow và mở rộng năng lực bằng Skill.") }
+                        item { WorkflowStudioPanel(workflowRegistry, skillRegistry, apiKey) }
                         item { SkillLibraryPanel(skillRegistry, apiKey, selectedBitmap) }
                     }
                     4 -> {
