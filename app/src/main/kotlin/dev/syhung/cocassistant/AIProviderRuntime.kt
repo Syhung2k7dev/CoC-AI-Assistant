@@ -6,7 +6,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
@@ -146,16 +145,13 @@ internal class GeminiProviderAdapter(
         suspendCancellableCoroutine { continuation ->
             require(apiKey.isNotBlank()) { "Khóa API chưa được nhập" }
             val activeConnection = AtomicReference<HttpURLConnection?>(null)
-            val workerThread = AtomicReference<Thread?>(null)
 
             continuation.invokeOnCancellation {
                 activeConnection.getAndSet(null)?.disconnect()
-                workerThread.get()?.interrupt()
             }
 
             Dispatchers.IO.dispatch(continuation.context, Runnable {
                 if (!continuation.isActive) return@Runnable
-                workerThread.set(Thread.currentThread())
                 var connection: HttpURLConnection? = null
                 try {
                     val endpoint = URL("$BASE_URL/$model:generateContent")
@@ -200,12 +196,11 @@ internal class GeminiProviderAdapter(
                     if (continuation.isActive) {
                         continuation.resumeWith(Result.success(result))
                     }
-                } catch (error: Throwable) {
+                } catch (error: Exception) {
                     if (continuation.isActive) continuation.resumeWith(Result.failure(error))
                 } finally {
                     activeConnection.set(null)
                     connection?.disconnect()
-                    workerThread.set(null)
                 }
             })
         }
