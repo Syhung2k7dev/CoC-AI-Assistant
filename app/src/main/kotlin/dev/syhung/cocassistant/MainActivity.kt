@@ -153,7 +153,7 @@ private fun CoCAssistantApp() {
                             Row(Modifier.padding(horizontal = 11.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(7.dp).background(Cyan, CircleShape))
                                 Spacer(Modifier.width(7.dp))
-                                Text("CỤC BỘ", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Cyan)
+                                Text("TRÊN THIẾT BỊ", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Cyan)
                             }
                         }
                         Spacer(Modifier.width(14.dp))
@@ -215,7 +215,7 @@ private fun CoCAssistantApp() {
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 MetricCard("Mẫu hình ảnh", templateCount.toString(), "mẫu đã lưu", Icons.Default.Memory, Modifier.weight(1f))
-                                MetricCard("Phiên bản", "1.0", "CADSS schema", Icons.Default.Verified, Modifier.weight(1f))
+                                MetricCard("Phiên bản", "1.0", "Phiên bản CADSS", Icons.Default.Verified, Modifier.weight(1f))
                             }
                         }
                         item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Lối tắt nhanh") }
@@ -249,7 +249,7 @@ private fun CoCAssistantApp() {
                             PanelCard {
                                 Icon(Icons.Default.AutoAwesome, null, tint = Cyan, modifier = Modifier.size(30.dp))
                                 Text("Bộ máy xử lý ảnh OpenCV", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                                Text("Chọn ảnh từ thiết bị. Ứng dụng tạo perceptual hash và lưu metadata vào Bộ nhớ hình ảnh.", color = Muted, fontSize = 13.sp)
+                                Text("Chọn hình ảnh từ thiết bị. Ứng dụng tạo mã băm cảm nhận (pHash) và lưu thông tin vào bộ nhớ hình ảnh.", color = Muted, fontSize = 13.sp)
                                 Button(onClick = { picker.launch("image/*") }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
                                     Icon(Icons.Default.AddPhotoAlternate, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang xử lý..." else "Chọn hình ảnh để phân tích")
                                 }
@@ -257,7 +257,7 @@ private fun CoCAssistantApp() {
                                 if (visionResult.isNotBlank()) Text(visionResult, color = Cyan, fontSize = 12.sp)
                             }
                         }
-                        item { SectionHeading("VISION MEMORY", "Lịch sử hình ảnh đã phân tích") }
+                        item { SectionHeading("BỘ NHỚ HÌNH ẢNH", "Lịch sử hình ảnh đã phân tích") }
                         if (history.isEmpty()) item { EmptyState("Chưa có dữ liệu", "Hình ảnh bạn chọn sẽ xuất hiện tại đây.") }
                         items(history.take(30)) { obj ->
                             PanelCard {
@@ -278,8 +278,8 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Ví dụ quy tắc", color = Cyan, fontWeight = FontWeight.Bold)
-                                Text("IF condition → THEN action → ELSE fallback", color = White, fontSize = 15.sp)
-                                Text("CASL hiện hỗ trợ kiểm tra equals, not_equals, contains, greater_than và exists. Các hành động chỉ được mô tả/kiểm tra, không tự thao tác ứng dụng khác.", color = Muted, fontSize = 12.sp)
+                                Text("NẾU điều kiện đúng → THỰC HIỆN nhánh ĐÚNG → NGƯỢC LẠI thực hiện nhánh SAI", color = White, fontSize = 15.sp)
+                                Text("CASL hiện hỗ trợ các phép kiểm tra: tồn tại (exists), bằng (equals), khác (not_equals), chứa (contains), lớn hơn (greater_than), nhỏ hơn (less_than) và thuộc danh sách (in). Hành động chỉ được mô tả hoặc kiểm tra, không tự thao tác ứng dụng khác.", color = Muted, fontSize = 12.sp)
                                 Button(onClick = {
                                     val rule = JSONObject()
                                         .put("condition", JSONObject().put("path", "vision.confidence").put("op", "greater_than").put("value", 0.8))
@@ -297,12 +297,12 @@ private fun CoCAssistantApp() {
                             PanelCard {
                                 Text("Định dạng quy tắc", color = White, fontWeight = FontWeight.Bold)
                                 Text("Điều kiện: đường dẫn dữ liệu, phép so sánh, giá trị\nNhánh ĐÚNG: loại hành động, nội dung\nNhánh SAI: loại hành động, nội dung", color = Muted, fontSize = 12.sp)
-                                Text("Quy tắc tự động được kiểm tra trước khi lưu. Không hỗ trợ mã tùy ý hoặc thực thi lệnh hệ thống.", color = Muted, fontSize = 11.sp)
+                                Text("Quy tắc được kiểm tra trước khi lưu. Không hỗ trợ mã tùy ý hoặc thực thi lệnh hệ thống.", color = Muted, fontSize = 11.sp)
                             }
                         }
                     }
                     3 -> {
-                        item { PageIntro("Scheduler", "Theo dõi tác vụ định kỳ và chế độ tiết kiệm pin, tài nguyên.") }
+                        item { PageIntro("Lịch tác vụ", "Theo dõi tác vụ định kỳ và chế độ tiết kiệm pin, tài nguyên.") }
                         item {
                             PanelCard {
                                 Icon(Icons.Default.Bedtime, null, tint = Cyan, modifier = Modifier.size(30.dp))
@@ -389,9 +389,9 @@ private fun CoCAssistantApp() {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("CADSS · schema ${CadssStore.SCHEMA_VERSION}", color = Cyan)
-                        Text("Vision templates · $templateCount", color = White)
-                        Text("Scheduler · WorkManager", color = White)
-                        Text("Session · " + if (timerRunning) "đang chạy" else "không hoạt động", color = Muted)
+                        Text("Mẫu hình ảnh · $templateCount", color = White)
+                        Text("Lịch tác vụ · WorkManager", color = White)
+                        Text("Phiên làm việc · " + if (timerRunning) "đang chạy" else "không hoạt động", color = Muted)
                         Text("Trạng thái · $status", color = Muted, fontSize = 12.sp)
                     }
                 },
