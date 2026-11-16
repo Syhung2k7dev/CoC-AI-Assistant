@@ -306,7 +306,7 @@ private fun CoCAssistantApp() {
                     }
                     3 -> {
                         item { PageIntro("Skill Library", "Thư viện năng lực mà AI Core có thể tra cứu và phối hợp.") }
-                        item { SkillLibraryPanel(skillRegistry) }
+                        item { SkillLibraryPanel(skillRegistry, apiKey, selectedBitmap) }
                     }
                     4 -> {
                         item { PageIntro("Lịch tác vụ", "Theo dõi tác vụ định kỳ và chế độ tiết kiệm pin, tài nguyên.") }
