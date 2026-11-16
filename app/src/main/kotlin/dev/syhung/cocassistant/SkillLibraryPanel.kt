@@ -26,7 +26,7 @@ fun SkillLibraryPanel(registry: AgentSkillRegistry) {
     val categories = skills.map { it.category }.distinct()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("THƯ VIỆN SKILL", color = Color(0xFF4DD8D0), fontSize = 10.sp)
-        Text("\${skills.size} năng lực khai báo · \${categories.size} nhóm", color = Color.White, style = MaterialTheme.typography.titleLarge)
+        Text("${skills.size} năng lực khai báo · ${categories.size} nhóm", color = Color.White, style = MaterialTheme.typography.titleLarge)
         Text(
             "Các mục dưới đây là mô tả năng lực để Agent lựa chọn và phối hợp. Skill chỉ trở thành khả năng thực thi sau khi có workflow, kiểm thử và runtime tương ứng.",
             color = Color(0xFF9AA8C0), fontSize = 12.sp
@@ -50,7 +50,7 @@ fun SkillLibraryPanel(registry: AgentSkillRegistry) {
                             Text(skill.status.name, color = Color(0xFFFFC66D), fontSize = 9.sp)
                         }
                         Text(skill.description, color = Color(0xFF9AA8C0), fontSize = 11.sp)
-                        Text("ID: \${skill.id} · v\${skill.version}", color = Color(0xFF71819D), fontSize = 9.sp)
+                        Text("ID: ${skill.id} · v${skill.version}", color = Color(0xFF71819D), fontSize = 9.sp)
                     }
                 }
             }
