@@ -58,6 +58,7 @@ class AelmLifecycleManager(context: Context) {
         val base = skills.find(skillId, baseVersion)
             ?: return SkillDraftOutcome.Failed("Không tìm thấy phiên bản Skill gốc.")
         val nextVersion = baseVersion + 1
+        val apiInventory = sandboxApiNames().joinToString(", ")
         val prompt = """
             Bạn là AELM Skill Maintainer. Tạo phiên bản Skill mới dựa trên manifest và CASL script bên dưới.
             Chỉ thực hiện yêu cầu thay đổi, giữ nguyên phần không liên quan.
@@ -73,7 +74,7 @@ class AelmLifecycleManager(context: Context) {
             script phải là CASL JSON object có format=CASL, schemaVersion=1, kind=skill,
             id=$skillId, version=$nextVersion và steps.
             Chỉ dùng set, output, call, skill, if, repeat, wait, assert, log, return.
-            Skill dependency phải pin version. Chỉ gọi API test.* trong allow-list.
+            Skill dependency phải pin version. Chỉ gọi API trong allow-list sau: $apiInventory.
             Không tạo Kotlin/Java/JavaScript/shell, reflection hoặc mã thực thi tùy ý.
             Không tự đánh dấu VERIFIED. Phiên bản mới luôn là Draft.
         """.trimIndent()
