@@ -30,14 +30,18 @@ object GeminiSkillAuthoring {
 
             Trả về duy nhất một JSON object, không Markdown, theo các trường:
             id, name, description, category, version, inputs, outputs, dependencies,
-            capabilities, instructions, source, confidence, minAgentVersion,
+            capabilities, instructions, script, source, confidence, minAgentVersion,
             maxAgentVersion, dependencyVersions.
             capabilities chỉ được dùng: OBSERVE_SCREEN, READ_TEXT, ANALYZE_IMAGE, TAP, SWIPE, WAIT, VERIFY_STATE.
             dependencies chỉ được tham chiếu Skill ID có trong danh sách.
             Không tạo mã Kotlin, Java, shell, lệnh hệ thống hoặc nội dung thực thi tùy ý.
             Không tự đánh dấu Verified. Kết quả sẽ luôn được lưu ở Draft để kiểm thử.
             Nếu có ảnh tham chiếu, dùng ảnh đó làm dữ liệu quan sát và phân biệt điều đã thấy với suy luận.
-            instructions phải là hướng dẫn khai báo có thể kiểm tra, không phải mã nguồn.
+            instructions là mô tả ngắn. script là CASL JSON AST hoàn chỉnh, kind=skill,
+            id trùng id Skill, version trùng version Skill, schemaVersion=1.
+            script.steps chỉ dùng các op: set, call, skill, if, repeat, wait, assert, log, return.
+            Mỗi call phải gọi tên API trong danh sách API được cung cấp; không được tự bịa API.
+            Không tạo mã Kotlin, Java, JavaScript, shell, reflection hoặc nội dung thực thi tùy ý.
         """.trimIndent()
         return runCatching {
             val raw = GeminiClient.generate(apiKey, prompt, referenceImage)
@@ -45,9 +49,21 @@ object GeminiSkillAuthoring {
             val end = raw.lastIndexOf('}')
             require(start >= 0 && end > start) { "Gemini không trả về JSON Skill hợp lệ." }
             val parsed = JSONObject(raw.substring(start, end + 1))
+            val script = parsed.optJSONObject("script")
+                ?: error("Skill Draft phải có CASL script.")
+            require(script.optString("format") == "CASL" &&
+                script.optInt("schemaVersion", -1) == CaslScriptRuntime.SCHEMA_VERSION &&
+                script.optString("kind") == "skill") { "CASL script không đúng schema." }
             val skill = AgentSkill.fromJson(parsed)
                 ?: error("Skill không vượt qua kiểm tra schema.")
-            val draft = skill.copy(status = SkillLifecycle.DRAFT, source = "gemini_research")
+            require(script.optString("id") == skill.id && script.optInt("version", 0) == skill.version) {
+                "ID/version trong Skill Manifest và CASL script không khớp."
+            }
+            val draft = skill.copy(
+                status = SkillLifecycle.DRAFT,
+                scriptJson = script.toString(),
+                source = "gemini_research"
+            )
             require(registry.saveDraft(draft)) {
                 "Không thể lưu Skill. Hãy tăng version nếu ID đã tồn tại."
             }
