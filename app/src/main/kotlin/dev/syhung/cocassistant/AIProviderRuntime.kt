@@ -67,15 +67,6 @@ internal data class AIRetryPolicy(
 }
 
 internal fun interface AIProviderAdapter {
-    suspend fun generate(request: AIProviderRequest): String
-}
-
-/**
- * Shared connection lifecycle and bounded retry policy for provider adapters.
- * It deliberately does not silently switch providers: fallback requires an
- * explicit policy decision elsewhere in AI Core.
- */
-internal object AIProviderRuntime {
     suspend fun generate(
         adapter: AIProviderAdapter,
         request: AIProviderRequest,
@@ -84,52 +75,52 @@ internal object AIProviderRuntime {
     ): String {
         require(request.prompt.isNotBlank()) { "Nội dung yêu cầu chưa được nhập" }
         require(requestTimeoutMillis in 1_000L..300_000L) { "Request timeout không hợp lệ." }
-        var retries = 0
-        while (true) {
-            currentCoroutineContext().ensureActive()
-            try {
-                return withTimeout(requestTimeoutMillis) { adapter.generate(request) }
-            } catch (error: AIProviderException) {
-                if (!error.retryable || retries >= retryPolicy.maxRetries) throw error
-                delay(computeDelay(retries, error.retryAfterMillis, retryPolicy))
-                retries++
-            } catch (error: TimeoutCancellationException) {
-                if (retries >= retryPolicy.maxRetries) {
-                    throw AIProviderException(
-                        AIProviderFailure.TIMEOUT,
-                        "Yêu cầu AI vượt quá thời gian chờ tổng thể.",
-                        retryable = false,
-                        cause = error
-                    )
+        return try {
+            withTimeout(requestTimeoutMillis) {
+                var retries = 0
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    try {
+                        return@withTimeout adapter.generate(request)
+                    } catch (error: AIProviderException) {
+                        if (!error.retryable || retries >= retryPolicy.maxRetries) throw error
+                        delay(computeDelay(retries, error.retryAfterMillis, retryPolicy))
+                        retries++
+                    } catch (error: SocketTimeoutException) {
+                        if (retries >= retryPolicy.maxRetries) {
+                            throw AIProviderException(
+                                AIProviderFailure.TIMEOUT,
+                                "Kết nối AI hết thời gian chờ.",
+                                retryable = false,
+                                cause = error
+                            )
+                        }
+                        delay(computeDelay(retries, null, retryPolicy))
+                        retries++
+                    } catch (error: IOException) {
+                        if (retries >= retryPolicy.maxRetries) {
+                            throw AIProviderException(
+                                AIProviderFailure.NETWORK,
+                                "Không thể kết nối tới dịch vụ AI.",
+                                retryable = false,
+                                cause = error
+                            )
+                        }
+                        delay(computeDelay(retries, null, retryPolicy))
+                        retries++
+                    }
                 }
-                delay(computeDelay(retries, null, retryPolicy))
-                retries++
-            } catch (error: SocketTimeoutException) {
-                if (retries >= retryPolicy.maxRetries) {
-                    throw AIProviderException(
-                        AIProviderFailure.TIMEOUT,
-                        "Kết nối AI hết thời gian chờ.",
-                        retryable = false,
-                        cause = error
-                    )
-                }
-                delay(computeDelay(retries, null, retryPolicy))
-                retries++
-            } catch (error: IOException) {
-                if (retries >= retryPolicy.maxRetries) {
-                    throw AIProviderException(
-                        AIProviderFailure.NETWORK,
-                        "Không thể kết nối tới dịch vụ AI.",
-                        retryable = false,
-                        cause = error
-                    )
-                }
-                delay(computeDelay(retries, null, retryPolicy))
-                retries++
+                @Suppress("UNREACHABLE_CODE")
+                throw IllegalStateException("AI provider retry loop exited unexpectedly")
             }
+        } catch (error: TimeoutCancellationException) {
+            throw AIProviderException(
+                AIProviderFailure.TIMEOUT,
+                "Yêu cầu AI vượt quá thời gian chờ tổng thể.",
+                retryable = false,
+                cause = error
+            )
         }
-        @Suppress("UNREACHABLE_CODE")
-        throw IllegalStateException("AI provider runtime exited unexpectedly")
     }
 
     private fun computeDelay(
