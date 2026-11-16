@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Cho phép CoC Agent thực hiện các thao tác chạm và vuốt trong workflow do người dùng chủ động khởi chạy. Có thể tạm dừng hoặc dừng bất cứ lúc nào.</string>
+</resources>
