@@ -42,3 +42,8 @@ Các phần OCR, workflow editor JSON hoàn chỉnh, vòng lặp Agent tự xác
 - [Kiến trúc Skill và HVCS](docs/ARCHITECTURE_SKILLS_HVCS.md)
 
 CI thành công chỉ xác nhận quá trình build; vẫn cần cài và kiểm tra trên thiết bị Android thật, bao gồm khả năng bật Accessibility trên từng phiên bản Android/ColorOS.
+
+
+## CASL và Workflow Engine
+
+- [Đặc tả CASL JSON DSL, Script Runtime, Workflow Engine và Scheduler](docs/CASL_WORKFLOW_ENGINE.md)
