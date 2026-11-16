@@ -141,9 +141,11 @@ internal class GeminiProviderAdapter(
     private val connectTimeoutMillis: Int = 15_000,
     private val readTimeoutMillis: Int = 45_000
 ) : AIProviderAdapter {
-    override suspend fun generate(request: AIProviderRequest): String =
-        suspendCancellableCoroutine { continuation ->
-            require(apiKey.isNotBlank()) { "Khóa API chưa được nhập" }
+    override suspend fun generate(request: AIProviderRequest): String {
+        require(apiKey.isNotBlank()) { "Khóa API chưa được nhập" }
+        require(connectTimeoutMillis in 1_000..120_000) { "Connect timeout không hợp lệ." }
+        require(readTimeoutMillis in 1_000..180_000) { "Read timeout không hợp lệ." }
+        return suspendCancellableCoroutine { continuation ->
             val activeConnection = AtomicReference<HttpURLConnection?>(null)
 
             continuation.invokeOnCancellation {
@@ -204,6 +206,7 @@ internal class GeminiProviderAdapter(
                 }
             })
         }
+    }
 
     private fun createPayload(request: AIProviderRequest): String {
         val parts = JSONArray().put(JSONObject().put("text", request.prompt))
@@ -263,19 +266,23 @@ internal class GeminiProviderAdapter(
             ?.takeIf { it >= 0L }
             ?.coerceAtMost(30L)
             ?.times(1_000L)
-        val detail = body.replace(Regex("\\s+"), " ").take(240)
         return AIProviderException(
             failure = failure,
-            message = if (detail.isBlank()) "Gemini trả về lỗi HTTP $status."
-                else "Gemini trả về lỗi HTTP $status: $detail",
+            message = when (status) {
+                401, 403 -> "Thông tin xác thực Gemini không hợp lệ hoặc không đủ quyền."
+                404 -> "Model Gemini không khả dụng."
+                429 -> "Gemini đang giới hạn tốc độ yêu cầu."
+                in 500..599 -> "Dịch vụ Gemini đang gặp sự cố tạm thời."
+                else -> "Gemini trả về lỗi HTTP $status."
+            },
             httpStatus = status,
             retryable = retryable,
             retryAfterMillis = retryAfterMillis
         )
     }
 
-    private companion object {
-        const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-        internal const val DEFAULT_MODEL = "gemini-3.8-flash"
+    companion object {
+        private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+        const val DEFAULT_MODEL = "gemini-3.8-flash"
     }
 }
