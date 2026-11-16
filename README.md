@@ -38,5 +38,6 @@ Các phần OCR, workflow editor JSON hoàn chỉnh, vòng lặp Agent tự xác
 - [Hướng dẫn sử dụng](docs/HUONG_DAN_SU_DUNG.md)
 - [Kiến trúc CADSS/CASL](docs/KIEN_TRUC_CADSS_CASL.md)
 - [Lộ trình CoC Agent](docs/ROADMAP_COC_AGENT.md)
+- [Kiến trúc Skill và HVCS](docs/ARCHITECTURE_SKILLS_HVCS.md)
 
 CI thành công chỉ xác nhận quá trình build; vẫn cần cài và kiểm tra trên thiết bị Android thật, bao gồm khả năng bật Accessibility trên từng phiên bản Android/ColorOS.
