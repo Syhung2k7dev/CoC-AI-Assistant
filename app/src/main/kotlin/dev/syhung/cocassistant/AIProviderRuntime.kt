@@ -183,10 +183,11 @@ internal class GeminiProviderAdapter(
                     }
 
                     val status = connection.responseCode
-                    val responseBody = (if (status in 200..299) connection.inputStream else connection.errorStream)
-                        ?.bufferedReader(Charsets.UTF_8)
-                        ?.use { it.readText() }
-                        .orEmpty()
+                    val responseBody = if (status in 200..299) {
+                        connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    } else {
+                        ""
+                    }
 
                     if (status !in 200..299) {
                         throw httpFailure(status, responseBody, connection.getHeaderField("Retry-After"))
