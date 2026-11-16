@@ -248,6 +248,10 @@ class AelmLifecycleManager(context: Context) {
     }
 
     private fun sandboxRegistry(): CaslApiRegistry = CaslApiRegistry().apply {
+        register("memory.read") { _, _ -> JSONObject().put("records", JSONArray()) }
+        register("memory.write") { _, _ -> JSONObject().put("written", true) }
+        register("memory.append") { _, _ -> JSONObject().put("appended", true) }
+        register("system.time") { _, _ -> JSONObject().put("epochMillis", 1_700_000_000_000L) }
         register("test.echo") { arguments, _ -> JSONObject(arguments.toString()) }
         register("test.constant") { arguments, _ ->
             JSONObject().put("value", arguments.opt("value") ?: JSONObject.NULL)
@@ -260,7 +264,7 @@ class AelmLifecycleManager(context: Context) {
     }
 
     private fun sandboxApiNames(): List<String> =
-        listOf("test.echo", "test.constant", "test.input", "test.clock")
+        listOf("memory.read", "memory.write", "memory.append", "system.time", "test.echo", "test.constant", "test.input", "test.clock")
 
     private fun resolvePath(root: JSONObject, path: String): Any? {
         var current: Any? = root
