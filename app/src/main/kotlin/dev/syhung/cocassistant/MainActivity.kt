@@ -56,6 +56,7 @@ private fun CoCAssistantApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { CadssStore(context) }
+    val skillRegistry = remember { AgentSkillRegistry(context).also { BuiltinSkillCatalog.install(it) } }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var note by rememberSaveable { mutableStateOf(store.getText("note", "")) }
     var apiKey by rememberSaveable { mutableStateOf("") }
@@ -167,6 +168,7 @@ private fun CoCAssistantApp() {
                         "Tổng quan" to Icons.Default.Dashboard,
                         "Thị giác" to Icons.Default.Visibility,
                         "CASL" to Icons.Default.AccountTree,
+                        "Skills" to Icons.Default.AutoAwesome,
                         "Lịch" to Icons.Default.Schedule,
                         "Cài đặt" to Icons.Default.Settings
                     )
@@ -303,6 +305,10 @@ private fun CoCAssistantApp() {
                         }
                     }
                     3 -> {
+                        item { PageIntro("Skill Library", "Thư viện năng lực mà AI Core có thể tra cứu và phối hợp.") }
+                        item { SkillLibraryPanel(skillRegistry) }
+                    }
+                    4 -> {
                         item { PageIntro("Lịch tác vụ", "Theo dõi tác vụ định kỳ và chế độ tiết kiệm pin, tài nguyên.") }
                         item {
                             PanelCard {
