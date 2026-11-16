@@ -165,7 +165,7 @@ private fun CoCAssistantApp() {
                 NavigationBar(containerColor = Panel, contentColor = White) {
                     val items = listOf(
                         "Tổng quan" to Icons.Default.Dashboard,
-                        "Vision" to Icons.Default.Visibility,
+                        "Thị giác" to Icons.Default.Visibility,
                         "CASL" to Icons.Default.AccountTree,
                         "Lịch" to Icons.Default.Schedule,
                         "Cài đặt" to Icons.Default.Settings
