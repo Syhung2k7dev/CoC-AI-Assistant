@@ -1,6 +1,7 @@
 package dev.syhung.cocassistant
 
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 
 sealed class ActionDispatchResult {
     data class Accepted(val skillId: String) : ActionDispatchResult()
@@ -9,6 +10,40 @@ sealed class ActionDispatchResult {
 
 /** Single gate between declarative Skill requests and Android Accessibility gestures. */
 object ActionExecutor {
+
+    /** Await one native action so the CASL interpreter cannot race ahead of the gesture. */
+    suspend fun executeAwait(
+        context: Context,
+        registry: AgentSkillRegistry,
+        request: SkillActionRequest,
+        userApproved: Boolean = false
+    ): ActionDispatchResult {
+        if (!userApproved) return ActionDispatchResult.Rejected("Cần xác nhận của người dùng trước khi thực thi.")
+        if (!request.validate()) return ActionDispatchResult.Rejected("Yêu cầu thao tác không hợp lệ.")
+        val skill = registry.find(request.skillId, request.skillVersion)
+            ?: return ActionDispatchResult.Rejected("Không tìm thấy đúng phiên bản Skill.")
+        if (skill.status != SkillLifecycle.VERIFIED) return ActionDispatchResult.Rejected("Chỉ Skill đã xác minh mới được thực thi.")
+        if (request.capability !in skill.capabilities) return ActionDispatchResult.Rejected("Skill không khai báo capability được yêu cầu.")
+        val metrics = context.resources.displayMetrics
+        val x1 = request.normalizedX?.let { HvcsVision.toPixel(it, metrics.widthPixels) }
+        val y1 = request.normalizedY?.let { HvcsVision.toPixel(it, metrics.heightPixels) }
+        val x2 = request.endNormalizedX?.let { HvcsVision.toPixel(it, metrics.widthPixels) }
+        val y2 = request.endNormalizedY?.let { HvcsVision.toPixel(it, metrics.heightPixels) }
+        val step = when (request.capability) {
+            SkillActionCapability.TAP -> AutomationStep.Tap(x1!!.toFloat(), y1!!.toFloat(), request.durationMs ?: 100L)
+            SkillActionCapability.SWIPE -> AutomationStep.Swipe(
+                x1!!.toFloat(), y1!!.toFloat(), x2!!.toFloat(), y2!!.toFloat(), request.durationMs!!
+            )
+            SkillActionCapability.WAIT -> AutomationStep.Wait(request.durationMs!!)
+            else -> return ActionDispatchResult.Rejected("Capability này chưa có bộ thực thi.")
+        }
+        return if (CoCAccessibilityService.performSingleStep(step)) {
+            ActionDispatchResult.Accepted(skill.id)
+        } else {
+            ActionDispatchResult.Rejected("Accessibility Runtime chưa sẵn sàng hoặc từ chối thao tác.")
+        }
+    }
+
     fun execute(
         context: Context,
         registry: AgentSkillRegistry,
@@ -17,7 +52,7 @@ object ActionExecutor {
     ): ActionDispatchResult {
         if (!userApproved) return ActionDispatchResult.Rejected("Cần xác nhận của người dùng trước khi thực thi.")
         if (!request.validate()) return ActionDispatchResult.Rejected("Yêu cầu thao tác không hợp lệ.")
-        val skill = registry.find(request.skillId)
+        val skill = registry.find(request.skillId, request.skillVersion)
             ?: return ActionDispatchResult.Rejected("Không tìm thấy Skill.")
         if (skill.status != SkillLifecycle.VERIFIED) {
             return ActionDispatchResult.Rejected("Chỉ Skill đã xác minh mới được thực thi.")
