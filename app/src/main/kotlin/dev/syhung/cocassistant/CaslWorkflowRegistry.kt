@@ -18,9 +18,15 @@ class CaslWorkflowRegistry(context: Context) {
 
     @Synchronized
     fun find(id: String, version: Int? = null): JSONObject? =
-        all().firstOrNull {
+        all().filter {
             it.optString("id") == id &&
                 (version == null || it.optInt("version") == version)
+        }.maxByOrNull { it.optInt("version") }
+
+    @Synchronized
+    fun findVerified(id: String, version: Int? = null): JSONObject? =
+        find(id, version)?.takeIf {
+            it.optString("lifecycle") == WorkflowLifecycle.VERIFIED.name
         }
 
     @Synchronized
