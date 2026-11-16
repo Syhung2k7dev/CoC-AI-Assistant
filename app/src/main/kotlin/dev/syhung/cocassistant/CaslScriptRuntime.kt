@@ -316,7 +316,10 @@ class CaslScriptRuntime(
         var current: Any? = root
         path.split('.').forEach { part ->
             current = when (val value = current) {
-                is JSONObject -> if (value.has(part)) value.opt(part) else null
+                is JSONObject -> if (value.has(part)) value.opt(part) else return null
+                is JSONArray -> part.toIntOrNull()
+                    ?.takeIf { it in 0 until value.length() }
+                    ?.let(value::opt) ?: return null
                 else -> return null
             }
         }
