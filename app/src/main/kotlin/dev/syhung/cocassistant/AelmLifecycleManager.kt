@@ -281,6 +281,21 @@ class AelmLifecycleManager(context: Context) {
                 JSONObject().put("appended", true)
             }
             register("system.time") { _, _ -> JSONObject().put("epochMillis", 1_700_000_000_000L) }
+            register("action.tap") { arguments, context ->
+                require(arguments.optInt("x", -1) in 0..1000 && arguments.optInt("y", -1) in 0..1000)
+                require(arguments.optLong("durationMs", 100L) in 50L..10_000L)
+                JSONObject().put("accepted", true).put("skillId", context.optString("skillId"))
+            }
+            register("action.swipe") { arguments, context ->
+                require(arguments.optInt("x", -1) in 0..1000 && arguments.optInt("y", -1) in 0..1000)
+                require(arguments.optInt("endX", -1) in 0..1000 && arguments.optInt("endY", -1) in 0..1000)
+                require(arguments.optLong("durationMs", -1L) in 50L..10_000L)
+                JSONObject().put("accepted", true).put("skillId", context.optString("skillId"))
+            }
+            register("action.wait") { arguments, context ->
+                require(arguments.optLong("durationMs", -1L) in 100L..60_000L)
+                JSONObject().put("completed", true).put("skillId", context.optString("skillId"))
+            }
             register("test.echo") { arguments, _ -> JSONObject(arguments.toString()) }
             register("test.constant") { arguments, _ ->
                 JSONObject().put("value", arguments.opt("value") ?: JSONObject.NULL)
@@ -294,7 +309,7 @@ class AelmLifecycleManager(context: Context) {
     }
 
     private fun sandboxApiNames(): List<String> =
-        listOf("memory.read", "memory.write", "memory.append", "system.time", "test.echo", "test.constant", "test.input", "test.clock")
+        listOf("memory.read", "memory.write", "memory.append", "system.time", "action.tap", "action.swipe", "action.wait", "test.echo", "test.constant", "test.input", "test.clock")
 
     private fun resolvePath(root: JSONObject, path: String): Any? {
         var current: Any? = root
