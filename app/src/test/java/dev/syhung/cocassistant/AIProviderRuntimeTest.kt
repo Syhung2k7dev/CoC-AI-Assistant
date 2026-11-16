@@ -1,5 +1,9 @@
 package dev.syhung.cocassistant
 
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -84,4 +88,25 @@ class AIProviderRuntimeTest {
         }
         assertEquals(0, calls)
     }
+    @Test
+    fun cancellationIsPropagatedToProviderCall() = runBlocking {
+        var started = false
+        val adapter = AIProviderAdapter {
+            started = true
+            awaitCancellation()
+        }
+        val job = launch {
+            AIProviderRuntime.generate(
+                adapter,
+                AIProviderRequest("hello"),
+                noWait
+            )
+        }
+
+        while (!started) delay(1)
+        job.cancelAndJoin()
+
+        assertEquals(true, job.isCancelled)
+    }
+
 }
