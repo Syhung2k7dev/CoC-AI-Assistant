@@ -73,7 +73,7 @@ fun WorkflowStudioPanel(
                             status.value = "Gemini đang thiết kế Workflow..."
                             scope.launch {
                                 when (val result = GeminiWorkflowAuthoring.createDraft(
-                                    apiKey, goal.value, registry, skills
+                                    apiKey, goal.value, registry, skills, WorkflowEngine.AVAILABLE_API_NAMES
                                 )) {
                                     is WorkflowDraftOutcome.Created -> {
                                         workflows.value = registry.all()
@@ -149,7 +149,7 @@ fun WorkflowStudioPanel(
                                 status.value = "Gemini đang sửa Workflow và tạo phiên bản mới..."
                                 scope.launch {
                                     when (val result = GeminiWorkflowAuthoring.reviseDraft(
-                                        apiKey, selected.first, selected.second, goal.value, registry, skills
+                                        apiKey, selected.first, selected.second, goal.value, registry, skills, WorkflowEngine.AVAILABLE_API_NAMES
                                     )) {
                                         is WorkflowDraftOutcome.Created -> {
                                             workflows.value = registry.all()
