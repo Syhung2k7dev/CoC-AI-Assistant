@@ -32,6 +32,7 @@ fun WorkflowStudioPanel(
     val goal = remember { mutableStateOf("Tạo Workflow mới theo mục tiêu của tôi.") }
     val workflows = remember { mutableStateOf(registry.all()) }
     val status = remember { mutableStateOf("") }
+    val selectedWorkflow = remember { mutableStateOf<Pair<String, Int>?>(null) }
     val busy = remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -84,6 +85,39 @@ fun WorkflowStudioPanel(
                 ) {
                     Text(if (busy.value) "Đang thiết kế..." else "Gemini tạo Workflow Draft")
                 }
+                if (selectedWorkflow.value != null) {
+                    val selected = selectedWorkflow.value!!
+                    Text("Đang chọn " + selected.first + " · v" + selected.second, color = Color(0xFFFFC66D), fontSize = 11.sp)
+                    Button(
+                        onClick = {
+                            if (apiKey.isBlank()) {
+                                status.value = "Chưa có Gemini API Key."
+                            } else {
+                                busy.value = true
+                                status.value = "Gemini đang sửa Workflow và tạo phiên bản mới..."
+                                scope.launch {
+                                    when (val result = GeminiWorkflowAuthoring.reviseDraft(
+                                        apiKey, selected.first, selected.second, goal.value, registry, skills
+                                    )) {
+                                        is WorkflowDraftOutcome.Created -> {
+                                            workflows.value = registry.all()
+                                            status.value = "Đã tạo phiên bản " + result.workflow.optInt("version") +
+                                                if (result.missingSkills.isEmpty()) "" else
+                                                    " · Thiếu Skill: " + result.missingSkills.joinToString()
+                                        }
+                                        is WorkflowDraftOutcome.Failed -> status.value = result.reason
+                                    }
+                                    busy.value = false
+                                }
+                            }
+                        },
+                        enabled = !busy.value && goal.value.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF267D75))
+                    ) {
+                        Text("Gemini sửa Workflow thành phiên bản mới")
+                    }
+                }
                 if (status.value.isNotBlank()) {
                     Text(status.value, color = Color(0xFF4DD8D0), fontSize = 11.sp)
                 }
@@ -108,6 +142,15 @@ fun WorkflowStudioPanel(
                         Text("CASL schema " + workflow.optInt("schemaVersion") +
                             " · " + (workflow.optJSONArray("steps")?.length() ?: 0) + " bước",
                             color = Color(0xFF9AA8C0), fontSize = 10.sp)
+                        Button(
+                            onClick = {
+                                selectedWorkflow.value = workflow.optString("id") to workflow.optInt("version")
+                                goal.value = "Cải tiến Workflow này theo yêu cầu mới, giữ nguyên phần đang hoạt động."
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF26354D))
+                        ) {
+                            Text("Chọn để AI sửa", fontSize = 10.sp)
+                        }
                     }
                 }
             }
