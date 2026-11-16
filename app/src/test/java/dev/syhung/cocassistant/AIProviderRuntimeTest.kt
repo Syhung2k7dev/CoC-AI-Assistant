@@ -111,7 +111,7 @@ class AIProviderRuntimeTest {
 
 
     @Test
-    fun overallRequestTimeoutIsClassifiedAsTimeout() = runBlocking {
+    fun overallRequestTimeoutIsClassifiedAsTimeout(): Unit = runBlocking {
         val adapter = AIProviderAdapter { awaitCancellation() }
         assertThrows(AIProviderException::class.java) {
             runBlocking {
