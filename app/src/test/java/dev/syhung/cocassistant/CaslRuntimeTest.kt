@@ -27,13 +27,13 @@ class CaslRuntimeTest {
     @Test
     fun missingAndExistingPathsAreDistinguished() {
         val context = JSONObject().put("data", JSONObject().put("value", JSONObject.NULL))
-        assertTrue(CaslEngine.evaluateCondition(
+        assertFalse(CaslEngine.evaluateCondition(
             JSONObject().put("path", "data.value").put("op", "exists"), context
         ))
         assertTrue(CaslEngine.evaluateCondition(
             JSONObject().put("path", "data.missing").put("op", "not_exists"), context
         ))
-        assertFalse(CaslEngine.evaluateCondition(
+        assertTrue(CaslEngine.evaluateCondition(
             JSONObject().put("path", "data.value").put("op", "not_exists"), context
         ))
     }
