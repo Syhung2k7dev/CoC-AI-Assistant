@@ -59,7 +59,7 @@ private fun CoCAssistantApp() {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var note by rememberSaveable { mutableStateOf(store.getText("note", "")) }
     var apiKey by rememberSaveable { mutableStateOf("") }
-    var prompt by rememberSaveable { mutableStateOf("Phân tích ảnh và tóm tắt những thông tin quan trọng.") }
+    var prompt by rememberSaveable { mutableStateOf("Phân tích hình ảnh và tóm tắt những thông tin quan trọng.") }
     var aiResult by remember { mutableStateOf("") }
     var visionResult by remember { mutableStateOf("") }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -97,15 +97,15 @@ private fun CoCAssistantApp() {
                         history = store.getRecords("vision_memory")
                         templateCount = store.count("template_memory")
                         visionResult = if (match.record == null) {
-                            "Đã xử lý ảnh bằng OpenCV và học mẫu mới.\npHash: $hash"
+                            "Đã xử lý hình ảnh bằng OpenCV và ghi nhận mẫu mới.\npHash: $hash"
                         } else {
-                            "Đã xử lý ảnh bằng OpenCV.\nĐộ khác biệt với mẫu gần nhất: ${match.distance}/64\n" +
-                                if (novel) "Đã học mẫu mới." else "Đã nhận diện mẫu tương tự."
+                            "Đã xử lý hình ảnh bằng OpenCV.\nĐộ khác biệt với mẫu gần nhất: ${match.distance}/64\n" +
+                                if (novel) "Đã ghi nhận mẫu mới." else "Đã nhận ra mẫu tương tự."
                         }
-                        status = "Vision hoạt động"
-                    } else visionResult = "Không thể đọc ảnh đã chọn."
+                        status = "Bộ xử lý ảnh đang hoạt động"
+                    } else visionResult = "Không thể đọc hình ảnh đã chọn."
                 } catch (e: Exception) {
-                    visionResult = "Lỗi xử lý ảnh: ${e.message ?: "không xác định"}"
+                    visionResult = "Lỗi xử lý hình ảnh: ${e.message ?: "không xác định"}"
                 } finally { busy = false }
             }
         }
@@ -113,8 +113,8 @@ private fun CoCAssistantApp() {
 
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) runCatching { BackupManager.export(context, uri, store) }
-            .onSuccess { status = "Đã xuất bản sao lưu CADSS" }
-            .onFailure { status = "Xuất backup thất bại: ${it.message}" }
+            .onSuccess { status = "Đã sao lưu dữ liệu CADSS" }
+            .onFailure { status = "Sao lưu backup thất bại: ${it.message}" }
     }
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) runCatching { BackupManager.restore(context, uri, store) }
@@ -145,7 +145,7 @@ private fun CoCAssistantApp() {
                     title = {
                         Column {
                             Text("CoC AI", fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = White)
-                            Text("PERSONAL INTELLIGENCE HUB", fontSize = 9.sp, letterSpacing = 1.8.sp, color = Muted)
+                            Text("TRUNG TÂM TRÍ TUỆ CÁ NHÂN", fontSize = 9.sp, letterSpacing = 1.8.sp, color = Muted)
                         }
                     },
                     actions = {
@@ -153,7 +153,7 @@ private fun CoCAssistantApp() {
                             Row(Modifier.padding(horizontal = 11.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(7.dp).background(Cyan, CircleShape))
                                 Spacer(Modifier.width(7.dp))
-                                Text("LOCAL", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Cyan)
+                                Text("CỤC BỘ", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Cyan)
                             }
                         }
                         Spacer(Modifier.width(14.dp))
@@ -199,35 +199,35 @@ private fun CoCAssistantApp() {
                                 RoundedCornerShape(24.dp)
                             ).padding(20.dp)) {
                                 Column {
-                                    Text("YOUR WORKSPACE", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                                    Text("KHÔNG GIAN LÀM VIỆC", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
                                     Spacer(Modifier.height(10.dp))
                                     Text("Xin chào!", color = White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                                     Text("Mọi công cụ AI và dữ liệu cá nhân trong một nơi.", color = Color(0xFFCFD7E8), fontSize = 13.sp)
                                     Spacer(Modifier.height(18.dp))
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        StatusChip("CADSS", "READY")
-                                        StatusChip("CASL", "READY")
-                                        StatusChip("VISION", if (templateCount > 0) "ACTIVE" else "IDLE")
+                                        StatusChip("CADSS", "SẴN SÀNG")
+                                        StatusChip("CASL", "SẴN SÀNG")
+                                        StatusChip("VISION", if (templateCount > 0) "HOẠT ĐỘNG" else "CHỜ")
                                     }
                                 }
                             }
                         }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                MetricCard("Bộ nhớ ảnh", templateCount.toString(), "mẫu đã lưu", Icons.Default.Memory, Modifier.weight(1f))
+                                MetricCard("Mẫu hình ảnh", templateCount.toString(), "mẫu đã lưu", Icons.Default.Memory, Modifier.weight(1f))
                                 MetricCard("Phiên bản", "1.0", "CADSS schema", Icons.Default.Verified, Modifier.weight(1f))
                             }
                         }
-                        item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Truy cập nhanh") }
+                        item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Lối tắt nhanh") }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                QuickCard("Phân tích ảnh", "OpenCV cục bộ", Icons.Default.ImageSearch, Modifier.weight(1f)) { selectedTab = 1 }
-                                QuickCard("Quy tắc", "CASL JSON DSL", Icons.Default.AccountTree, Modifier.weight(1f)) { selectedTab = 2 }
+                                QuickCard("Phân tích hình ảnh", "OpenCV cục bộ", Icons.Default.ImageSearch, Modifier.weight(1f)) { selectedTab = 1 }
+                                QuickCard("Quy tắc tự động", "Ngôn ngữ quy tắc JSON CASL", Icons.Default.AccountTree, Modifier.weight(1f)) { selectedTab = 2 }
                             }
                         }
                         item {
                             PanelCard {
-                                SectionHeading("GHI CHÚ CÁ NHÂN", "Lưu cục bộ")
+                                SectionHeading("GHI CHÚ CÁ NHÂN", "Lưu trên thiết bị")
                                 OutlinedTextField(
                                     value = note, onValueChange = { note = it },
                                     modifier = Modifier.fillMaxWidth(), minLines = 3,
@@ -241,24 +241,24 @@ private fun CoCAssistantApp() {
                                 ) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Lưu ghi chú") }
                             }
                         }
-                        item { PanelCard { Text("TRẠNG THÁI HỆ THỐNG", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(10.dp)); Text(status, color = Cyan, fontWeight = FontWeight.SemiBold); Text("Dữ liệu lưu trên thiết bị. AI chỉ kết nối khi bạn chủ động gửi yêu cầu.", color = Muted, fontSize = 12.sp) } }
+                        item { PanelCard { Text("TÌNH TRẠNG HỆ THỐNG", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(10.dp)); Text(status, color = Cyan, fontWeight = FontWeight.SemiBold); Text("Dữ liệu lưu trên thiết bị. AI chỉ kết nối khi bạn chủ động gửi yêu cầu.", color = Muted, fontSize = 12.sp) } }
                     }
                     1 -> {
-                        item { PageIntro("Vision Studio", "Phân tích ảnh cục bộ và lưu dấu vân tay thị giác.") }
+                        item { PageIntro("Không gian thị giác", "Phân tích hình ảnh cục bộ và lưu dấu vân tay thị giác.") }
                         item {
                             PanelCard {
                                 Icon(Icons.Default.AutoAwesome, null, tint = Cyan, modifier = Modifier.size(30.dp))
-                                Text("OpenCV Vision Engine", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                                Text("Chọn ảnh từ thiết bị. Ứng dụng tạo perceptual hash và lưu metadata vào Vision Memory.", color = Muted, fontSize = 13.sp)
+                                Text("Bộ máy xử lý ảnh OpenCV", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                Text("Chọn ảnh từ thiết bị. Ứng dụng tạo perceptual hash và lưu metadata vào Bộ nhớ hình ảnh.", color = Muted, fontSize = 13.sp)
                                 Button(onClick = { picker.launch("image/*") }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-                                    Icon(Icons.Default.AddPhotoAlternate, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang xử lý..." else "Chọn ảnh để phân tích")
+                                    Icon(Icons.Default.AddPhotoAlternate, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang xử lý..." else "Chọn hình ảnh để phân tích")
                                 }
                                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Cyan)
                                 if (visionResult.isNotBlank()) Text(visionResult, color = Cyan, fontSize = 12.sp)
                             }
                         }
-                        item { SectionHeading("VISION MEMORY", "Lịch sử ảnh đã phân tích") }
-                        if (history.isEmpty()) item { EmptyState("Chưa có dữ liệu", "Ảnh được chọn sẽ xuất hiện tại đây.") }
+                        item { SectionHeading("VISION MEMORY", "Lịch sử hình ảnh đã phân tích") }
+                        if (history.isEmpty()) item { EmptyState("Chưa có dữ liệu", "Hình ảnh bạn chọn sẽ xuất hiện tại đây.") }
                         items(history.take(30)) { obj ->
                             PanelCard {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -268,13 +268,13 @@ private fun CoCAssistantApp() {
                                         Text(obj.optString("label", "Vision record"), fontWeight = FontWeight.SemiBold)
                                         Text(obj.optString("hash", ""), color = Muted, fontSize = 11.sp)
                                     }
-                                    Text("LOCAL", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text("CỤC BỘ", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     }
                     2 -> {
-                        item { PageIntro("CASL Rule Studio", "Tạo và kiểm tra luồng IF / ELSE bằng JSON DSL an toàn.") }
+                        item { PageIntro("Trình quản lý quy tắc CASL", "Tạo và kiểm tra luồng IF / ELSE bằng JSON DSL an toàn.") }
                         item {
                             PanelCard {
                                 Text("Ví dụ quy tắc", color = Cyan, fontWeight = FontWeight.Bold)
@@ -288,28 +288,28 @@ private fun CoCAssistantApp() {
                                     val result = CaslEngine.evaluate(rule, JSONObject().put("vision", JSONObject().put("confidence", 0.92)))
                                     aiResult = "Kết quả kiểm tra: ${result.branch}\nHành động: ${result.action}"
                                 }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-                                    Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text("Chạy kiểm tra mẫu")
+                                    Icon(Icons.Default.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text("Chạy thử quy tắc mẫu")
                                 }
                                 if (aiResult.isNotBlank()) Text(aiResult, color = Cyan, fontSize = 12.sp)
                             }
                         }
                         item {
                             PanelCard {
-                                Text("Định dạng DSL", color = White, fontWeight = FontWeight.Bold)
-                                Text("condition: { path, op, value }\nthen: { type, value }\nelse: { type, value }", color = Muted, fontSize = 12.sp)
-                                Text("Quy tắc được kiểm tra trước khi lưu. Không hỗ trợ mã tùy ý hoặc thực thi lệnh hệ thống.", color = Muted, fontSize = 11.sp)
+                                Text("Định dạng quy tắc", color = White, fontWeight = FontWeight.Bold)
+                                Text("Điều kiện: đường dẫn dữ liệu, phép so sánh, giá trị\nNhánh ĐÚNG: loại hành động, nội dung\nNhánh SAI: loại hành động, nội dung", color = Muted, fontSize = 12.sp)
+                                Text("Quy tắc tự động được kiểm tra trước khi lưu. Không hỗ trợ mã tùy ý hoặc thực thi lệnh hệ thống.", color = Muted, fontSize = 11.sp)
                             }
                         }
                     }
                     3 -> {
-                        item { PageIntro("Scheduler", "Theo dõi tác vụ định kỳ và chế độ tiết kiệm tài nguyên.") }
+                        item { PageIntro("Scheduler", "Theo dõi tác vụ định kỳ và chế độ tiết kiệm pin, tài nguyên.") }
                         item {
                             PanelCard {
                                 Icon(Icons.Default.Bedtime, null, tint = Cyan, modifier = Modifier.size(30.dp))
-                                Text("Deep Sleep", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                                Text("Cho phép hệ thống Android quản lý thời điểm chạy tác vụ nền. Không duy trì vòng lặp nền liên tục.", color = Muted, fontSize = 13.sp)
+                                Text("Chế độ ngủ sâu", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                Text("Cho phép Android tự quản lý thời điểm chạy tác vụ nền. Ứng dụng không duy trì vòng lặp chạy liên tục.", color = Muted, fontSize = 13.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { SchedulerManager.scheduleDaily(context); status = "Đã lên lịch tác vụ kiểm tra hằng ngày" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) { Text("Bật lịch") }
+                                    Button(onClick = { SchedulerManager.scheduleDaily(context); status = "Đã lên lịch bảo trì hằng ngày" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) { Text("Lên lịch") }
                                     OutlinedButton(onClick = { SchedulerManager.cancel(context); status = "Đã hủy lịch" }, modifier = Modifier.weight(1f)) { Text("Hủy lịch") }
                                 }
                                 Text(status, color = Cyan, fontSize = 12.sp)
@@ -317,15 +317,15 @@ private fun CoCAssistantApp() {
                         }
                         item {
                             PanelCard {
-                                Text("Bộ đếm phiên", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Đếm thời gian phiên", fontWeight = FontWeight.Bold, fontSize = 17.sp)
                                 Text(if (timerSeconds == 0) "00:00" else String.format("%02d:%02d", timerSeconds / 60, timerSeconds % 60), color = Cyan, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                                Text(if (timerRunning) "ĐANG CHẠY" else "ĐÃ TẠM DỪNG", color = Muted, fontSize = 10.sp)
+                                Text(if (timerRunning) "ĐANG CHẠY" else "ĐÃ DỪNG", color = Muted, fontSize = 10.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(onClick = { timerSeconds = 30 * 60; timerRunning = true }, modifier = Modifier.weight(1f)) { Text("30 phút") }
                                     Button(onClick = { timerSeconds = 60 * 60; timerRunning = true }, modifier = Modifier.weight(1f)) { Text("60 phút") }
-                                    OutlinedButton(onClick = { timerRunning = false; timerSeconds = 0 }, modifier = Modifier.weight(1f)) { Text("Dừng") }
+                                    OutlinedButton(onClick = { timerRunning = false; timerSeconds = 0 }, modifier = Modifier.weight(1f)) { Text("Đặt lại") }
                                 }
-                                Text("Bộ đếm phiên thủ công; không can thiệp ứng dụng khác.", color = Muted, fontSize = 11.sp)
+                                Text("Đếm thời gian phiên thủ công; không can thiệp ứng dụng khác.", color = Muted, fontSize = 11.sp)
                             }
                         }
                     }
@@ -334,11 +334,11 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Gemini 3.8 Flash", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text("Có thể phân tích văn bản và ảnh đang chọn. Khóa API chỉ dùng trong phiên hiện tại, không lưu vào CADSS.", color = Muted, fontSize = 12.sp)
-                                OutlinedTextField(value = apiKey, onValueChange = { apiKey = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Gemini API key") }, singleLine = true, colors = darkFieldColors())
-                                OutlinedTextField(value = prompt, onValueChange = { prompt = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Yêu cầu phân tích") }, minLines = 3, colors = darkFieldColors())
+                                Text("Gemini có thể phân tích văn bản và hình ảnh đang chọn. Khóa API chỉ được dùng trong phiên hiện tại và không lưu vào CADSS.", color = Muted, fontSize = 12.sp)
+                                OutlinedTextField(value = apiKey, onValueChange = { apiKey = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Khóa API Gemini") }, singleLine = true, colors = darkFieldColors())
+                                OutlinedTextField(value = prompt, onValueChange = { prompt = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Nội dung cần phân tích") }, minLines = 3, colors = darkFieldColors())
                                 Button(onClick = {
-                                    if (apiKey.isBlank()) { aiResult = "Hãy nhập API key để kết nối Gemini."; return@Button }
+                                    if (apiKey.isBlank()) { aiResult = "Vui lòng nhập khóa API để kết nối Gemini."; return@Button }
                                     busy = true
                                     scope.launch {
                                         aiResult = try { GeminiClient.generate(apiKey, prompt, selectedBitmap) }
@@ -346,7 +346,7 @@ private fun CoCAssistantApp() {
                                         busy = false
                                     }
                                 }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-                                    Icon(Icons.Default.AutoAwesome, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang kết nối..." else if (selectedBitmap != null) "Phân tích ảnh + văn bản" else "Gửi yêu cầu Gemini")
+                                    Icon(Icons.Default.AutoAwesome, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang kết nối..." else if (selectedBitmap != null) "Phân tích hình ảnh + văn bản" else "Gửi yêu cầu đến Gemini")
                                 }
                                 if (aiResult.isNotBlank()) Text(aiResult, color = Cyan, fontSize = 12.sp)
                             }
@@ -354,16 +354,16 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("CADSS / CASL", fontWeight = FontWeight.Bold)
-                                Text("Schema hiện tại: ${CadssStore.SCHEMA_VERSION}\nLưu trữ: JSON versioned, local-first\nVision Memory: metadata + pHash\nBackup: xuất / nhập dữ liệu qua bộ chọn tệp (đang hoàn thiện).", color = Muted, fontSize = 12.sp)
+                                Text("Phiên bản cấu trúc dữ liệu: ${CadssStore.SCHEMA_VERSION}\nLưu trữ: JSON có phiên bản, ưu tiên dữ liệu cục bộ\nBộ nhớ hình ảnh: metadata + pHash\nSao lưu: xuất / nhập dữ liệu qua trình chọn tệp.", color = Muted, fontSize = 12.sp)
                             }
                         }
                         item {
                             PanelCard {
-                                Text("CADSS Backup / Restore", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text("Xuất hoặc khôi phục dữ liệu CADSS cùng ảnh gốc, ảnh crop và metadata trong một gói ZIP có phiên bản.", color = Muted, fontSize = 12.sp)
+                                Text("Sao lưu / Khôi phục CADSS", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Sao lưu hoặc khôi phục dữ liệu CADSS cùng hình ảnh gốc, hình ảnh cắt và thông tin liên quan trong một tệp ZIP có phiên bản.", color = Muted, fontSize = 12.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(onClick = { exportPicker.launch("coc-cadss-backup.zip") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-                                        Icon(Icons.Default.FileUpload, null); Spacer(Modifier.width(6.dp)); Text("Xuất")
+                                        Icon(Icons.Default.FileUpload, null); Spacer(Modifier.width(6.dp)); Text("Sao lưu")
                                     }
                                     OutlinedButton(onClick = { importPicker.launch(arrayOf("application/zip", "application/octet-stream")) }, modifier = Modifier.weight(1f)) {
                                         Icon(Icons.Default.FileDownload, null); Spacer(Modifier.width(6.dp)); Text("Khôi phục")
@@ -374,7 +374,7 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Quyền riêng tư", fontWeight = FontWeight.Bold)
-                                Text("Không yêu cầu Accessibility, quyền overlay hoặc quyền chụp màn hình. Ảnh chỉ được xử lý khi người dùng chọn. Không tự điều khiển trò chơi.", color = Muted, fontSize = 12.sp)
+                                Text("Ứng dụng không yêu cầu quyền Trợ năng, quyền hiển thị trên ứng dụng khác hoặc quyền chụp màn hình. Hình ảnh chỉ được xử lý khi bạn chủ động chọn. Ứng dụng không tự điều khiển trò chơi.", color = Muted, fontSize = 12.sp)
                             }
                         }
                     }
@@ -385,7 +385,7 @@ private fun CoCAssistantApp() {
             AlertDialog(
                 onDismissRequest = { showQuickPanel = false },
                 containerColor = Panel,
-                title = { Text("Floating Dashboard", color = White, fontWeight = FontWeight.Bold) },
+                title = { Text("Bảng điều khiển nổi", color = White, fontWeight = FontWeight.Bold) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("CADSS · schema ${CadssStore.SCHEMA_VERSION}", color = Cyan)
