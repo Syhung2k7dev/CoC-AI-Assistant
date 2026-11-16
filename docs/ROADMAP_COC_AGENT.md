@@ -45,3 +45,14 @@ CoC-AI-Assistant là AI Agent hỗ trợ tự động hóa giao diện Clash of 
 - Kiểm thử trên thiết bị thật và kiểm tra phát hành/ký APK.
 
 Việc biên dịch thành công không thay thế kiểm thử trên thiết bị Android thực tế.
+
+
+## Mở rộng Agent bằng Skill và HVCS
+
+CoC Agent được tổ chức theo mô hình Agent Core + Skill Library. Multi-account, Attack, Farm và Village Management là các Skill cấp cao được ghép từ năng lực quan sát, tri thức, lập kế hoạch, tương tác và xác minh; không phải tính năng đóng độc lập.
+
+HVCS (Hybrid Visual Coordinate System) kết hợp Grid cell ID, Bounding Box, RGB/HSV, luminance, edge density, OCR và tọa độ chuẩn hóa 0..1000. Quy trình đề xuất: ảnh toàn màn hình → grid thưa → crop vùng nghi vấn → grid chi tiết → OCR/template → bounding box → tọa độ chuẩn hóa → kiểm tra lại trạng thái trước hành động. Grid không thay thế bounding box; màu không được dùng làm căn cứ duy nhất để chạm.
+
+Skill Lifecycle: Research → Draft → Testing → Verified/Experimental → Disabled. Skill do AI tạo luôn bắt đầu ở Draft, được lưu dưới dạng dữ liệu khai báo có schema/version/dependencies/capabilities, không phải mã thực thi tùy ý. Tất cả yêu cầu tương tác đi qua ActionExecutor tập trung.
+
+Đã bổ sung nền tảng AgentSkillRegistry cục bộ và HvcsVision grid analyzer. Danh mục Skill và chi tiết thiết kế nằm trong docs/ARCHITECTURE_SKILLS_HVCS.md. Việc kết nối Gemini, CASL runtime, ActionExecutor, UI quản lý Skill và kiểm thử thiết bị vẫn còn cần triển khai.
