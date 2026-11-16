@@ -8,9 +8,9 @@ object CaslEngine {
     data class Result(val branch: String, val action: String, val passed: Boolean)
 
     fun evaluate(rule: JSONObject, context: JSONObject): Result {
-        val condition = rule.optJSONObject("condition") ?: error("Missing condition")
+        val condition = rule.optJSONObject("condition") ?: error("Thiếu phần điều kiện")
         val path = condition.optString("path")
-        require(path.isNotBlank()) { "Condition path is required" }
+        require(path.isNotBlank()) { "Đường dẫn điều kiện không được để trống" }
         val actual = resolve(context, path)
         val expected = condition.opt("value")
         val passed = when (condition.optString("op")) {
@@ -21,7 +21,7 @@ object CaslEngine {
             "greater_than" -> compare(actual, expected) { a, b -> a > b }
             "less_than" -> compare(actual, expected) { a, b -> a < b }
             "in" -> (expected as? JSONArray)?.let { array -> (0 until array.length()).any { array.opt(it)?.toString() == actual?.toString() } } ?: false
-            else -> error("Unsupported CASL operator")
+            else -> error("Toán tử CASL không được hỗ trợ")
         }
         val branch = if (passed) "THEN" else "ELSE"
         val action = rule.optJSONObject(if (passed) "then" else "else")
