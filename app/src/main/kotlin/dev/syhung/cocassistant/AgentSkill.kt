@@ -78,7 +78,7 @@ data class AgentSkill(
 
 /** Local Skill Library. New AI-authored Skills are always persisted as Draft. */
 class AgentSkillRegistry(context: Context) {
-    private val prefs = context.getSharedPreferences("agent_skill_registry_v1", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("cadss_store_v1", Context.MODE_PRIVATE)
 
     @Synchronized
     fun all(): List<AgentSkill> {
@@ -130,7 +130,7 @@ class AgentSkillRegistry(context: Context) {
         }.toString()).apply()
     }
 
-    companion object { private const val KEY_SKILLS = "skills" }
+    companion object { private const val KEY_SKILLS = "collection:skill_registry" }
 }
 
 /** Typed action request; arbitrary shell commands and generated source are not accepted. */
@@ -139,6 +139,8 @@ data class SkillActionRequest(
     val capability: SkillActionCapability,
     val normalizedX: Int? = null,
     val normalizedY: Int? = null,
+    val endNormalizedX: Int? = null,
+    val endNormalizedY: Int? = null,
     val durationMs: Long? = null
 ) {
     fun validate(): Boolean {
@@ -146,9 +148,22 @@ data class SkillActionRequest(
         if (capability == SkillActionCapability.TAP) {
             return normalizedX != null && normalizedX in 0..1000 &&
                 normalizedY != null && normalizedY in 0..1000 &&
+                endNormalizedX == null && endNormalizedY == null &&
                 (durationMs == null || durationMs in 50L..10_000L)
         }
-        if (capability == SkillActionCapability.WAIT) return durationMs != null && durationMs in 100L..60_000L
-        return normalizedX == null && normalizedY == null
+        if (capability == SkillActionCapability.SWIPE) {
+            return normalizedX != null && normalizedX in 0..1000 &&
+                normalizedY != null && normalizedY in 0..1000 &&
+                endNormalizedX != null && endNormalizedX in 0..1000 &&
+                endNormalizedY != null && endNormalizedY in 0..1000 &&
+                durationMs != null && durationMs in 50L..10_000L
+        }
+        if (capability == SkillActionCapability.WAIT) {
+            return durationMs != null && durationMs in 100L..60_000L &&
+                normalizedX == null && normalizedY == null &&
+                endNormalizedX == null && endNormalizedY == null
+        }
+        return normalizedX == null && normalizedY == null &&
+            endNormalizedX == null && endNormalizedY == null && durationMs == null
     }
 }
