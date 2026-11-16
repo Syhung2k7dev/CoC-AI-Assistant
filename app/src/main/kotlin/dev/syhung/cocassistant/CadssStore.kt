@@ -4,7 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** CADSS: versioned, local-first document store. */
+/** CADSS: kho tài liệu có phiên bản, ưu tiên lưu trữ cục bộ. */
 class CadssStore(context: Context) {
     private val prefs = context.getSharedPreferences("cadss_store_v1", Context.MODE_PRIVATE)
 
@@ -41,9 +41,9 @@ class CadssStore(context: Context) {
     }
 
     fun importDocument(document: JSONObject) {
-        require(document.optString("format") == "CADSS") { "Unsupported backup format" }
+        require(document.optString("format") == "CADSS") { "Định dạng bản sao lưu không được hỗ trợ" }
         val version = document.optInt("schemaVersion", 0)
-        require(version in 1..SCHEMA_VERSION) { "Unsupported schema version: $version" }
+        require(version in 1..SCHEMA_VERSION) { "Phiên bản cấu trúc dữ liệu không được hỗ trợ: $version" }
         val editor = prefs.edit()
         val texts = document.optJSONObject("texts") ?: JSONObject()
         texts.keys().forEach { key -> editor.putString("text:$key", texts.optString(key)) }
