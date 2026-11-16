@@ -276,6 +276,6 @@ internal class GeminiProviderAdapter(
 
     private companion object {
         const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-        const val DEFAULT_MODEL = "gemini-3.8-flash"
+        internal const val DEFAULT_MODEL = "gemini-3.8-flash"
     }
 }
