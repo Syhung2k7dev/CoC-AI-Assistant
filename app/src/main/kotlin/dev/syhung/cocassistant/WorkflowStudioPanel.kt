@@ -42,6 +42,7 @@ fun WorkflowStudioPanel(
     val showRunConfirm = remember { mutableStateOf(false) }
     val runStatus = remember { mutableStateOf("") }
     val activeSchedule = remember { mutableStateOf("") }
+    val runHistory = remember { mutableStateOf(WorkflowRunStore(context).all(10)) }
     val selectedRecord = selectedWorkflow.value?.let { pair -> workflows.value.firstOrNull { it.optString("id") == pair.first && it.optInt("version") == pair.second } }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -207,6 +208,28 @@ fun WorkflowStudioPanel(
                 }
             }
         }
+        Text("LỊCH SỬ THỰC THI", color = Color(0xFF4DD8D0), fontSize = 10.sp)
+        Button(onClick = { runHistory.value = WorkflowRunStore(context).all(10) }) {
+            Text("Làm mới trạng thái")
+        }
+        if (runHistory.value.isEmpty()) {
+            Text("Chưa có lần chạy Workflow nào.", color = Color(0xFF9AA8C0), fontSize = 11.sp)
+        } else {
+            runHistory.value.forEach { run ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF141B2B))
+                ) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(run.optString("workflowId") + " · v" + run.optInt("workflowVersion"), color = Color.White, fontSize = 12.sp)
+                        Text(run.optString("state"), color = Color(0xFFFFC66D), fontSize = 10.sp)
+                        if (run.has("durationMs")) Text(run.optLong("durationMs").toString() + " ms · " + run.optInt("executedSteps") + " bước", color = Color(0xFF9AA8C0), fontSize = 10.sp)
+                        if (run.has("error")) Text(run.optString("error"), color = Color(0xFFFF8B8B), fontSize = 10.sp)
+                    }
+                }
+            }
+        }
     }
     if (showRunConfirm.value && selectedWorkflow.value != null) {
         val selected = selectedWorkflow.value!!
@@ -225,7 +248,10 @@ fun WorkflowStudioPanel(
                             runStatus.value = "Hoàn tất · ${result.executedSteps} bước."
                         } catch (error: Exception) {
                             runStatus.value = "Workflow thất bại: ${error.message ?: "lỗi không xác định"}"
-                        } finally { busy.value = false }
+                        } finally {
+                            runHistory.value = WorkflowRunStore(context).all(10)
+                            busy.value = false
+                        }
                     }
                 }) { Text("Xác nhận chạy") }
             },
