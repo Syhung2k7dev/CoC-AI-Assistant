@@ -67,6 +67,14 @@ internal data class AIRetryPolicy(
 }
 
 internal fun interface AIProviderAdapter {
+    suspend fun generate(request: AIProviderRequest): String
+}
+
+/**
+ * Shared connection lifecycle and bounded retry policy for provider adapters.
+ * One timeout covers the complete attempt/retry sequence.
+ */
+internal object AIProviderRuntime {
     suspend fun generate(
         adapter: AIProviderAdapter,
         request: AIProviderRequest,
