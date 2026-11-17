@@ -126,6 +126,43 @@ internal object AIProviderRuntime {
         )
     }
 
+    /**
+     * Tries the configured Gemini model sequence. Each model gets its own bounded
+     * retry cycle; only transient server failures and unavailable model IDs advance
+     * to the next model. Other failures are surfaced without changing the request target.
+     */
+    suspend fun generateWithFallback(
+        models: List<String>,
+        request: AIProviderRequest,
+        adapterFactory: (String) -> AIProviderAdapter,
+        retryPolicy: AIRetryPolicy = AIRetryPolicy(),
+        requestTimeoutMillis: Long = 60_000L
+    ): String {
+        val candidates = models.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        require(candidates.isNotEmpty()) { "Danh sách Gemini model dự phòng đang trống." }
+
+        for ((index, model) in candidates.withIndex()) {
+            try {
+                return generate(
+                    adapter = adapterFactory(model),
+                    request = request,
+                    retryPolicy = retryPolicy,
+                    requestTimeoutMillis = requestTimeoutMillis
+                )
+            } catch (error: AIProviderException) {
+                val hasFallback = index < candidates.lastIndex
+                val fallbackEligible = error.failure == AIProviderFailure.MODEL_UNAVAILABLE ||
+                    (error.failure == AIProviderFailure.SERVER &&
+                        error.httpStatus in setOf(500, 502, 503, 504))
+                if (!hasFallback || !fallbackEligible) throw error
+            }
+        }
+        throw AIProviderException(
+            AIProviderFailure.UNKNOWN,
+            "Không có Gemini model nào khả dụng.",
+            retryable = false
+        )
+    }
     private fun computeDelay(
         retryIndex: Int,
         retryAfterMillis: Long?,
@@ -293,6 +330,11 @@ internal class GeminiProviderAdapter(
 
     companion object {
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-        const val DEFAULT_MODEL = "gemini-3.8-flash"
+        const val DEFAULT_MODEL = "gemini-3.5-flash-lite"
+        val FALLBACK_MODELS = listOf(
+            DEFAULT_MODEL,
+            "gemini-3.1-flash-lite",
+            "gemini-3.8-flash"
+        )
     }
 }
