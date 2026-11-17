@@ -459,6 +459,26 @@ private fun CoCAssistantApp() {
     }
 }
 
+private fun decodeImage(context: android.content.Context, uri: Uri): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, bounds)
+    }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sampleSize = 1
+    while (
+        bounds.outWidth / sampleSize > 8_192 ||
+        bounds.outHeight / sampleSize > 8_192 ||
+        (bounds.outWidth / sampleSize).toLong() * (bounds.outHeight / sampleSize).toLong() > 32_000_000L
+    ) {
+        sampleSize *= 2
+    }
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+    return context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, options)
+    }
+}
+
 @Composable private fun PageIntro(title: String, subtitle: String) {
     Column(Modifier.padding(vertical = 8.dp)) {
         Text(title, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = White)
