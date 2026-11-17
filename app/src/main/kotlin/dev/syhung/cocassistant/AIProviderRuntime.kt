@@ -153,7 +153,8 @@ internal object AIProviderRuntime {
                 val hasFallback = index < candidates.lastIndex
                 val fallbackEligible = error.failure == AIProviderFailure.MODEL_UNAVAILABLE ||
                     (error.failure == AIProviderFailure.SERVER &&
-                        error.httpStatus in setOf(500, 502, 503, 504))
+                        (error.httpStatus == 500 || error.httpStatus == 502 ||
+                            error.httpStatus == 503 || error.httpStatus == 504))
                 if (!hasFallback || !fallbackEligible) throw error
             }
         }
