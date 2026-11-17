@@ -131,6 +131,7 @@ object AutonomousSkillResearchLoop {
         var actionCount = 0
         var previousAction = JSONObject().put("type", "none")
         var previousActionResult = JSONObject().put("status", "not_started")
+        var previousObservationId: String? = null
         var latestManifest: JSONObject? = null
         var latestCasl: JSONObject? = null
         var lastAnalysis = ""
@@ -165,6 +166,14 @@ object AutonomousSkillResearchLoop {
                     screenshot.recycle()
                 }
                 val response = parseJson(raw)
+                if (previousObservationId != null) {
+                    val verification = response.optJSONObject("previousActionVerification") ?: JSONObject()
+                    previousActionResult = JSONObject(previousActionResult.toString())
+                        .put("verification", verification.optString("status", "uncertain"))
+                        .put("verificationEvidence", verification.optString("evidence").take(1_000))
+                        .put("verificationReason", verification.optString("reason").take(500))
+                    db.updateObservationActionResult(previousObservationId!!, previousActionResult)
+                }
                 lastAnalysis = response.optString("analysis").take(5_000)
                 val screenKey = response.optString("screenKey", "unknown_screen").take(100)
                 val cropAssets = saveRequestedCrops(
@@ -192,8 +201,8 @@ object AutonomousSkillResearchLoop {
 
                 val action = response.optJSONObject("nextAction") ?: JSONObject().put("type", "stop")
                 val actionType = action.optString("type", "stop")
-                previousAction = JSONObject(action.toString())
-                previousActionResult = JSONObject()
+                val executedAction = JSONObject(action.toString())
+                val executedResult = JSONObject()
                 when (actionType) {
                     "tap" -> {
                         require(CoCAccessibilityService.isGameForeground(GAME_PACKAGE)) {
@@ -211,7 +220,7 @@ object AutonomousSkillResearchLoop {
                             action.optLong("durationMs", 100L).coerceIn(50L, 1_500L)
                         )
                         val ok = CoCAccessibilityService.performSingleStep(step)
-                        previousActionResult = JSONObject().put("status", if (ok) "dispatched" else "rejected")
+                        executedResult.put("status", if (ok) "dispatched" else "rejected")
                         require(ok) { "Android từ chối thao tác tap." }
                         delay(1_200L)
                     }
@@ -240,13 +249,13 @@ object AutonomousSkillResearchLoop {
                     "wait" -> {
                         val duration = action.optLong("durationMs", 1_000L).coerceIn(250L, 10_000L)
                         delay(duration)
-                        previousActionResult = JSONObject().put("status", "waited").put("durationMs", duration)
+                        executedResult.put("status", "waited").put("durationMs", duration)
                     }
                     "observe" -> {
                         delay(500L)
-                        previousActionResult = JSONObject().put("status", "observed_without_gesture")
+                        executedResult.put("status", "observed_without_gesture")
                     }
-                    "done" -> previousActionResult = JSONObject().put("status", "research_complete_requested")
+                    "done" -> executedResult.put("status", "research_complete_requested")
                     "stop" -> error("AI yêu cầu dừng nghiên cứu: ${action.optString("reason", "không nêu lý do")}")
                     "ask_user" -> error("Nghiên cứu cần thông tin bổ sung: ${action.optString("question", "chưa nêu câu hỏi")}")
                     else -> error("AI trả về loại hành động không hợp lệ: $actionType")
@@ -261,6 +270,11 @@ object AutonomousSkillResearchLoop {
                 onStatus("Vòng $cycle · ${actionType.uppercase()} · đã lưu ảnh, layout, procedure và dữ liệu")
 
                 if (actionType == "done") {
+                    if (previousObservationId != null && previousAction.optString("type") in setOf("tap", "swipe")) {
+                        require(previousActionResult.optString("verification") == "success") {
+                            "Chưa có bằng chứng xác minh thành công cho thao tác cuối; không thể kết thúc nghiên cứu."
+                        }
+                    }
                     require(response.optBoolean("researchComplete", false)) {
                         "AI đề nghị kết thúc nhưng chưa xác nhận researchComplete."
                     }
@@ -335,6 +349,7 @@ object AutonomousSkillResearchLoop {
             {
               "analysis":"what is visibly known, inferred, and unknown",
               "screenKey":"stable_screen_identifier",
+              "previousActionVerification":{"status":"success|failed|uncertain","evidence":"","reason":""},
               "nextAction":{"type":"observe|tap|swipe|wait|done|ask_user|stop",
                 "x":0,"y":0,"endX":0,"endY":0,"durationMs":500,"reason":"","question":""},
               "researchComplete":false,
@@ -353,7 +368,7 @@ object AutonomousSkillResearchLoop {
             }
 
             Mandatory rules:
-            - Choose exactly one nextAction each cycle. Coordinates use normalized 0..1000 screen space.
+            - First assess previousActionVerification from the newly attached screenshot. If previous action was tap/swipe, never omit this assessment; quote visible evidence or mark uncertain/failed.\n            - Choose exactly one nextAction each cycle. Coordinates use normalized 0..1000 screen space.
             - Tap/swipe only visible in-game UI controls. Do not interact with Android system UI, external apps,
               purchases, paid offers, account linking, clan chat, or destructive confirmation dialogs.
               If such a screen appears, choose observe or stop and explain.
