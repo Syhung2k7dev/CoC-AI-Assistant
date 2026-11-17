@@ -320,17 +320,26 @@ class AelmLifecycleManager(context: Context) {
                     .put("confidence", if (arguments.optBoolean("success", false)) 0.75 else 0.25)
             }
             register("action.tap") { arguments, context ->
+                require(context.optString("skillId").isNotBlank() && context.optInt("skillVersion", 0) >= 1) {
+                    "action.tap chỉ được gọi từ Skill có ID/version."
+                }
                 require(arguments.optInt("x", -1) in 0..1000 && arguments.optInt("y", -1) in 0..1000)
                 require(arguments.optLong("durationMs", 100L) in 50L..10_000L)
                 JSONObject().put("accepted", true).put("skillId", context.optString("skillId"))
             }
             register("action.swipe") { arguments, context ->
+                require(context.optString("skillId").isNotBlank() && context.optInt("skillVersion", 0) >= 1) {
+                    "action.swipe chỉ được gọi từ Skill có ID/version."
+                }
                 require(arguments.optInt("x", -1) in 0..1000 && arguments.optInt("y", -1) in 0..1000)
                 require(arguments.optInt("endX", -1) in 0..1000 && arguments.optInt("endY", -1) in 0..1000)
                 require(arguments.optLong("durationMs", -1L) in 50L..10_000L)
                 JSONObject().put("accepted", true).put("skillId", context.optString("skillId"))
             }
             register("action.wait") { arguments, context ->
+                require(context.optString("skillId").isNotBlank() && context.optInt("skillVersion", 0) >= 1) {
+                    "action.wait chỉ được gọi từ Skill có ID/version."
+                }
                 require(arguments.optLong("durationMs", -1L) in 100L..60_000L)
                 JSONObject().put("completed", true).put("skillId", context.optString("skillId"))
             }
