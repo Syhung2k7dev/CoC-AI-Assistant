@@ -40,12 +40,10 @@ class AelmLifecycleManager(context: Context) {
     suspend fun createSkillDraft(
         apiKey: String,
         goal: String,
-        referenceImage: android.graphics.Bitmap? = null
     ): SkillDraftOutcome = GeminiSkillAuthoring.createDraft(
         apiKey = apiKey,
         goal = goal,
         registry = skills,
-        referenceImage = referenceImage,
         availableApiNames = sandboxApiNames()
     )
 
