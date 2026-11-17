@@ -30,3 +30,10 @@ AI-generated source code is never evaluated. CASL remains a bounded JSON AST wit
 ## Verification status
 
 This document describes the implementation added with this change. It is not a claim that CI, APK installation, or device-level execution has passed. Those statuses must be read from the associated GitHub Actions run and physical-device verification separately.
+
+
+## CADSS persistence and backup
+
+AELM test receipts are stored in the CADSS collection `aelm_test_receipts`, keyed by artifact type, ID and version. They are included in CADSS exports and restored with the rest of the local document store. A receipt is valid only while its SHA-256 still matches the exact Skill manifest or Workflow document that was tested.
+
+CADSS backup schema v2 stores collection values as JSON arrays and validates the full backup before replacing persisted CADSS keys. Import remains backward-compatible with schema v1 backups, where collection arrays were encoded as JSON strings. The restore operation replaces the CADSS text/collection namespace rather than leaving stale records from a previous backup.
