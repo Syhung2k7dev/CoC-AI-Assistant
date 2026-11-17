@@ -265,8 +265,8 @@ object AutonomousSkillResearchLoop {
                         executedResult.put("status", "observed_without_gesture")
                     }
                     "done" -> executedResult.put("status", "research_complete_requested")
-                    "stop" -> error("AI yêu cầu dừng nghiên cứu: ${action.optString("reason", "không nêu lý do")}")
-                    "ask_user" -> error("Nghiên cứu cần thông tin bổ sung: ${action.optString("question", "chưa nêu câu hỏi")}")
+                    "stop" -> executedResult.put("status", "stopped").put("reason", action.optString("reason"))
+                    "ask_user" -> executedResult.put("status", "needs_user").put("question", action.optString("question"))
                     else -> error("AI trả về loại hành động không hợp lệ: $actionType")
                 }
 
@@ -277,6 +277,11 @@ object AutonomousSkillResearchLoop {
                 )
                 db.updateSession(sessionId, target?.id ?: latestManifest?.optString("id"), "RUNNING", cycle, lastAnalysis)
                 onStatus("Vòng $cycle · ${actionType.uppercase()} · đã lưu ảnh, layout, procedure và dữ liệu")
+                if (actionType == "stop" || actionType == "ask_user") {
+                    val reason = if (actionType == "ask_user") action.optString("question") else action.optString("reason")
+                    db.updateSession(sessionId, target?.id ?: latestManifest?.optString("id"), "STOPPED", cycle, reason)
+                    return SkillDraftOutcome.Failed(reason.ifBlank { "AI đã dừng phiên nghiên cứu." })
+                }
 
                 if (actionType == "done") {
                     if (previousObservationId != null && previousActionType in setOf("tap", "swipe")) {
@@ -375,7 +380,8 @@ object AutonomousSkillResearchLoop {
             }
 
             Mandatory rules:
-            - First assess previousActionVerification from the newly attached screenshot. If previous action was tap/swipe, never omit this assessment; quote visible evidence or mark uncertain/failed.\n            - Choose exactly one nextAction each cycle. Coordinates use normalized 0..1000 screen space.
+            - First assess previousActionVerification from the newly attached screenshot. If previous action was tap/swipe, never omit this assessment; quote visible evidence or mark uncertain/failed.
+            - Choose exactly one nextAction each cycle. Coordinates use normalized 0..1000 screen space.
             - Tap/swipe only visible in-game UI controls. Do not interact with Android system UI, external apps,
               purchases, paid offers, account linking, clan chat, or destructive confirmation dialogs.
               If such a screen appears, choose observe or stop and explain.
