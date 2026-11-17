@@ -56,6 +56,8 @@ private fun CoCAssistantApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { CadssStore(context) }
+    val skillRegistry = remember { AgentSkillRegistry(context).also { BuiltinSkillCatalog.install(it) } }
+    val workflowRegistry = remember { CaslWorkflowRegistry(context) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var note by rememberSaveable { mutableStateOf(store.getText("note", "")) }
     var apiKey by rememberSaveable { mutableStateOf("") }
@@ -167,6 +169,7 @@ private fun CoCAssistantApp() {
                         "Tổng quan" to Icons.Default.Dashboard,
                         "Thị giác" to Icons.Default.Visibility,
                         "CASL" to Icons.Default.AccountTree,
+                        "Skills" to Icons.Default.AutoAwesome,
                         "Lịch" to Icons.Default.Schedule,
                         "Cài đặt" to Icons.Default.Settings
                     )
@@ -219,6 +222,7 @@ private fun CoCAssistantApp() {
                             }
                         }
                         item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Lối tắt nhanh") }
+                        item { PanelCard { AutomationControlPanel(onStatus = { status = it }) } }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 QuickCard("Phân tích hình ảnh", "OpenCV cục bộ", Icons.Default.ImageSearch, Modifier.weight(1f)) { selectedTab = 1 }
@@ -302,6 +306,11 @@ private fun CoCAssistantApp() {
                         }
                     }
                     3 -> {
+                        item { PageIntro("Agent Workbench", "Tạo công việc bằng Workflow và mở rộng năng lực bằng Skill.") }
+                        item { WorkflowStudioPanel(workflowRegistry, skillRegistry, apiKey) }
+                        item { SkillLibraryPanel(skillRegistry, apiKey, selectedBitmap) }
+                    }
+                    4 -> {
                         item { PageIntro("Lịch tác vụ", "Theo dõi tác vụ định kỳ và chế độ tiết kiệm pin, tài nguyên.") }
                         item {
                             PanelCard {
@@ -374,7 +383,7 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Quyền riêng tư", fontWeight = FontWeight.Bold)
-                                Text("Ứng dụng không yêu cầu quyền Trợ năng, quyền hiển thị trên ứng dụng khác hoặc quyền chụp màn hình. Hình ảnh chỉ được xử lý khi bạn chủ động chọn. Ứng dụng không tự điều khiển trò chơi.", color = Muted, fontSize = 12.sp)
+                                Text("Quyền Trợ năng chỉ được sử dụng sau khi người dùng chủ động bật trong Android Settings. Workflow phải được xác nhận trước khi chạy và có Pause/Resume/Stop. Ảnh màn hình chỉ được chụp theo yêu cầu; OCR và phân tích ảnh xử lý cục bộ theo mặc định.", color = Muted, fontSize = 12.sp)
                             }
                         }
                     }
