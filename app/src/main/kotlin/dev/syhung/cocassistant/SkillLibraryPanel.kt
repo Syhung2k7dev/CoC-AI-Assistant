@@ -1,6 +1,10 @@
 package dev.syhung.cocassistant
 
+import android.app.Activity
+import android.content.Context
 import android.graphics.Bitmap
+import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,6 +16,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -21,6 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 @Composable
 fun SkillLibraryPanel(
@@ -52,6 +61,26 @@ fun SkillLibraryPanel(
     val activeJob = remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val busy = activeJob.value != null
+    val projectionReady = remember { mutableStateOf(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R || ScreenCaptureService.isReady()) }
+    val projectionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            ScreenCaptureService.start(context, result.resultCode, data)
+            scope.launch {
+                repeat(20) {
+                    delay(250L)
+                    if (ScreenCaptureService.isReady()) {
+                        projectionReady.value = true
+                        statusState.value = "Đã cấp quyền chụp màn hình. Có thể bắt đầu nghiên cứu."
+                        return@launch
+                    }
+                }
+                statusState.value = "Android chưa khởi tạo được phiên chụp màn hình. Hãy thử cấp quyền lại."
+            }
+        } else {
+            statusState.value = "Bạn chưa cấp quyền chia sẻ màn hình; Agent chưa thể quan sát CoC trên Android 10."
+        }
+    }
     val skills = skillsState.value.groupBy { it.id }.values.mapNotNull { versions ->
         versions.maxByOrNull { it.version }
     }.sortedWith(compareBy<AgentSkill> { it.category }.thenBy { it.name })
@@ -65,9 +94,23 @@ fun SkillLibraryPanel(
             "Research Agent tự mở CoC, chụp màn hình, gửi Gemini, suy luận và thực hiện thao tác khám phá trong game. Mỗi vòng đều lưu bằng chứng và cập nhật database.",
             color = Color(0xFF9AA8C0), fontSize = 12.sp
         )
+        if (!projectionReady.value) {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF3A2D1B))) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("ANDROID 10 · CẦN QUYỀN CHỤP MÀN HÌNH", color = Color(0xFFFFC66D), fontSize = 11.sp)
+                    Text("Android 10 chưa hỗ trợ Accessibility screenshot. Cấp quyền chia sẻ màn hình để Agent quan sát CoC; thao tác vẫn đi qua Accessibility.", color = Color.White, fontSize = 11.sp)
+                    Button(onClick = {
+                        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                        projectionLauncher.launch(manager.createScreenCaptureIntent())
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Cấp quyền chụp màn hình") }
+                }
+            }
+        }
         ResearchDebugConsole(
             events = debugEvents,
-            onCopy = { clipboard.setText(AnnotatedString(ResearchDebugLog.exportText())) }
+            onCopy = { clipboard.setText(AnnotatedString(ResearchDebugLog.exportText())) },
+            onClear = { ResearchDebugLog.clearAll(context) },
+            clearEnabled = !busy
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SkillCountChip("Chưa nghiên cứu", pendingCount)
@@ -113,7 +156,7 @@ fun SkillLibraryPanel(
                             }
                         }
                     },
-                    enabled = !busy && pendingCount > 0 && apiKey.isNotBlank(),
+                    enabled = !busy && pendingCount > 0 && apiKey.isNotBlank() && projectionReady.value,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B7CFF))
                 ) {
@@ -171,7 +214,7 @@ fun SkillLibraryPanel(
                             }
                         }
                     },
-                    enabled = !busy && goalState.value.isNotBlank() && apiKey.isNotBlank(),
+                    enabled = !busy && goalState.value.isNotBlank() && apiKey.isNotBlank() && projectionReady.value,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B7CFF))
                 ) { Text("Bắt đầu nghiên cứu tự động") }
@@ -214,7 +257,7 @@ fun SkillLibraryPanel(
                                         }
                                     }
                                 },
-                                enabled = !busy && apiKey.isNotBlank(),
+                                enabled = !busy && apiKey.isNotBlank() && projectionReady.value,
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("Nghiên cứu Skill bằng CoC Agent") }
                         }
@@ -269,8 +312,11 @@ private fun skillCategoryLabel(category: String): String = when (category) {
 @Composable
 private fun ResearchDebugConsole(
     events: List<ResearchDebugLog.Event>,
-    onCopy: () -> Unit
+    onCopy: () -> Unit,
+    onClear: () -> Int,
+    clearEnabled: Boolean
 ) {
+    val showClearConfirmation = remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -283,6 +329,7 @@ private fun ResearchDebugConsole(
                     Text("${events.size} sự kiện · lưu cục bộ trên thiết bị", color = Color.White, fontSize = 12.sp)
                 }
                 OutlinedButton(onClick = onCopy) { Text("Sao chép log") }
+                OutlinedButton(onClick = { showClearConfirmation.value = true }, enabled = clearEnabled) { Text("Xoá log") }
             }
             if (events.isEmpty()) {
                 Text("Chưa có log. Bắt đầu một phiên nghiên cứu để theo dõi từng bước.", color = Color(0xFF9AA8C0), fontSize = 11.sp)
@@ -315,6 +362,22 @@ private fun ResearchDebugConsole(
                 color = Color(0xFF71819D), fontSize = 9.sp
             )
         }
+    }
+    if (showClearConfirmation.value) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmation.value = false },
+            title = { Text("Xoá toàn bộ nhật ký nghiên cứu?") },
+            text = { Text("Xoá các tệp JSONL trong bộ nhớ riêng của ứng dụng và làm trống bảng log. Ảnh bằng chứng trong Vision Memory không bị xoá.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClear()
+                    showClearConfirmation.value = false
+                }) { Text("Xoá vĩnh viễn") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmation.value = false }) { Text("Huỷ") }
+            }
+        )
     }
 }
 

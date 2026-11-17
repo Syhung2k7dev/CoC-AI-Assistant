@@ -41,6 +41,20 @@ object ResearchDebugLog {
         record("SESSION", "Bắt đầu phiên nghiên cứu", "sessionId=$sessionId")
     }
 
+    /** Delete all persisted research logs and clear the live console. */
+    fun clearAll(context: Context): Int = synchronized(lock) {
+        val directory = File(context.applicationContext.filesDir, "research-debug")
+        val files = directory.listFiles()
+            ?.filter { it.isFile && it.name.startsWith("research-") && it.extension == "jsonl" }
+            .orEmpty()
+        val deleted = files.count { file -> runCatching { file.delete() }.getOrDefault(false) }
+        buffer.clear()
+        mutableEvents.value = emptyList()
+        activeSessionId = ""
+        logFile = null
+        deleted
+    }
+
     fun record(
         stage: String,
         message: String,

@@ -230,8 +230,11 @@ class CoCAccessibilityService : AccessibilityService() {
         fun stop() { instance?.stopWorkflow("Đã dừng workflow theo yêu cầu.") }
         fun captureScreen(callback: (Bitmap?) -> Unit): Boolean {
             val service = instance ?: return false
-            service.capture(callback)
-            return true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                service.capture(callback)
+                return true
+            }
+            return ScreenCaptureService.capture(callback)
         }
     }
 }
