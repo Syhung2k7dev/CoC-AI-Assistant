@@ -104,7 +104,10 @@ internal object AIProviderRuntime {
                             cause = error
                         )
                     }
-                    delay(computeDelay(retries, null, retryPolicy))
+                    val waitMs = computeDelay(retries, null, retryPolicy)
+                    ResearchDebugLog.record("API_RETRY", "Gemini socket timeout; sẽ retry",
+                        "attempt=${retries + 1}/${retryPolicy.maxRetries}\nwaitMs=$waitMs")
+                    delay(waitMs)
                     retries++
                 } catch (error: IOException) {
                     if (retries >= retryPolicy.maxRetries) {
@@ -115,7 +118,10 @@ internal object AIProviderRuntime {
                             cause = error
                         )
                     }
-                    delay(computeDelay(retries, null, retryPolicy))
+                    val waitMs = computeDelay(retries, null, retryPolicy)
+                    ResearchDebugLog.record("API_RETRY", "Lỗi mạng Gemini; sẽ retry",
+                        "attempt=${retries + 1}/${retryPolicy.maxRetries}\nerror=${error.javaClass.simpleName}: ${error.message}\nwaitMs=$waitMs")
+                    delay(waitMs)
                     retries++
                 }
             }
