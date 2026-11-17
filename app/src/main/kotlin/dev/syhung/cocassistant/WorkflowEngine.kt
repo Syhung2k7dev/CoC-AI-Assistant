@@ -34,20 +34,42 @@ class WorkflowRunStore(context: Context) {
     }
 
     @Synchronized
-    fun update(runId: String, state: WorkflowRunState, details: JSONObject = JSONObject()) {
-        val items = JSONArray(prefs.getString(KEY_RUNS, "[]"))
+    fun update(runId: String, state: WorkflowRunState, details: JSONObject = JSONObject()): Boolean {
+        val items = JSONArray(prefs.getString(KEY_RUNS, "[]") ?: "[]")
         for (i in items.length() - 1 downTo 0) {
             val old = items.optJSONObject(i) ?: continue
-            if (old.optString("runId") == runId) {
-                val updated = JSONObject(old.toString())
-                    .put("state", state.name)
-                    .put("updatedAt", System.currentTimeMillis())
-                details.keys().forEach { key -> updated.put(key, details.opt(key)) }
-                items.put(i, updated)
-                prefs.edit().putString(KEY_RUNS, items.toString()).apply()
-                return
+            if (old.optString("runId") != runId) continue
+            val current = runCatching {
+                WorkflowRunState.valueOf(old.optString("state"))
+            }.getOrDefault(WorkflowRunState.FAILED)
+            val allowed = when (current) {
+                WorkflowRunState.QUEUED -> state in setOf(
+                    WorkflowRunState.RUNNING,
+                    WorkflowRunState.FAILED,
+                    WorkflowRunState.CANCELLED
+                )
+                WorkflowRunState.RUNNING -> state in setOf(
+                    WorkflowRunState.SUCCEEDED,
+                    WorkflowRunState.FAILED,
+                    WorkflowRunState.CANCELLED
+                )
+                WorkflowRunState.SUCCEEDED,
+                WorkflowRunState.FAILED,
+                WorkflowRunState.CANCELLED -> false
             }
+            if (!allowed) return false
+            val updated = JSONObject(old.toString())
+                .put("state", state.name)
+                .put("updatedAt", System.currentTimeMillis())
+            val reserved = setOf("runId", "workflowId", "workflowVersion", "state", "createdAt", "updatedAt")
+            details.keys().forEach { key ->
+                if (key !in reserved) updated.put(key, details.opt(key))
+            }
+            items.put(i, updated)
+            prefs.edit().putString(KEY_RUNS, items.toString()).apply()
+            return true
         }
+        return false
     }
 
     @Synchronized
@@ -158,6 +180,35 @@ class WorkflowEngine(
         registry.register("system.time") { _, _ ->
             JSONObject().put("epochMillis", System.currentTimeMillis())
         }
+        registry.register("vision.match") { args, _ ->
+            val hash = args.optString("hash")
+            val match = VisionLearningManager(context).findNearest(hash)
+            if (match == null) {
+                JSONObject().put("matched", false).put("distance", -1)
+            } else {
+                JSONObject()
+                    .put("matched", true)
+                    .put("templateId", match.first.optString("id"))
+                    .put("label", match.first.optString("label"))
+                    .put("distance", match.second)
+            }
+        }
+        registry.register("vision.feedback") { args, executionContext ->
+            val skillId = executionContext.optString("skillId")
+            val skillVersion = executionContext.optInt("skillVersion", 0)
+            if (skillId.isBlank() || skillVersion < 1) {
+                throw CaslRuntimeException("Vision feedback chỉ được ghi từ Skill đã pin version.")
+            }
+            val templateId = args.optString("templateId")
+            val successful = args.optBoolean("success", false)
+            val updated = VisionLearningManager(context).recordOutcome(templateId, successful)
+                ?: throw CaslRuntimeException("Không tìm thấy VERIFIED Vision template.")
+            JSONObject()
+                .put("updated", true)
+                .put("templateId", templateId)
+                .put("status", updated.optString("status"))
+                .put("confidence", updated.optDouble("confidence", 0.0))
+        }
         registry.register("action.tap") { args, executionContext ->
             val skillId = executionContext.optString("skillId")
             val skillVersion = executionContext.optInt("skillVersion", 0)
@@ -215,7 +266,7 @@ class WorkflowEngine(
     companion object {
         const val MAX_RUN_TIME_MS = 10 * 60 * 1000L
         val AVAILABLE_API_NAMES = listOf(
-            "memory.read", "memory.write", "memory.append", "system.time",
+            "memory.read", "memory.write", "memory.append", "system.time", "vision.match", "vision.feedback",
             "action.tap", "action.swipe", "action.wait"
         )
     }
@@ -308,6 +359,8 @@ class WorkflowTestRunner(
                     mismatch = "Giá trị return không khớp."
                 }
                 results.add(WorkflowTestCaseResult(name, mismatch == null, mismatch ?: "Đạt"))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 results.add(WorkflowTestCaseResult(name, false, (error.message ?: "Test thất bại").take(240)))
             }
