@@ -21,6 +21,91 @@ class AIProviderRuntimeTest {
     )
 
     @Test
+    fun fallsBackToNextModelAfterRetryable503ExhaustsRetries() = runBlocking {
+        var primaryCalls = 0
+        var fallbackCalls = 0
+        val result = AIProviderRuntime.generateWithFallback(
+            models = listOf("gemini-lite-primary", "gemini-lite-secondary"),
+            request = AIProviderRequest("hello"),
+            adapterFactory = { model ->
+                AIProviderAdapter {
+                    if (model == "gemini-lite-primary") {
+                        primaryCalls++
+                        throw AIProviderException(
+                            failure = AIProviderFailure.SERVER,
+                            message = "service unavailable",
+                            httpStatus = 503,
+                            retryable = true
+                        )
+                    }
+                    fallbackCalls++
+                    "fallback response"
+                }
+            },
+            retryPolicy = noWait
+        )
+
+        assertEquals("fallback response", result)
+        assertEquals(2, primaryCalls)
+        assertEquals(1, fallbackCalls)
+    }
+
+    @Test
+    fun doesNotFallbackForAuthenticationFailure() = runBlocking {
+        var fallbackCalls = 0
+        assertThrows(AIProviderException::class.java) {
+            runBlocking {
+                AIProviderRuntime.generateWithFallback(
+                    models = listOf("primary", "secondary"),
+                    request = AIProviderRequest("hello"),
+                    adapterFactory = { model ->
+                        AIProviderAdapter {
+                            if (model == "primary") {
+                                throw AIProviderException(
+                                    failure = AIProviderFailure.AUTHENTICATION,
+                                    message = "invalid key",
+                                    httpStatus = 403,
+                                    retryable = false
+                                )
+                            }
+                            fallbackCalls++
+                            "should not run"
+                        }
+                    },
+                    retryPolicy = noWait
+                )
+            }
+        }
+        assertEquals(0, fallbackCalls)
+    }
+
+    @Test
+    fun fallsBackWhenConfiguredModelIsUnavailable() = runBlocking {
+        val attemptedModels = mutableListOf<String>()
+        val result = AIProviderRuntime.generateWithFallback(
+            models = listOf("retired-model", "available-model"),
+            request = AIProviderRequest("hello"),
+            adapterFactory = { model ->
+                AIProviderAdapter {
+                    attemptedModels += model
+                    if (model == "retired-model") {
+                        throw AIProviderException(
+                            failure = AIProviderFailure.MODEL_UNAVAILABLE,
+                            message = "model not found",
+                            httpStatus = 404,
+                            retryable = false
+                        )
+                    }
+                    "ok"
+                }
+            },
+            retryPolicy = noWait
+        )
+
+        assertEquals("ok", result)
+        assertEquals(listOf("retired-model", "available-model"), attemptedModels)
+    }
+    @Test
     fun retriesTransientProviderFailureAndReturnsSuccessfulResponse() = runBlocking {
         var calls = 0
         val adapter = AIProviderAdapter {
