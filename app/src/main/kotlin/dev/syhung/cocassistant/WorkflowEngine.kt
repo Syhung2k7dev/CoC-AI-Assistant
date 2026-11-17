@@ -180,6 +180,19 @@ class WorkflowEngine(
         registry.register("system.time") { _, _ ->
             JSONObject().put("epochMillis", System.currentTimeMillis())
         }
+        registry.register("vision.match") { args, _ ->
+            val hash = args.optString("hash")
+            val match = VisionLearningManager(context).findNearest(hash)
+            if (match == null) {
+                JSONObject().put("matched", false).put("distance", -1)
+            } else {
+                JSONObject()
+                    .put("matched", true)
+                    .put("templateId", match.first.optString("id"))
+                    .put("label", match.first.optString("label"))
+                    .put("distance", match.second)
+            }
+        }
         registry.register("action.tap") { args, executionContext ->
             val skillId = executionContext.optString("skillId")
             val skillVersion = executionContext.optInt("skillVersion", 0)
@@ -237,7 +250,7 @@ class WorkflowEngine(
     companion object {
         const val MAX_RUN_TIME_MS = 10 * 60 * 1000L
         val AVAILABLE_API_NAMES = listOf(
-            "memory.read", "memory.write", "memory.append", "system.time",
+            "memory.read", "memory.write", "memory.append", "system.time", "vision.match",
             "action.tap", "action.swipe", "action.wait"
         )
     }
