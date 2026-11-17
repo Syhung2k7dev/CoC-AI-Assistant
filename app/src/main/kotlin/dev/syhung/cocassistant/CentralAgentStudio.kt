@@ -2,7 +2,6 @@ package dev.syhung.cocassistant
 
 import android.content.Context
 import android.content.Intent
-import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Send
@@ -46,7 +44,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import org.json.JSONObject
 import kotlin.coroutines.resume
 
 private val AgentBg = Color(0xFF141B2B)
@@ -156,6 +153,7 @@ fun CentralAgentStudio(
                         messages.add(AgentChatMessage("user", goal))
                         status = "Đang mở Clash of Clans…"
                         scope.launch {
+                            var capturedScreenshot: android.graphics.Bitmap? = null
                             try {
                                 val launchIntent = context.packageManager.getLaunchIntentForPackage(GAME_PACKAGE)
                                     ?: error("Không tìm thấy Clash of Clans trên thiết bị.")
@@ -169,6 +167,7 @@ fun CentralAgentStudio(
                                     }
                                     if (!accepted && continuation.isActive) continuation.resume(null)
                                 } ?: error("Không chụp được màn hình. Kiểm tra quyền Trợ năng hoặc cửa sổ đang hiển thị.")
+                                capturedScreenshot = screenshot
                                 val ocrBitmap = screenshot.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
                                 val recognizedText = suspendCancellableCoroutine<String?> { continuation ->
                                     LocalOcrProcessor.recognize(ocrBitmap) { result ->
@@ -204,6 +203,7 @@ fun CentralAgentStudio(
                                 messages.add(AgentChatMessage("agent", status))
                                 onStatus(status)
                             } finally {
+                                capturedScreenshot?.recycle()
                                 busy = false
                             }
                         }
@@ -213,7 +213,7 @@ fun CentralAgentStudio(
                     colors = ButtonDefaults.buttonColors(containerColor = AgentAccent)
                 ) {
                     androidx.compose.material3.Icon(Icons.Default.Gamepad, contentDescription = null)
-                    Spacer(Modifier.padding(horizontal = 3.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(if (busy) "Đang xử lý…" else "Phân tích CoC")
                 }
                 OutlinedButton(
