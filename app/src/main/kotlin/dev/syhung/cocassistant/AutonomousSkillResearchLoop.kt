@@ -125,9 +125,20 @@ object AutonomousSkillResearchLoop {
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ResearchDebugLog.record("LAUNCH", "Đang mở Clash of Clans")
         context.startActivity(launchIntent)
-        delay(5_000L)
-        ResearchDebugLog.record("LAUNCH", "Đã chờ game khởi động 5 giây",
-            "foreground=${CoCAccessibilityService.isGameForeground(GAME_PACKAGE)}")
+        val foregroundWaitStarted = SystemClock.elapsedRealtime()
+        while (!CoCAccessibilityService.isGameForeground(GAME_PACKAGE) &&
+            SystemClock.elapsedRealtime() - foregroundWaitStarted < 25_000L
+        ) {
+            delay(500L)
+        }
+        val gameForeground = CoCAccessibilityService.isGameForeground(GAME_PACKAGE)
+        ResearchDebugLog.record(
+            if (gameForeground) "LAUNCH" else "LAUNCH_WARNING",
+            if (gameForeground) "CoC đã vào foreground" else "Hết thời gian chờ CoC vào foreground",
+            "waitMs=${SystemClock.elapsedRealtime() - foregroundWaitStarted}\nforeground=$gameForeground"
+        )
+        require(gameForeground) { "Đã mở Clash of Clans nhưng Android chưa xác nhận game ở foreground." }
+        delay(1_500L)
 
         val db = SkillResearchDatabase(context)
         val cadss = CadssStore(context)
