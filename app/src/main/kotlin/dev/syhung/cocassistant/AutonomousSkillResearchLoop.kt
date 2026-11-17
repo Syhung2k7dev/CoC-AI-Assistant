@@ -153,7 +153,9 @@ object AutonomousSkillResearchLoop {
                         cadss.addRecord("research_media", JSONObject(asset.toString())
                             .put("sessionId", sessionId)
                             .put("observationId", observationId)
-                            .put("kind", "screenshot"))
+                            .put("kind", "screenshot")).also { asset ->
+                            db.recordMedia(sessionId, observationId, asset, "screenshot")
+                        }
                     }
                 }
                 val prompt = buildResearchPrompt(
@@ -180,7 +182,7 @@ object AutonomousSkillResearchLoop {
                 val screenKey = response.optString("screenKey", "unknown_screen").take(100)
                 val cropAssets = saveRequestedCrops(
                     context, response.optJSONArray("cropRects"), screenAsset.optString("id"),
-                    sessionId, observationId, cadss
+                    sessionId, observationId, cadss, db
                 )
                 response.optJSONObject("manifest")?.let { latestManifest = JSONObject(it.toString()) }
                 response.optJSONObject("casl")?.let { latestCasl = JSONObject(it.toString()) }
@@ -198,6 +200,11 @@ object AutonomousSkillResearchLoop {
                 response.optJSONArray("calculations")?.let { items ->
                     for (i in 0 until items.length()) items.optJSONObject(i)?.let {
                         db.upsertCalculation(sessionId, observationId, it)
+                    }
+                }
+                response.optJSONArray("datasets")?.let { items ->
+                    for (i in 0 until items.length()) items.optJSONObject(i)?.let {
+                        db.upsertDataset(sessionId, it)
                     }
                 }
 
@@ -323,11 +330,7 @@ object AutonomousSkillResearchLoop {
         db: SkillResearchDatabase,
         sessionId: String
     ): String {
-        val databaseSummary = db.exportJson().optJSONObject("tables")?.let { tables ->
-            "observations=${tables.optJSONArray("observations")?.length() ?: 0}, layouts=${tables.optJSONArray("layouts")?.length() ?: 0}, " +
-                "steps=${tables.optJSONArray("procedure_steps")?.length() ?: 0}, strategies=${tables.optJSONArray("strategies")?.length() ?: 0}, " +
-                "calculations=${tables.optJSONArray("calculations")?.length() ?: 0}"
-        }.orEmpty()
+        val databaseSnapshot = db.exportJson().toString().take(60_000)
         return """
             You are the autonomous CoC Skill Research Agent. Research goal: $goal
             Target Skill: ${target?.id ?: "(discover a new Skill)"}; current version: ${target?.version ?: 0}
@@ -336,7 +339,8 @@ object AutonomousSkillResearchLoop {
             Previous action result: $previousResult
             Current OCR evidence (may be empty; never invent text):
             $ocr
-            Research database so far: $databaseSummary
+            FULL PERSISTED RESEARCH DATABASE (truncated only if above 60k chars):
+            $databaseSnapshot
             Current evolving manifest: ${manifest?.toString() ?: "not created"}
             Current evolving CASL: ${casl?.toString() ?: "not created"}
 
@@ -366,7 +370,8 @@ object AutonomousSkillResearchLoop {
               "cropRects":[{"x":0,"y":0,"width":1000,"height":1000,"label":""}],
               "procedure":[{"id":"","title":"","preconditions":{},"action":{},"postconditions":{},"status":"OBSERVED"}],
               "strategies":[{"key":"","kind":"attack|farming|upgrade|navigation|other","confidence":0.0,"content":{}}],
-              "calculations":[{"name":"","formula":"","inputs":{},"result":{}}]
+              "calculations":[{"name":"","formula":"","inputs":{},"result":{}}],
+              "datasets":[{"name":"","schema":{},"records":[]}]
             }
 
             Mandatory rules:
@@ -380,6 +385,8 @@ object AutonomousSkillResearchLoop {
             - Record every discovered screen layout, UI component, action, precondition, postcondition and result.
             - Procedure steps must describe a reproducible sequence with conditions and observable outcomes.
             - Store strategies and calculations as structured JSON data. Formula is descriptive math, never executable code.
+            - Create or update custom datasets whenever a domain needs its own structured records. Each dataset must have a stable name, JSON schema and records; use the database snapshot to merge rather than discard previous evidence.
+            - You may read and revise the entire research database snapshot in every cycle. Return complete updates to layouts, procedure, strategies, calculations and datasets so the app can persist them transactionally.
             - CASL must be declarative JSON only, schemaVersion=1, kind=skill, id/version equal manifest.
               Only supported CASL operations: set, output, call, skill, if, repeat, wait, assert, log, return.
               Calls must use only this API allow-list: ${WorkflowEngine.AVAILABLE_API_NAMES.joinToString(", ")}.
@@ -430,7 +437,8 @@ object AutonomousSkillResearchLoop {
         sourceAssetId: String,
         sessionId: String,
         observationId: String,
-        cadss: CadssStore
+        cadss: CadssStore,
+        db: SkillResearchDatabase
     ): JSONArray {
         val saved = JSONArray()
         if (rectangles == null) return saved
@@ -455,7 +463,9 @@ object AutonomousSkillResearchLoop {
                     val asset = withContext(Dispatchers.IO) { VisionMemory.save(context, crop, hash) }
                     cadss.addRecord("research_media", JSONObject(asset.toString())
                         .put("sessionId", sessionId).put("observationId", observationId)
-                        .put("kind", "crop").put("label", rect.optString("label")))
+                        .put("kind", "crop").put("label", rect.optString("label"))).also { media ->
+                        db.recordMedia(sessionId, observationId, media, "crop")
+                    }
                     saved.put(JSONObject(asset.toString()).put("label", rect.optString("label")))
                 } finally { if (crop !== bitmap && !crop.isRecycled) crop.recycle() }
             }
