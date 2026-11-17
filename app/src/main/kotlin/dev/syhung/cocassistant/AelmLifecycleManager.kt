@@ -294,6 +294,31 @@ class AelmLifecycleManager(context: Context) {
                 JSONObject().put("appended", true)
             }
             register("system.time") { _, _ -> JSONObject().put("epochMillis", 1_700_000_000_000L) }
+            register("vision.match") { arguments, _ ->
+                val hash = arguments.optString("hash")
+                require(hash.matches(Regex("[0-9a-fA-F]{16}"))) {
+                    "vision.match cần pHash 16 ký tự hệ thập lục phân."
+                }
+                JSONObject()
+                    .put("matched", true)
+                    .put("templateId", "sandbox-template")
+                    .put("label", "Sandbox Vision Template")
+                    .put("distance", 0)
+            }
+            register("vision.feedback") { arguments, context ->
+                require(context.optString("skillId").isNotBlank() && context.optInt("skillVersion", 0) >= 1) {
+                    "vision.feedback chỉ khả dụng trong Skill có ID/version."
+                }
+                val templateId = arguments.optString("templateId")
+                require(templateId == "sandbox-template") {
+                    "vision.feedback chỉ cập nhật template giả lập trong sandbox."
+                }
+                JSONObject()
+                    .put("updated", true)
+                    .put("templateId", templateId)
+                    .put("status", "VERIFIED")
+                    .put("confidence", if (arguments.optBoolean("success", false)) 0.75 else 0.25)
+            }
             register("action.tap") { arguments, context ->
                 require(arguments.optInt("x", -1) in 0..1000 && arguments.optInt("y", -1) in 0..1000)
                 require(arguments.optLong("durationMs", 100L) in 50L..10_000L)
@@ -313,7 +338,7 @@ class AelmLifecycleManager(context: Context) {
     }
 
     private fun sandboxApiNames(): List<String> =
-        listOf("memory.read", "memory.write", "memory.append", "system.time", "action.tap", "action.swipe", "action.wait")
+        listOf("memory.read", "memory.write", "memory.append", "system.time", "vision.match", "vision.feedback", "action.tap", "action.swipe", "action.wait")
 
 
     private fun assertExpected(expected: JSONObject, actual: JSONObject) {
