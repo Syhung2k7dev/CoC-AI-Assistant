@@ -135,6 +135,7 @@ object AutonomousSkillResearchLoop {
         var latestManifest: JSONObject? = null
         var latestCasl: JSONObject? = null
         var lastAnalysis = ""
+        var databaseQueryResults = JSONArray()
 
         try {
             while (cycle < MAX_CYCLES &&
@@ -160,8 +161,9 @@ object AutonomousSkillResearchLoop {
                 }
                 val prompt = buildResearchPrompt(
                     goal, target, cycle, ocr, previousAction, previousActionResult,
-                    latestManifest, latestCasl, db, sessionId
+                    latestManifest, latestCasl, db, sessionId, databaseQueryResults
                 )
+                databaseQueryResults = JSONArray()
                 val raw = try {
                     withTimeout(60_000L) { GeminiClient.generate(apiKey, prompt, screenshot) }
                 } finally {
@@ -202,6 +204,16 @@ object AutonomousSkillResearchLoop {
                 response.optJSONArray("calculations")?.let { items ->
                     for (i in 0 until items.length()) items.optJSONObject(i)?.let {
                         db.upsertCalculation(sessionId, observationId, it)
+                    }
+                }
+                response.optJSONArray("databaseQueries")?.let { queries ->
+                    for (i in 0 until minOf(queries.length(), 10)) {
+                        val query = queries.optJSONObject(i) ?: continue
+                        val table = query.optString("table")
+                        val result = runCatching {
+                            db.queryTable(table, query.optInt("offset", 0), query.optInt("limit", 50))
+                        }.getOrElse { error -> JSONObject().put("table", table).put("error", error.message ?: "Query failed") }
+                        databaseQueryResults.put(result)
                     }
                 }
                 response.optJSONArray("datasets")?.let { items ->
@@ -348,7 +360,8 @@ object AutonomousSkillResearchLoop {
         manifest: JSONObject?,
         casl: JSONObject?,
         db: SkillResearchDatabase,
-        sessionId: String
+        sessionId: String,
+        databaseQueryResults: JSONArray
     ): String {
         val databaseSnapshot = db.exportJson().toString().take(60_000)
         return """
@@ -361,6 +374,8 @@ object AutonomousSkillResearchLoop {
             $ocr
             FULL PERSISTED RESEARCH DATABASE (truncated only if above 60k chars):
             $databaseSnapshot
+            PAGED DATABASE QUERY RESULTS FROM THE PREVIOUS CYCLE:
+            $databaseQueryResults
             Current evolving manifest: ${manifest?.toString() ?: "not created"}
             Current evolving CASL: ${casl?.toString() ?: "not created"}
 
@@ -392,7 +407,8 @@ object AutonomousSkillResearchLoop {
               "strategies":[{"key":"","kind":"attack|farming|upgrade|navigation|other","confidence":0.0,"content":{}}],
               "calculations":[{"name":"","formula":"","inputs":{},"result":{}}],
               "datasets":[{"name":"","schema":{},"records":[]}],
-              "deleteDatasets":[]
+              "deleteDatasets":[],
+              "databaseQueries":[{"table":"observations","offset":0,"limit":50}]
             }
 
             Mandatory rules:
@@ -410,7 +426,7 @@ object AutonomousSkillResearchLoop {
             - Procedure steps must describe a reproducible sequence with conditions and observable outcomes.
             - Store strategies and calculations as structured JSON data. Formula is descriptive math, never executable code.
             - Create or update custom datasets whenever a domain needs its own structured records. Each dataset must have a stable name, JSON schema and records; use the database snapshot to merge rather than discard previous evidence.
-            - You may read, create, update and delete session-owned datasets. Use deleteDatasets only to remove obsolete or duplicate datasets. Return complete updates to layouts, procedure, strategies, calculations and datasets so the app can persist them transactionally.
+            - You may read, create, update and delete session-owned datasets. Use deleteDatasets only to remove obsolete or duplicate datasets. Return complete updates to layouts, procedure, strategies, calculations and datasets so the app can persist them transactionally.\n            - The initial database snapshot may be shortened. Use databaseQueries to page through any table (observations, layouts, layout_components, procedure_steps, strategies, calculations, skill_documents, custom_datasets, media_assets, sessions). Each query returns up to 100 rows; request further offsets as needed. Results arrive in the next cycle.
             - CASL must be declarative JSON only, schemaVersion=1, kind=skill, id/version equal manifest.
               Only supported CASL operations: set, output, call, skill, if, repeat, wait, assert, log, return.
               Calls must use only this API allow-list: ${WorkflowEngine.AVAILABLE_API_NAMES.joinToString(", ")}.
