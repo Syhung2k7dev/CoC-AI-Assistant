@@ -92,21 +92,21 @@ class CaslWorkflowRegistry(context: Context) {
         return true
     }
 
-    private fun collectSkillVersions(steps: JSONArray): Map<String, Int> {
-        val found = linkedMapOf<String, Int>()
+    private fun collectSkillVersions(steps: JSONArray): Set<Pair<String, Int?>> {
+        val found = linkedSetOf<Pair<String, Int?>>()
         for (index in 0 until steps.length()) {
             val step = steps.optJSONObject(index) ?: continue
             when (step.optString("op")) {
                 "skill" -> {
                     val id = step.optString("id")
-                    val version = step.optInt("version", 0)
-                    if (id.isNotBlank() && version > 0) found[id] = version
+                    val version = if (step.has("version") && !step.isNull("version")) step.optInt("version") else null
+                    if (id.isNotBlank()) found.add(id to version)
                 }
                 "if" -> {
-                    found.putAll(collectSkillVersions(step.optJSONArray("then") ?: JSONArray()))
-                    found.putAll(collectSkillVersions(step.optJSONArray("else") ?: JSONArray()))
+                    found.addAll(collectSkillVersions(step.optJSONArray("then") ?: JSONArray()))
+                    found.addAll(collectSkillVersions(step.optJSONArray("else") ?: JSONArray()))
                 }
-                "repeat" -> found.putAll(collectSkillVersions(step.optJSONArray("steps") ?: JSONArray()))
+                "repeat" -> found.addAll(collectSkillVersions(step.optJSONArray("steps") ?: JSONArray()))
             }
         }
         return found
