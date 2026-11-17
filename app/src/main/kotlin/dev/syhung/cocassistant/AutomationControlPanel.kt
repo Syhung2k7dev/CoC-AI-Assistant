@@ -37,7 +37,21 @@ fun AutomationControlPanel(onStatus: (String) -> Unit) {
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         Text("COC AGENT · ĐIỀU KHIỂN TỰ ĐỘNG")
-        Text(if (enabled) "Accessibility đã được bật." else "Cần bật Accessibility Service trong Cài đặt Android.")
+        Text("Ứng dụng mục tiêu: Clash of Clans · com.supercell.clashofclans")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { onStatus(ClashOfClansLauncher.inspect(context)) },
+                modifier = Modifier.weight(1f)
+            ) { Text("Kiểm tra CoC") }
+            Button(
+                onClick = { onStatus(ClashOfClansLauncher.launch(context)) },
+                modifier = Modifier.weight(1f)
+            ) { Text("Mở Clash of Clans") }
+        }
+        Text(
+            if (enabled) "Accessibility đã được bật."
+            else "Cần bật Accessibility Service trong Cài đặt Android."
+        )
         Button(onClick = {
             context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }, modifier = Modifier.fillMaxWidth()) { Text("Mở cài đặt Accessibility") }
