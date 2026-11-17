@@ -347,7 +347,7 @@ class AelmLifecycleManager(context: Context) {
 
     private fun hasValidReceipt(type: String, id: String, version: Int, program: JSONObject): Boolean {
         val receipt = runCatching {
-            JSONObject(receipts.getString(receiptKey(type, id, version), "{}"))
+            JSONObject(receipts.getString(receiptKey(type, id, version), "{}") ?: "{}")
         }.getOrNull() ?: return false
         return receipt.optString("artifactType") == type &&
             receipt.optString("artifactId") == id &&
@@ -359,7 +359,7 @@ class AelmLifecycleManager(context: Context) {
 
     private fun receiptTotal(type: String, id: String, version: Int): Int =
         runCatching {
-            JSONObject(receipts.getString(receiptKey(type, id, version), "{}")).optInt("total", 0)
+            JSONObject(receipts.getString(receiptKey(type, id, version), "{}") ?: "{}").optInt("total", 0)
         }.getOrDefault(0)
 
     private fun receiptKey(type: String, id: String, version: Int) = "receipt:$type:$id:$version"
