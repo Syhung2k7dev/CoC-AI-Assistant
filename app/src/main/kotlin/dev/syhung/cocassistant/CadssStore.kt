@@ -35,6 +35,54 @@ class CadssStore(context: Context) {
         prefs.edit().putString("collection:$collection", records.toString()).apply()
     }
 
+    /** Upserts a keyed record in a CADSS collection. */
+    @Synchronized
+    fun putRecord(collection: String, keyField: String, key: String, record: JSONObject) {
+        validateKey(collection)
+        validateKey(keyField)
+        require(key.isNotBlank() && key.length <= 160)
+        require(record.toString().length <= MAX_RECORD_CHARS)
+        val records = JSONArray(prefs.getString("collection:$collection", "[]") ?: "[]")
+        val replacement = JSONObject(record.toString()).put(keyField, key)
+        val index = (0 until records.length()).firstOrNull {
+            records.optJSONObject(it)?.optString(keyField) == key
+        }
+        if (index != null) {
+            records.put(index, replacement)
+        } else {
+            require(records.length() < MAX_RECORDS_PER_COLLECTION) {
+                "CADSS collection đã đạt giới hạn record."
+            }
+            records.put(replacement)
+        }
+        prefs.edit().putString("collection:$collection", records.toString()).apply()
+    }
+
+    @Synchronized
+    fun findRecord(collection: String, keyField: String, key: String): JSONObject? {
+        validateKey(collection)
+        validateKey(keyField)
+        val records = JSONArray(prefs.getString("collection:$collection", "[]") ?: "[]")
+        for (index in records.length() - 1 downTo 0) {
+            val record = records.optJSONObject(index) ?: continue
+            if (record.optString(keyField) == key) return JSONObject(record.toString())
+        }
+        return null
+    }
+
+    @Synchronized
+    fun removeRecord(collection: String, keyField: String, key: String) {
+        validateKey(collection)
+        validateKey(keyField)
+        val records = JSONArray(prefs.getString("collection:$collection", "[]") ?: "[]")
+        val retained = JSONArray()
+        for (index in 0 until records.length()) {
+            val record = records.optJSONObject(index) ?: continue
+            if (record.optString(keyField) != key) retained.put(record)
+        }
+        prefs.edit().putString("collection:$collection", retained.toString()).apply()
+    }
+
     @Synchronized
     fun getRecords(collection: String): List<JSONObject> {
         validateKey(collection)
