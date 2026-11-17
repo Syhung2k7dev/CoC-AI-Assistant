@@ -116,7 +116,7 @@ class AelmLifecycleManager(context: Context) {
 
     suspend fun createWorkflowDraft(apiKey: String, goal: String): WorkflowDraftOutcome =
         GeminiWorkflowAuthoring.createDraft(
-            apiKey, goal, workflows, skills, sandboxApiNames()
+            apiKey, goal, workflows, skills, workflowApiNames()
         )
 
     suspend fun reviseWorkflowDraft(
@@ -125,7 +125,7 @@ class AelmLifecycleManager(context: Context) {
         baseVersion: Int,
         changeRequest: String
     ): WorkflowDraftOutcome = GeminiWorkflowAuthoring.reviseDraft(
-        apiKey, workflowId, baseVersion, changeRequest, workflows, skills, sandboxApiNames()
+        apiKey, workflowId, baseVersion, changeRequest, workflows, skills, workflowApiNames()
     )
 
     suspend fun testSkill(
@@ -336,6 +336,9 @@ class AelmLifecycleManager(context: Context) {
             }
         }
     }
+
+    private fun workflowApiNames(): List<String> =
+        sandboxApiNames().filterNot { it == "vision.feedback" }
 
     private fun sandboxApiNames(): List<String> =
         listOf("memory.read", "memory.write", "memory.append", "system.time", "vision.match", "vision.feedback", "action.tap", "action.swipe", "action.wait")
