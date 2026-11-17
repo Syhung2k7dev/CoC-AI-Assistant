@@ -240,7 +240,7 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
 
     @Synchronized
     fun queryTable(table: String, offset: Int = 0, limit: Int = 50): JSONObject {
-        val allowed = setOf("sessions", "observations", "layouts", "layout_components",
+        val allowed = setOf("sessions", "observations", "layouts", "layout_components", "base_layouts", "base_layout_items",
             "procedure_steps", "strategies", "calculations", "skill_documents",
             "custom_datasets", "media_assets")
         require(table in allowed) { "Bảng dữ liệu không được phép truy vấn." }
