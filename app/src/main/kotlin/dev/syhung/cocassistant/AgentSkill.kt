@@ -184,14 +184,29 @@ class AgentSkillRegistry(context: Context) {
     }
 
     @Synchronized
+    fun saveCatalogSkill(skill: AgentSkill): Boolean {
+        if (!skill.validate() || skill.source != "builtin_catalog" || skill.scriptJson.isNotBlank()) return false
+        return saveNewVersion(skill.copy(status = SkillLifecycle.RESEARCH_REQUIRED))
+    }
+
+    @Synchronized
     fun saveDraft(skill: AgentSkill): Boolean {
         if (!skill.validate()) return false
+        return saveNewVersion(skill.copy(status = SkillLifecycle.DRAFT))
+    }
+
+    @Synchronized
+    fun saveResearched(skill: AgentSkill): Boolean {
+        if (!skill.validate() || skill.scriptJson.isBlank() || skill.source != "gemini_skill_research") return false
+        return saveNewVersion(skill.copy(status = SkillLifecycle.RESEARCHED))
+    }
+
+    private fun saveNewVersion(skill: AgentSkill): Boolean {
         val current = all().toMutableList()
         if (current.any { it.id == skill.id && it.version == skill.version }) return false
         val highestVersion = current.filter { it.id == skill.id }.maxOfOrNull { it.version } ?: 0
         if (skill.version <= highestVersion) return false
-        val draft = skill.copy(updatedAt = System.currentTimeMillis())
-        current.add(draft)
+        current.add(skill.copy(updatedAt = System.currentTimeMillis()))
         persist(current)
         return true
     }
