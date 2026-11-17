@@ -35,6 +35,8 @@ Các phần OCR, workflow editor JSON hoàn chỉnh, vòng lặp Agent tự xác
 
 ## Tài liệu
 
+- [AELM – Agent Evolution Lifecycle Manager](docs/AELM_LIFECYCLE.md)
+
 - [Vision Memory & Auto-learning](docs/VISION_MEMORY.md)
 
 - [Hướng dẫn sử dụng](docs/HUONG_DAN_SU_DUNG.md)
