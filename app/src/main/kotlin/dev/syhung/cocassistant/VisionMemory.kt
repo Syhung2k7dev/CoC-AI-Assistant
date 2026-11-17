@@ -20,10 +20,8 @@ object VisionMemory {
         val id = UUID.randomUUID().toString()
         val original = File(directory, "$id-original.jpg")
         val cropFile = File(directory, "$id-center.jpg")
-        var originalWritten = false
-        var cropWritten = false
         try {
-            originalWritten = original.outputStream().use {
+            val originalWritten = original.outputStream().use {
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it)
             }
             if (!originalWritten) throw IOException("Không thể lưu ảnh gốc.")
@@ -32,7 +30,7 @@ object VisionMemory {
             val top = (bitmap.height - side) / 2
             val center = Bitmap.createBitmap(bitmap, left, top, side, side)
             try {
-                cropWritten = cropFile.outputStream().use {
+                val cropWritten = cropFile.outputStream().use {
                     center.compress(Bitmap.CompressFormat.JPEG, 88, it)
                 }
             } finally {
@@ -49,8 +47,8 @@ object VisionMemory {
                 .put("createdAt", System.currentTimeMillis())
                 .put("label", "Ảnh đã phân tích")
         } catch (error: Exception) {
-            if (originalWritten) original.delete()
-            if (cropWritten) cropFile.delete()
+            original.delete()
+            cropFile.delete()
             throw error
         }
     }
