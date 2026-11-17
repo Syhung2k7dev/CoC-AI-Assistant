@@ -42,7 +42,6 @@ object GeminiSkillAuthoring {
             dependencies chỉ được tham chiếu Skill ID có trong danh sách.
             Không tạo mã Kotlin, Java, shell, lệnh hệ thống hoặc nội dung thực thi tùy ý.
             Không tự đánh dấu Verified. Kết quả sẽ luôn được lưu ở Draft để kiểm thử.
-            Nếu có ảnh tham chiếu, dùng ảnh đó làm dữ liệu quan sát và phân biệt điều đã thấy với suy luận.
             instructions là mô tả ngắn. script là CASL JSON AST hoàn chỉnh, kind=skill,
             id trùng id Skill, version trùng version Skill, schemaVersion=1.
             script.steps chỉ dùng các op: set, output, call, skill, if, repeat, wait, assert, log, return.
