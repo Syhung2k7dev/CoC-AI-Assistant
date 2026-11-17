@@ -21,7 +21,7 @@ object GeminiSkillAuthoring {
     ): SkillDraftOutcome {
         if (goal.isBlank()) return SkillDraftOutcome.Failed("Mục tiêu nghiên cứu không được để trống.")
         val inventory = registry.all().joinToString("\n") {
-            "${it.id} | ${it.category} | ${it.description} | ${it.status.name}"
+            "${it.id} | ${it.level.name} | ${it.category} | ${it.description} | ${it.status.name}"
         }
         val apiInventory = availableApiNames.distinct().sorted().joinToString("\n")
             .ifBlank { "(chưa có API adapter được đăng ký)" }
@@ -37,10 +37,12 @@ object GeminiSkillAuthoring {
             $apiInventory
 
             Trả về duy nhất một JSON object, không Markdown, theo các trường:
-            id, name, description, category, version, inputs, outputs, dependencies,
+            id, name, description, category, level, version, inputs, outputs, dependencies,
             capabilities, instructions, script, source, confidence, minAgentVersion,
             maxAgentVersion, dependencyVersions.
             capabilities chỉ được dùng: OBSERVE_SCREEN, READ_TEXT, ANALYZE_IMAGE, TAP, SWIPE, WAIT, VERIFY_STATE.
+            level bắt buộc là một trong: L0_PRIMITIVE, L1_ATOMIC, L2_COMPOSITE, L3_ORCHESTRATOR.
+            L0_PRIMITIVE không được có dependencies; mỗi Skill chỉ được phụ thuộc Skill ở level thấp hơn.
             dependencies chỉ được tham chiếu Skill ID có trong danh sách.
             Không tạo mã Kotlin, Java, shell, lệnh hệ thống hoặc nội dung thực thi tùy ý.
             Không tự đánh dấu Verified. Kết quả sẽ luôn được lưu ở Draft để kiểm thử.
