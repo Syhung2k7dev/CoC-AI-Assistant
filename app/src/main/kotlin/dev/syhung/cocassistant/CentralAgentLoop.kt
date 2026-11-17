@@ -80,22 +80,25 @@ object CentralAgentLoop {
                 .firstOrNull { it.isNotBlank() }
                 ?.take(100)
                 .orEmpty()
-            val visionObservation = visionLearning.observeForAgent(
-                bitmap = screenshot,
-                suggestedLabel = suggestedLabel,
-                metadata = JSONObject()
-                    .put("source", "central_agent")
-                    .put("cycle", cycle)
-                    .put("ocrLength", recognizedText.length)
-            )
-            val visionMemorySummary = when (visionObservation) {
+            val visionObservation = runCatching {
+                visionLearning.observeForAgent(
+                    bitmap = screenshot,
+                    suggestedLabel = suggestedLabel,
+                    metadata = JSONObject()
+                        .put("source", "central_agent")
+                        .put("cycle", cycle)
+                        .put("ocrLength", recognizedText.length)
+                )
+            }.getOrNull()
+            val visionMemorySummary = when (val observation = visionObservation) {
                 is VisionObservationResult.Known ->
-                    "KNOWN_TEMPLATE: ${visionObservation.template.optString("label")}; " +
-                        "distance=${visionObservation.distance}/64; " +
-                        "confidence=${visionObservation.template.optDouble("confidence", 0.5)}"
+                    "KNOWN_TEMPLATE: ${observation.template.optString("label")}; " +
+                        "distance=${observation.distance}/64; " +
+                        "confidence=${observation.template.optDouble("confidence", 0.5)}"
                 is VisionObservationResult.NeedsReview ->
-                    "CANDIDATE_NOT_YET_TRUSTED: sightings=${visionObservation.candidate.optInt("sightings", 1)}/3; " +
-                        "distance=${visionObservation.distance}; labelHint=${visionObservation.candidate.optString("suggestedLabel")}"
+                    "CANDIDATE_NOT_YET_TRUSTED: sightings=${observation.candidate.optInt("sightings", 1)}/3; " +
+                        "distance=${observation.distance}; labelHint=${observation.candidate.optString("suggestedLabel")}"
+                null -> "LOCAL_VISION_MEMORY_UNAVAILABLE: use current screenshot and OCR only; do not invent a match."
             }
 
             val prompt = """
