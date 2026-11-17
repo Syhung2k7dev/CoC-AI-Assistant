@@ -235,12 +235,16 @@ class AelmLifecycleManager(context: Context) {
     }
 
     private fun requireDependenciesReady(skill: AgentSkill) {
+        val latestVerified = skills.all()
+            .filter { it.status == SkillLifecycle.VERIFIED }
+            .groupBy { it.id }
+            .mapValues { (_, versions) -> versions.maxByOrNull { it.version } }
         skill.dependencies.forEach { dependency ->
-            val found = skills.find(dependency)
-                ?: throw CaslRuntimeException("Thiếu Skill dependency: $dependency")
+            val found = latestVerified[dependency]
+                ?: throw CaslRuntimeException("Thiếu Skill dependency VERIFIED: $dependency")
             val required = skill.dependencyVersions[dependency]
-            if (found.status != SkillLifecycle.VERIFIED || (required != null && found.version < required)) {
-                throw CaslRuntimeException("Skill dependency chưa VERIFIED hoặc sai version: $dependency")
+            if (required != null && found.version < required) {
+                throw CaslRuntimeException("Skill dependency chưa đạt version yêu cầu: $dependency")
             }
         }
     }
