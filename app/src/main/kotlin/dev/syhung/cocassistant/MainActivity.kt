@@ -80,6 +80,14 @@ private fun CoCAssistantApp() {
         }
         if (timerSeconds == 0) timerRunning = false
     }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            visionLearning.migrateLegacyTemplates(store.getRecords("template_memory"))
+        }
+        pendingCandidates = visionLearning.listCandidates()
+        history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
+        templateCount = visionLearning.listTemplates().size
+    }
     var templateCount by remember { mutableIntStateOf(visionLearning.listTemplates().size) }
     var history by remember { mutableStateOf(visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")) }
     var pendingCandidates by remember { mutableStateOf(visionLearning.listCandidates()) }
