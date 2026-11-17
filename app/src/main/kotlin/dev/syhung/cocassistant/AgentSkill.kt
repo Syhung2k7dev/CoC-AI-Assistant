@@ -164,13 +164,21 @@ class AgentSkillRegistry(context: Context) {
     }
 
     @Synchronized
-    fun markCatalogForResearch(id: String): Boolean {
+    fun markCatalogForResearch(catalogSkill: AgentSkill): Boolean {
         val current = all().toMutableList()
-        val index = current.indexOfLast { it.id == id && it.source == "builtin_catalog" }
+        val index = current.indexOfLast { it.id == catalogSkill.id && it.source == "builtin_catalog" }
         if (index < 0) return false
         val old = current[index]
-        if (old.status != SkillLifecycle.DRAFT || old.scriptJson.isNotBlank()) return false
-        current[index] = old.copy(status = SkillLifecycle.RESEARCH_REQUIRED, updatedAt = System.currentTimeMillis())
+        val nextStatus = if (old.status == SkillLifecycle.DRAFT && old.scriptJson.isBlank()) {
+            SkillLifecycle.RESEARCH_REQUIRED
+        } else old.status
+        current[index] = old.copy(
+            name = catalogSkill.name,
+            description = catalogSkill.description,
+            category = catalogSkill.category,
+            status = nextStatus,
+            updatedAt = System.currentTimeMillis()
+        )
         persist(current)
         return true
     }
