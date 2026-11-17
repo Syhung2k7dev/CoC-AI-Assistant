@@ -42,16 +42,16 @@ fun SkillLibraryPanel(
     val categories = skills.map { it.category }.distinct()
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("THƯ VIỆN SKILL", color = Color(0xFF4DD8D0), fontSize = 10.sp)
-        Text("${skills.size} năng lực khai báo · ${categories.size} nhóm", color = Color.White, style = MaterialTheme.typography.titleLarge)
+        Text("THƯ VIỆN KỸ NĂNG", color = Color(0xFF4DD8D0), fontSize = 10.sp)
+        Text("${skills.size} kỹ năng · ${categories.size} nhóm", color = Color.White, style = MaterialTheme.typography.titleLarge)
         Text(
-            "Các mục dưới đây là năng lực khai báo. Chúng chỉ trở thành khả năng thực thi sau khi có workflow, kiểm thử và runtime tương ứng.",
+            "Kỹ năng chưa nghiên cứu chỉ là mục tiêu. Kỹ năng đã nghiên cứu vẫn phải qua kiểm thử trước khi được phép thao tác trên thiết bị.",
             color = Color(0xFF9AA8C0), fontSize = 12.sp
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SkillCountChip("Draft", skills.count { it.status == SkillLifecycle.DRAFT })
-            SkillCountChip("Verified", skills.count { it.status == SkillLifecycle.VERIFIED })
-            SkillCountChip("Disabled", skills.count { it.status == SkillLifecycle.DISABLED })
+            SkillCountChip("Chưa nghiên cứu", skills.count { it.status == SkillLifecycle.RESEARCH_REQUIRED })
+            SkillCountChip("Đã nghiên cứu", skills.count { it.status == SkillLifecycle.RESEARCHED })
+            SkillCountChip("Đã xác minh", skills.count { it.status == SkillLifecycle.VERIFIED })
         }
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -59,13 +59,13 @@ fun SkillLibraryPanel(
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1B263A))
         ) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("AI SKILL RESEARCHER", color = Color(0xFF4DD8D0), fontSize = 10.sp)
-                Text("Tạo Skill Draft từ yêu cầu và ảnh tham chiếu", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                Text("AI NGHIÊN CỨU KỸ NĂNG", color = Color(0xFF4DD8D0), fontSize = 10.sp)
+                Text("Tạo kỹ năng mới từ mục tiêu", color = Color.White, style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(
                     value = goalState.value,
                     onValueChange = { goalState.value = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Mục tiêu nghiên cứu") },
+                    label = { Text("Mục tiêu cần nghiên cứu") },
                     minLines = 3
                 )
                 Text(
@@ -101,7 +101,7 @@ fun SkillLibraryPanel(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B7CFF))
                 ) {
-                    Text(if (busyState.value) "Đang nghiên cứu..." else "Nghiên cứu và tạo Skill Draft")
+                    Text(if (busyState.value) "Đang nghiên cứu..." else "Nghiên cứu kỹ năng mới")
                 }
                 if (statusState.value.isNotBlank()) {
                     Text(statusState.value, color = Color(0xFF4DD8D0), fontSize = 11.sp)
@@ -109,7 +109,7 @@ fun SkillLibraryPanel(
             }
         }
         categories.forEach { category ->
-            Text(category.replace('_', ' ').uppercase(), color = Color(0xFF4DD8D0), fontSize = 10.sp)
+            Text(skillCategoryLabel(category), color = Color(0xFF4DD8D0), fontSize = 10.sp)
             skills.filter { it.category == category }.forEach { skill ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -119,10 +119,36 @@ fun SkillLibraryPanel(
                     Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(skill.name, color = Color.White, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                            Text(skill.status.name, color = Color(0xFFFFC66D), fontSize = 9.sp)
+                            Text(skillStatusLabel(skill.status), color = Color(0xFFFFC66D), fontSize = 9.sp)
                         }
                         Text(skill.description, color = Color(0xFF9AA8C0), fontSize = 11.sp)
-                        Text("ID: ${skill.id} · v${skill.version}", color = Color(0xFF71819D), fontSize = 9.sp)
+                        Text("Mã: ${skill.id} · phiên bản ${skill.version}", color = Color(0xFF71819D), fontSize = 9.sp)
+                        if (skill.status == SkillLifecycle.RESEARCH_REQUIRED) {
+                            Button(
+                                onClick = {
+                                    busyState.value = true
+                                    statusState.value = "Đang nghiên cứu quy trình và điều kiện của: ${skill.name}"
+                                    scope.launch {
+                                        when (val result = GeminiSkillAuthoring.researchExistingSkill(
+                                            apiKey, skill.id, registry, WorkflowEngine.AVAILABLE_API_NAMES
+                                        )) {
+                                            is SkillDraftOutcome.Created -> {
+                                                skillsState.value = registry.all()
+                                                statusState.value = "Đã nghiên cứu và lưu phiên bản ${result.skill.version}: ${result.skill.name}. Chưa được phép thực thi."
+                                            }
+                                            is SkillDraftOutcome.Failed -> statusState.value = result.reason
+                                        }
+                                        busyState.value = false
+                                    }
+                                },
+                                enabled = !busyState.value && apiKey.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B7CFF))
+                            ) { Text(if (busyState.value) "Đang nghiên cứu…" else "Nghiên cứu kỹ năng này") }
+                        }
+                        if (skill.status == SkillLifecycle.RESEARCHED) {
+                            Text("Đã có quy trình và CASL Draft. Cần kiểm thử đầy đủ trước khi xác minh và thực thi.", color = Color(0xFFFFC66D), fontSize = 10.sp)
+                        }
                     }
                 }
             }
@@ -136,4 +162,31 @@ private fun SkillCountChip(label: String, count: Int) {
     Surface(color = Color(0xFF1B263A), shape = RoundedCornerShape(30.dp)) {
         Text(label + ": " + count, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color.White, fontSize = 10.sp)
     }
+}
+
+
+private fun skillStatusLabel(status: SkillLifecycle): String = when (status) {
+    SkillLifecycle.RESEARCH_REQUIRED -> "CHƯA NGHIÊN CỨU"
+    SkillLifecycle.RESEARCHING -> "ĐANG NGHIÊN CỨU"
+    SkillLifecycle.RESEARCHED -> "ĐÃ NGHIÊN CỨU · CHỜ KIỂM THỬ"
+    SkillLifecycle.DRAFT -> "BẢN NHÁP"
+    SkillLifecycle.TESTING -> "ĐANG KIỂM THỬ"
+    SkillLifecycle.VERIFIED -> "ĐÃ XÁC MINH"
+    SkillLifecycle.EXPERIMENTAL -> "THỬ NGHIỆM"
+    SkillLifecycle.DISABLED -> "ĐÃ TẮT"
+}
+
+private fun skillCategoryLabel(category: String): String = when (category) {
+    "observation" -> "QUAN SÁT"
+    "vision" -> "THỊ GIÁC"
+    "research" -> "NGHIÊN CỨU"
+    "agent" -> "ĐIỀU PHỐI AI"
+    "interaction" -> "TƯƠNG TÁC"
+    "account" -> "TÀI KHOẢN"
+    "attack_analysis" -> "PHÂN TÍCH TRẬN ĐÁNH"
+    "learning" -> "HỌC HỎI"
+    "farming" -> "THU THẬP TÀI NGUYÊN"
+    "village" -> "QUẢN LÝ LÀNG"
+    "primitive" -> "NĂNG LỰC NỀN"
+    else -> category.replace('_', ' ').uppercase()
 }
