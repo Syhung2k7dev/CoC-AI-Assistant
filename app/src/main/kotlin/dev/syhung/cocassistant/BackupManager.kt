@@ -17,7 +17,8 @@ object BackupManager {
         "vision_memory",
         "template_memory",
         "vision_candidates",
-        "vision_templates"
+        "vision_templates",
+        "research_media"
     )
 
     fun export(context: Context, uri: Uri, store: CadssStore) {
@@ -27,6 +28,10 @@ object BackupManager {
         ZipOutputStream(output.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry("cadss.json"))
             zip.write(document.toString(2).toByteArray(Charsets.UTF_8))
+            zip.closeEntry()
+
+            zip.putNextEntry(ZipEntry("research/research.json"))
+            zip.write(SkillResearchDatabase(context).use { it.exportJson().toString(2).toByteArray(Charsets.UTF_8) })
             zip.closeEntry()
 
             var totalAssetBytes = 0L
@@ -48,6 +53,7 @@ object BackupManager {
             if (!exists() && !mkdirs()) error("Không thể tạo thư mục khôi phục tạm.")
         }
         var document: JSONObject? = null
+        var researchDocument: JSONObject? = null
         val stagedNames = linkedSetOf<String>()
         var totalBytes = 0L
         var entryCount = 0
@@ -65,6 +71,12 @@ object BackupManager {
                             val bytes = readBounded(zip, MAX_DOCUMENT_BYTES)
                             totalBytes += bytes.size
                             document = JSONObject(bytes.toString(Charsets.UTF_8))
+                        }
+                        entry.name == "research/research.json" -> {
+                            require(researchDocument == null) { "Gói sao lưu chứa nhiều research database." }
+                            val bytes = readBounded(zip, MAX_DOCUMENT_BYTES)
+                            totalBytes += bytes.size
+                            researchDocument = JSONObject(bytes.toString(Charsets.UTF_8))
                         }
                         entry.name.startsWith("vision/") -> {
                             val name = entry.name.removePrefix("vision/")
@@ -108,6 +120,9 @@ object BackupManager {
                 }
             }
             store.importDocument(parsed)
+            researchDocument?.let { document ->
+                SkillResearchDatabase(context).use { it.importJson(document) }
+            }
         } finally {
             staging.deleteRecursively()
         }
