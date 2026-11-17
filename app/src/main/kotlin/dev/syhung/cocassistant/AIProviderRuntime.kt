@@ -90,7 +90,10 @@ internal object AIProviderRuntime {
                     return@withTimeoutOrNull adapter.generate(request)
                 } catch (error: AIProviderException) {
                     if (!error.retryable || retries >= retryPolicy.maxRetries) throw error
-                    delay(computeDelay(retries, error.retryAfterMillis, retryPolicy))
+                    val waitMs = computeDelay(retries, error.retryAfterMillis, retryPolicy)
+                    ResearchDebugLog.record("API_RETRY", "Gemini request sẽ retry",
+                        "attempt=${retries + 1}/${retryPolicy.maxRetries}\nfailure=${error.failure}\nhttpStatus=${error.httpStatus}\nwaitMs=$waitMs")
+                    delay(waitMs)
                     retries++
                 } catch (error: SocketTimeoutException) {
                     if (retries >= retryPolicy.maxRetries) {
@@ -143,6 +146,8 @@ internal object AIProviderRuntime {
 
         for ((index, model) in candidates.withIndex()) {
             try {
+                ResearchDebugLog.record("MODEL_SELECT", "Đang thử Gemini model: $model",
+                    "candidate=${index + 1}/${candidates.size}")
                 return generate(
                     adapter = adapterFactory(model),
                     request = request,
@@ -156,6 +161,8 @@ internal object AIProviderRuntime {
                         (error.httpStatus == 500 || error.httpStatus == 502 ||
                             error.httpStatus == 503 || error.httpStatus == 504))
                 if (!hasFallback || !fallbackEligible) throw error
+                ResearchDebugLog.record("MODEL_FALLBACK", "Model không khả dụng; chuyển model dự phòng",
+                    "failedModel=$model\nfailure=${error.failure}\nhttpStatus=${error.httpStatus}\nnextModel=${candidates[index + 1]}")
             }
         }
         throw AIProviderException(
