@@ -51,6 +51,7 @@ object CentralAgentLoop {
                 "instructions=${it.instructions.take(900)}"
         }
 
+        val visionLearning = VisionLearningManager(context)
         val sessionStartedAt = SystemClock.elapsedRealtime()
         var cycle = 0
         var previousAction = "Chưa có hành động nào."
@@ -74,6 +75,28 @@ object CentralAgentLoop {
             } finally {
                 if (!ocrBitmap.isRecycled) ocrBitmap.recycle()
             }.orEmpty().take(6000)
+            val suggestedLabel = recognizedText.lineSequence()
+                .map { it.trim() }
+                .firstOrNull { it.isNotBlank() }
+                ?.take(100)
+                .orEmpty()
+            val visionObservation = visionLearning.observeForAgent(
+                bitmap = screenshot,
+                suggestedLabel = suggestedLabel,
+                metadata = JSONObject()
+                    .put("source", "central_agent")
+                    .put("cycle", cycle)
+                    .put("ocrLength", recognizedText.length)
+            )
+            val visionMemorySummary = when (visionObservation) {
+                is VisionObservationResult.Known ->
+                    "KNOWN_TEMPLATE: ${visionObservation.template.optString("label")}; " +
+                        "distance=${visionObservation.distance}/64; " +
+                        "confidence=${visionObservation.template.optDouble("confidence", 0.5)}"
+                is VisionObservationResult.NeedsReview ->
+                    "CANDIDATE_NOT_YET_TRUSTED: sightings=${visionObservation.candidate.optInt("sightings", 1)}/3; " +
+                        "distance=${visionObservation.distance}; labelHint=${visionObservation.candidate.optString("suggestedLabel")}"
+            }
 
             val prompt = """
                 $goal
@@ -94,6 +117,10 @@ object CentralAgentLoop {
 
                 BẰNG CHỨNG HIỆN TẠI (OCR):
                 ${recognizedText.ifBlank { "(Không nhận diện được chữ; không được suy đoán trạng thái.)" }}
+
+                VISION MEMORY CỤC BỘ DO AGENT QUẢN LÝ (pHash/OpenCV):
+                $visionMemorySummary
+                Candidate mới chỉ được tin cậy sau ba lần quan sát cục bộ tương tự; không suy diễn candidate thành template đã xác minh.
 
                 HÀNH ĐỘNG VỪA THỰC HIỆN:
                 $previousAction
