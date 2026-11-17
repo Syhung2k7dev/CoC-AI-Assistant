@@ -74,7 +74,10 @@ object BuiltinSkillCatalog {
 
     fun install(registry: AgentSkillRegistry): Int {
         var added = 0
-        all().forEach { if (registry.find(it.id) == null && registry.saveDraft(it)) added++ }
+        all().forEach {
+            if (registry.find(it.id) == null && registry.saveDraft(it)) added++
+            else registry.markCatalogForResearch(it.id)
+        }
         return added
     }
 }
