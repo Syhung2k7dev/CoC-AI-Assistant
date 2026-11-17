@@ -1,8 +1,5 @@
 package dev.syhung.cocassistant
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -28,11 +25,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 private val Bg = Color(0xFF090D18)
@@ -56,22 +52,17 @@ private fun CoCAssistantApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { CadssStore(context) }
-    val visionLearning = remember { VisionLearningManager(context) }
     val skillRegistry = remember { AgentSkillRegistry(context).also { BuiltinSkillCatalog.install(it) } }
     val workflowRegistry = remember { CaslWorkflowRegistry(context) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var note by rememberSaveable { mutableStateOf(store.getText("note", "")) }
-    var apiKey by rememberSaveable { mutableStateOf("") }
-    var prompt by rememberSaveable { mutableStateOf("Phân tích hình ảnh và tóm tắt những thông tin quan trọng.") }
+    var apiKey by remember { mutableStateOf("") }
     var aiResult by remember { mutableStateOf("") }
-    var visionResult by remember { mutableStateOf("") }
-    var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Sẵn sàng") }
     var timerSeconds by rememberSaveable { mutableIntStateOf(0) }
     var timerRunning by rememberSaveable { mutableStateOf(false) }
     var showQuickPanel by remember { mutableStateOf(false) }
-    var visionLabel by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(timerRunning, timerSeconds) {
         while (timerRunning && timerSeconds > 0) {
@@ -79,49 +70,6 @@ private fun CoCAssistantApp() {
             timerSeconds -= 1
         }
         if (timerSeconds == 0) timerRunning = false
-    }
-    var templateCount by remember { mutableIntStateOf(visionLearning.listTemplates().size) }
-    var history by remember { mutableStateOf(visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")) }
-    var pendingCandidates by remember { mutableStateOf(visionLearning.listCandidates()) }
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            visionLearning.migrateLegacyTemplates(store.getRecords("template_memory"))
-        }
-        pendingCandidates = visionLearning.listCandidates()
-        history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
-        templateCount = visionLearning.listTemplates().size
-    }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) {
-            busy = true
-            scope.launch {
-                try {
-                    val bitmap = withContext(Dispatchers.IO) { decodeImage(context, uri) }
-                    if (bitmap != null) {
-                        selectedBitmap = bitmap
-                        val outcome = withContext(Dispatchers.Default) {
-                            visionLearning.observe(bitmap, suggestedLabel = visionLabel)
-                        }
-                        history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
-                        pendingCandidates = visionLearning.listCandidates()
-                        templateCount = visionLearning.listTemplates().size
-                        visionResult = when (outcome) {
-                            is VisionObservationResult.Known ->
-                                "Đã nhận diện template VERIFIED: ${outcome.template.optString("label")}\nKhoảng cách pHash: ${outcome.distance}/64"
-                            is VisionObservationResult.NeedsReview ->
-                                if (outcome.distance == Int.MAX_VALUE) {
-                                    "Đã tạo candidate mới. Candidate phải được duyệt trước khi trở thành template hoạt động.\npHash: ${outcome.candidate.optString("hash")}"
-                                } else {
-                                    "Ảnh gần với candidate đang chờ duyệt (${outcome.distance}/64). Đã tăng số lần quan sát."
-                                }
-                        }
-                        status = "Vision Memory cục bộ đang hoạt động"
-                    } else visionResult = "Không thể đọc hình ảnh đã chọn."
-                } catch (e: Exception) {
-                    visionResult = "Lỗi xử lý hình ảnh: ${e.message ?: "không xác định"}"
-                } finally { busy = false }
-            }
-        }
     }
 
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -133,9 +81,6 @@ private fun CoCAssistantApp() {
         if (uri != null) runCatching { BackupManager.restore(context, uri, store) }
             .onSuccess {
                 note = store.getText("note", "")
-                history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
-                pendingCandidates = visionLearning.listCandidates()
-                templateCount = visionLearning.listTemplates().size
                 status = "Đã khôi phục dữ liệu CADSS"
             }
             .onFailure { status = "Khôi phục thất bại: ${it.message}" }
@@ -179,7 +124,6 @@ private fun CoCAssistantApp() {
                 NavigationBar(containerColor = Panel, contentColor = White) {
                     val items = listOf(
                         "AI" to Icons.Default.Dashboard,
-                        "Thị giác" to Icons.Default.Visibility,
                         "Quy trình" to Icons.Default.AccountTree,
                         "Kỹ năng" to Icons.Default.AutoAwesome,
                         "Lịch" to Icons.Default.Schedule,
@@ -222,14 +166,14 @@ private fun CoCAssistantApp() {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         StatusChip("CADSS", "SẴN SÀNG")
                                         StatusChip("CASL", "SẴN SÀNG")
-                                        StatusChip("VISION", if (templateCount > 0) "HOẠT ĐỘNG" else "CHỜ")
+                                        StatusChip("AGENT", "SẴN SÀNG")
                                     }
                                 }
                             }
                         }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                MetricCard("Mẫu hình ảnh", templateCount.toString(), "mẫu đã lưu", Icons.Default.Memory, Modifier.weight(1f))
+                                MetricCard("Skill", skillRegistry.all().size.toString(), "kỹ năng trong hệ thống", Icons.Default.AutoAwesome, Modifier.weight(1f))
                                 MetricCard("Phiên bản", "1.0", "Phiên bản CADSS", Icons.Default.Verified, Modifier.weight(1f))
                             }
                         }
@@ -237,10 +181,7 @@ private fun CoCAssistantApp() {
                         item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Công cụ và dữ liệu") }
                         
                         item {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                QuickCard("Phân tích hình ảnh", "OpenCV cục bộ", Icons.Default.ImageSearch, Modifier.weight(1f)) { selectedTab = 1 }
-                                QuickCard("Quy tắc tự động", "Ngôn ngữ quy tắc JSON CASL", Icons.Default.AccountTree, Modifier.weight(1f)) { selectedTab = 2 }
-                            }
+                            QuickCard("Quy tắc tự động", "Ngôn ngữ quy tắc JSON CASL", Icons.Default.AccountTree) { selectedTab = 1 }
                         }
                         item {
                             PanelCard {
@@ -261,98 +202,6 @@ private fun CoCAssistantApp() {
                         item { PanelCard { Text("TÌNH TRẠNG HỆ THỐNG", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(10.dp)); Text(status, color = Cyan, fontWeight = FontWeight.SemiBold); Text("Dữ liệu lưu trên thiết bị. AI chỉ kết nối khi bạn chủ động gửi yêu cầu.", color = Muted, fontSize = 12.sp) } }
                     }
                     1 -> {
-                        item { PageIntro("Thị giác", "Quan sát và ghi nhớ trạng thái màn hình.") }
-                        item {
-                            PanelCard {
-                                Icon(Icons.Default.AutoAwesome, null, tint = Cyan, modifier = Modifier.size(30.dp))
-                                Text("Bộ máy xử lý ảnh OpenCV", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                                Text("Chọn hình ảnh từ thiết bị. Ứng dụng tạo pHash cục bộ; mẫu mới sẽ ở trạng thái chờ duyệt, không tự động trở thành template hoạt động.", color = Muted, fontSize = 13.sp)
-                                OutlinedTextField(
-                                    value = visionLabel,
-                                    onValueChange = { visionLabel = it.take(120) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    label = { Text("Nhãn mẫu (tùy chọn)") },
-                                    singleLine = true,
-                                    colors = darkFieldColors()
-                                )
-                                Button(onClick = { picker.launch("image/*") }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-                                    Icon(Icons.Default.AddPhotoAlternate, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang xử lý..." else "Chọn hình ảnh để phân tích")
-                                }
-                                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Cyan)
-                                if (visionResult.isNotBlank()) Text(visionResult, color = Cyan, fontSize = 12.sp)
-                            }
-                        }
-                        item { SectionHeading("AUTO-LEARNING", "Candidate chờ xác nhận") }
-                        if (pendingCandidates.isEmpty()) item { EmptyState("Không có candidate", "Ảnh mới lạ sẽ được lưu ở trạng thái chờ duyệt.") }
-                        items(pendingCandidates.take(20)) { candidate ->
-                            val candidateId = candidate.optString("id")
-                            val suggested = candidate.optString("suggestedLabel")
-                            PanelCard {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(suggested.ifBlank { "Candidate ${candidateId.take(8)}" }, color = White, fontWeight = FontWeight.SemiBold)
-                                    Text("pHash: ${candidate.optString("hash")} · Số lần quan sát: ${candidate.optInt("sightings", 1)}", color = Muted, fontSize = 11.sp)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Button(
-                                            onClick = {
-                                                val label = suggested.ifBlank { "Mẫu ${candidateId.take(8)}" }
-                                                runCatching { visionLearning.approve(candidateId, label) }
-                                                    .onSuccess {
-                                                        pendingCandidates = visionLearning.listCandidates()
-                                                        history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
-                                                        templateCount = visionLearning.listTemplates().size
-                                                        status = "Đã duyệt template: $label"
-                                                    }
-                                                    .onFailure { status = "Không thể duyệt template: ${it.message}" }
-                                            },
-                                            enabled = !busy,
-                                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                                        ) { Text("Duyệt template") }
-                                        TextButton(
-                                            onClick = {
-                                                if (visionLearning.reject(candidateId, "Người dùng từ chối")) {
-                                                    pendingCandidates = visionLearning.listCandidates()
-                                                    status = "Đã từ chối candidate"
-                                                }
-                                            },
-                                            enabled = !busy
-                                        ) { Text("Từ chối", color = Muted) }
-                                    }
-                                }
-                            }
-                        }
-                        item { SectionHeading("BỘ NHỚ HÌNH ẢNH", "Template đã xác minh và lịch sử") }
-                        if (history.isEmpty()) item { EmptyState("Chưa có dữ liệu", "Template được duyệt và ảnh đã phân tích sẽ xuất hiện tại đây.") }
-                        items(history.take(30)) { obj ->
-                            PanelCard {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Fingerprint, null, tint = Accent)
-                                    Spacer(Modifier.width(10.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(obj.optString("label", "Vision record"), fontWeight = FontWeight.SemiBold)
-                                        Text(obj.optString("hash", ""), color = Muted, fontSize = 11.sp)
-                                    }
-                                    Text(obj.optString("status", "CỤC BỘ"), color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                }
-                                if (obj.optString("status") == "REVIEW_REQUIRED") {
-                                    TextButton(
-                                        onClick = {
-                                            runCatching {
-                                                visionLearning.reverifyTemplate(obj.optString("id"), obj.optString("label"))
-                                            }.onSuccess {
-                                                history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
-                                                templateCount = visionLearning.listTemplates().size
-                                                status = "Đã xác minh lại Vision template"
-                                            }.onFailure {
-                                                status = "Không thể xác minh template: ${it.message}"
-                                            }
-                                        },
-                                        enabled = !busy
-                                    ) { Text("Xác minh lại template", color = Cyan) }
-                                }
-                            }
-                        }
-                    }
-                    2 -> {
                         item { PageIntro("Quy trình tự động", "Điều phối công việc, điều kiện và nhánh bằng CASL.") }
                         item {
                             PanelCard {
@@ -380,12 +229,12 @@ private fun CoCAssistantApp() {
                             }
                         }
                     }
-                    3 -> {
+                    2 -> {
                         item { PageIntro("Thư viện kỹ năng", "Theo dõi nghiên cứu, kiểm thử và xác minh từng kỹ năng.") }
                         item { WorkflowStudioPanel(workflowRegistry, skillRegistry, apiKey) }
-                        item { SkillLibraryPanel(skillRegistry, apiKey, selectedBitmap) }
+                        item { SkillLibraryPanel(skillRegistry, apiKey) }
                     }
-                    4 -> {
+                    3 -> {
                         item { PageIntro("Lịch tác vụ", "Theo dõi tác vụ định kỳ và chế độ tiết kiệm pin, tài nguyên.") }
                         item {
                             PanelCard {
@@ -418,21 +267,33 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Gemini 3.8 Flash", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                                Text("Gemini có thể phân tích văn bản và hình ảnh đang chọn. Khóa API chỉ được dùng trong phiên hiện tại và không lưu vào CADSS.", color = Muted, fontSize = 12.sp)
-                                OutlinedTextField(value = apiKey, onValueChange = { apiKey = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Khóa API Gemini") }, singleLine = true, colors = darkFieldColors())
-                                OutlinedTextField(value = prompt, onValueChange = { prompt = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Nội dung cần phân tích") }, minLines = 3, colors = darkFieldColors())
+                                Text("API Key chỉ tồn tại trong bộ nhớ phiên ứng dụng, không ghi vào SharedPreferences, CADSS hay backup. Nhập khóa để kiểm tra kết nối; Agent sẽ dùng khóa này khi bạn chủ động chạy.", color = Muted, fontSize = 12.sp)
+                                OutlinedTextField(
+                                    value = apiKey,
+                                    onValueChange = { apiKey = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Gemini API Key") },
+                                    singleLine = true,
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    colors = darkFieldColors()
+                                )
                                 Button(onClick = {
-                                    if (apiKey.isBlank()) { aiResult = "Vui lòng nhập khóa API để kết nối Gemini."; return@Button }
+                                    if (apiKey.isBlank()) { status = "Vui lòng nhập Gemini API Key."; return@Button }
                                     busy = true
+                                    status = "Đang kiểm tra Gemini API Key..."
                                     scope.launch {
-                                        aiResult = try { GeminiClient.generate(apiKey, prompt, selectedBitmap) }
-                                        catch (e: Exception) { "Gemini chưa phản hồi: ${e.message ?: "lỗi kết nối"}" }
+                                        status = try {
+                                            GeminiClient.generate(apiKey, "Reply with exactly OK. This is an API connectivity test.")
+                                            "Kết nối Gemini thành công. API Key đang hoạt động."
+                                        } catch (e: Exception) {
+                                            "Kiểm tra Gemini thất bại: ${e.message ?: "không thể kết nối"}"
+                                        }
                                         busy = false
                                     }
-                                }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-                                    Icon(Icons.Default.AutoAwesome, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang kết nối..." else if (selectedBitmap != null) "Phân tích hình ảnh + văn bản" else "Gửi yêu cầu đến Gemini")
+                                }, enabled = !busy && apiKey.isNotBlank(), modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+                                    Icon(Icons.Default.Verified, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang kiểm tra..." else "Kiểm tra API Key")
                                 }
-                                if (aiResult.isNotBlank()) Text(aiResult, color = Cyan, fontSize = 12.sp)
+                                if (status.isNotBlank()) Text(status, color = Cyan, fontSize = 12.sp)
                             }
                         }
                         item {
@@ -458,7 +319,7 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Quyền riêng tư", fontWeight = FontWeight.Bold)
-                                Text("Quyền Trợ năng chỉ được sử dụng sau khi người dùng chủ động bật trong Android Settings. Workflow phải được xác nhận trước khi chạy và có Pause/Resume/Stop. Ảnh màn hình chỉ được chụp theo yêu cầu; OCR và phân tích ảnh xử lý cục bộ theo mặc định.", color = Muted, fontSize = 12.sp)
+                                Text("Quyền Trợ năng chỉ được sử dụng sau khi người dùng chủ động bật trong Android Settings. Workflow phải được xác nhận trước khi chạy và có Pause/Resume/Stop. Thị giác là năng lực nội bộ của Agent: chỉ Agent tự chụp và phân tích màn hình khi được người dùng khởi chạy; không có chức năng tải ảnh lên để phân tích thủ công.", color = Muted, fontSize = 12.sp)
                             }
                         }
                     }
@@ -473,8 +334,7 @@ private fun CoCAssistantApp() {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("CADSS · schema ${CadssStore.SCHEMA_VERSION}", color = Cyan)
-                        Text("Mẫu hình ảnh · $templateCount", color = White)
-                        Text("Lịch tác vụ · WorkManager", color = White)
+                                                Text("Lịch tác vụ · WorkManager", color = White)
                         Text("Phiên làm việc · " + if (timerRunning) "đang chạy" else "không hoạt động", color = Muted)
                         Text("Trạng thái · $status", color = Muted, fontSize = 12.sp)
                     }
@@ -482,26 +342,6 @@ private fun CoCAssistantApp() {
                 confirmButton = { TextButton(onClick = { showQuickPanel = false }) { Text("Đóng", color = Cyan) } }
             )
         }
-    }
-}
-
-private fun decodeImage(context: android.content.Context, uri: Uri): Bitmap? {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    context.contentResolver.openInputStream(uri)?.use {
-        BitmapFactory.decodeStream(it, null, bounds)
-    }
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-    var sampleSize = 1
-    while (
-        bounds.outWidth / sampleSize > 8_192 ||
-        bounds.outHeight / sampleSize > 8_192 ||
-        (bounds.outWidth / sampleSize).toLong() * (bounds.outHeight / sampleSize).toLong() > 32_000_000L
-    ) {
-        sampleSize *= 2
-    }
-    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-    return context.contentResolver.openInputStream(uri)?.use {
-        BitmapFactory.decodeStream(it, null, options)
     }
 }
 
