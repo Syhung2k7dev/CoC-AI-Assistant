@@ -189,9 +189,8 @@ object AutonomousSkillResearchLoop {
                 if (latestManifest != null && latestCasl != null) {
                     db.saveSkillDocument(sessionId, latestManifest!!, latestCasl!!)
                 }
-                response.optJSONObject("layout")?.let {
-                    db.upsertLayout(sessionId, observationId, it)
-                }
+                val layoutForAction = response.optJSONObject("layout")
+                layoutForAction?.let { db.upsertLayout(sessionId, observationId, it) }
                 response.optJSONArray("procedure")?.let {
                     db.replaceProcedure(sessionId, observationId, it)
                 }
@@ -231,6 +230,9 @@ object AutonomousSkillResearchLoop {
                         val x = action.optInt("x", -1)
                         val y = action.optInt("y", -1)
                         require(x in 0..1000 && y in 0..1000) { "Tọa độ tap phải được chuẩn hóa trong 0..1000." }
+                        require(isActionInsideComponent(action, layoutForAction, x, y)) {
+                            "Từ chối tap vì AI chưa gắn tọa độ vào một component an toàn đã nhận diện trên màn hình."
+                        }
                         val metrics = context.resources.displayMetrics
                         val step = AutomationStep.Tap(
                             (metrics.widthPixels * x / 1000f).coerceIn(0f, metrics.widthPixels.toFloat()),
@@ -252,6 +254,10 @@ object AutonomousSkillResearchLoop {
                         val endX = action.optInt("endX", -1); val endY = action.optInt("endY", -1)
                         require(listOf(x, y, endX, endY).all { it in 0..1000 }) {
                             "Tọa độ swipe phải được chuẩn hóa trong 0..1000."
+                        }
+                        require(isActionInsideComponent(action, layoutForAction, x, y) &&
+                            isActionInsideComponent(action, layoutForAction, endX, endY)) {
+                            "Từ chối swipe vì tọa độ không nằm trong component an toàn đã nhận diện."
                         }
                         val metrics = context.resources.displayMetrics
                         val step = AutomationStep.Swipe(
@@ -371,7 +377,7 @@ object AutonomousSkillResearchLoop {
               "screenKey":"stable_screen_identifier",
               "previousActionVerification":{"status":"success|failed|uncertain","evidence":"","reason":""},
               "nextAction":{"type":"observe|tap|swipe|wait|done|ask_user|stop",
-                "x":0,"y":0,"endX":0,"endY":0,"durationMs":500,"reason":"","question":""},
+                "x":0,"y":0,"endX":0,"endY":0,"targetComponentKey":"","durationMs":500,"reason":"","question":""},
               "researchComplete":false,
               "manifest":{"id":"","name":"","description":"","category":"","version":1,
                 "inputs":[],"outputs":[],"dependencies":[],"capabilities":[],"instructions":"",
@@ -415,6 +421,27 @@ object AutonomousSkillResearchLoop {
               the requested Skill. Otherwise continue with observe/tap/swipe/wait.
             - Never mark the Skill VERIFIED. It will be stored as RESEARCHED and must pass separate tests.
         """.trimIndent()
+    }
+
+    private fun isActionInsideComponent(action: JSONObject, layout: JSONObject?, x: Int, y: Int): Boolean {
+        val key = action.optString("targetComponentKey")
+        if (key.isBlank()) return false
+        val components = layout?.optJSONArray("components") ?: return false
+        val component = (0 until components.length()).mapNotNull { components.optJSONObject(it) }
+            .firstOrNull { it.optString("key") == key } ?: return false
+        val riskText = (component.optString("type") + " " + component.optString("label") + " " +
+            (component.optJSONObject("properties") ?: JSONObject()).toString()).lowercase()
+        val blocked = listOf("purchase", "paid", "offer", "gem_pack", "real_money", "checkout",
+            "buy", "payment", "clan_chat", "chat", "account_link", "delete", "remove", "reset",
+            "destructive", "external_app")
+        if (blocked.any(riskText::contains)) return false
+        val left = component.optDouble("x", -1.0)
+        val top = component.optDouble("y", -1.0)
+        val width = component.optDouble("width", -1.0)
+        val height = component.optDouble("height", -1.0)
+        if (left < 0 || top < 0 || width <= 0 || height <= 0 ||
+            left + width > 1000.0 || top + height > 1000.0) return false
+        return x.toDouble() in left..(left + width) && y.toDouble() in top..(top + height)
     }
 
     private fun buildResearchedSkill(
