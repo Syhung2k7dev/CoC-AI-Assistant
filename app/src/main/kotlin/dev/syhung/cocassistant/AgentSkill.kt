@@ -135,15 +135,32 @@ class AgentSkillRegistry(context: Context) {
 
     @Synchronized
     fun findVerifiedScript(id: String, version: Int? = null): JSONObject? {
-        val skill = find(id, version) ?: return null
-        if (skill.status != SkillLifecycle.VERIFIED || skill.scriptJson.isBlank()) return null
-        val versions = all().filter { it.status == SkillLifecycle.VERIFIED }.associateBy { it.id }
-        val dependenciesReady = skill.dependencies.all { dependency ->
-            val target = versions[dependency]
-            target != null && (skill.dependencyVersions[dependency]?.let { target.version >= it } ?: true)
-        }
-        if (!dependenciesReady) return null
+        val records = all()
+        val skill = records.filter {
+            it.id == id && (version == null || it.version == version)
+        }.maxByOrNull { it.version } ?: return null
+        if (!isDependencyGraphVerified(skill, records, linkedSetOf())) return null
         return runCatching { JSONObject(skill.scriptJson) }.getOrNull()
+    }
+
+    private fun isDependencyGraphVerified(
+        skill: AgentSkill,
+        records: List<AgentSkill>,
+        visiting: MutableSet<String>
+    ): Boolean {
+        if (skill.status != SkillLifecycle.VERIFIED || skill.scriptJson.isBlank()) return false
+        val node = "${skill.id}@${skill.version}"
+        if (!visiting.add(node)) return false
+        val ready = skill.dependencies.all { dependency ->
+            val minimumVersion = skill.dependencyVersions[dependency]
+            val target = records.asSequence()
+                .filter { it.id == dependency && it.status == SkillLifecycle.VERIFIED }
+                .filter { minimumVersion == null || it.version >= minimumVersion }
+                .maxByOrNull { it.version }
+            target != null && isDependencyGraphVerified(target, records, visiting)
+        }
+        visiting.remove(node)
+        return ready
     }
 
     @Synchronized
@@ -186,10 +203,13 @@ class AgentSkillRegistry(context: Context) {
         if (index < 0) return false
         val skill = current[index]
         if (skill.scriptJson.isBlank()) return false
-        val byId = current.associateBy { it.id }
+        val verifiedById = current
+            .filter { it.status == SkillLifecycle.VERIFIED }
+            .groupBy { it.id }
+            .mapValues { (_, versions) -> versions.maxByOrNull { it.version } }
         if (skill.dependencies.any { dependency ->
-                val found = byId[dependency]
-                found == null || found.status != SkillLifecycle.VERIFIED ||
+                val found = verifiedById[dependency]
+                found == null ||
                     (skill.dependencyVersions[dependency]?.let { found.version < it } == true)
             }) return false
         current[index] = skill.copy(
