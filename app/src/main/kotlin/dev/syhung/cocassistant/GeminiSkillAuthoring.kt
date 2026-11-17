@@ -97,7 +97,7 @@ object GeminiSkillAuthoring {
         if (current.status == SkillLifecycle.RESEARCHING) {
             return SkillDraftOutcome.Failed("Skill này đang được nghiên cứu.")
         }
-        val inventory = registry.all().joinToString("\\n") {
+        val inventory = registry.all().joinToString("\n") {
             "${it.id} | ${it.name} | ${it.status.name} | ${it.description}"
         }
         val allowList = availableApiNames.distinct().sorted().joinToString(", ")
@@ -127,7 +127,9 @@ object GeminiSkillAuthoring {
             Chỉ dùng operation CASL đã hỗ trợ và API nằm trong allow-list; không tạo API mới.
             Không tự đánh dấu VERIFIED. Không tạo Kotlin, Java, JavaScript, shell hay mã tùy ý.
         """.trimIndent()
-        registry.setLifecycle(current.id, SkillLifecycle.RESEARCHING, current.version)
+        if (!registry.setLifecycle(current.id, SkillLifecycle.RESEARCHING, current.version)) {
+            return SkillDraftOutcome.Failed("Không thể chuyển Skill sang trạng thái đang nghiên cứu.")
+        }
         return runCatching {
             val raw = GeminiClient.generate(apiKey, prompt)
             val start = raw.indexOf('{')
@@ -162,6 +164,46 @@ object GeminiSkillAuthoring {
             if (error is CancellationException) throw error
             SkillDraftOutcome.Failed(error.message ?: "Nghiên cứu Skill thất bại.")
         }
+    }
+
+
+
+    data class BatchReport(
+        val total: Int,
+        val succeeded: Int,
+        val failures: List<Pair<String, String>>
+    )
+
+    /**
+     * Researches every latest-version Skill still marked RESEARCH_REQUIRED.
+     * Requests run sequentially to avoid flooding the provider and each failure is isolated.
+     */
+    suspend fun researchPendingSkills(
+        apiKey: String,
+        registry: AgentSkillRegistry,
+        availableApiNames: List<String> = emptyList(),
+        onProgress: (completed: Int, total: Int, skillName: String) -> Unit = { _, _, _ -> }
+    ): BatchReport {
+        if (apiKey.isBlank()) return BatchReport(0, 0, listOf("API Key" to "Chưa có Gemini API Key."))
+
+        val pending = registry.all()
+            .groupBy { it.id }
+            .values
+            .mapNotNull { versions -> versions.maxByOrNull { it.version } }
+            .filter { it.status == SkillLifecycle.RESEARCH_REQUIRED }
+            .sortedWith(compareBy<AgentSkill> { it.category }.thenBy { it.name })
+
+        var succeeded = 0
+        val failures = mutableListOf<Pair<String, String>>()
+        pending.forEachIndexed { index, skill ->
+            val result = researchExistingSkill(apiKey, skill.id, registry, availableApiNames)
+            when (result) {
+                is SkillDraftOutcome.Created -> succeeded++
+                is SkillDraftOutcome.Failed -> failures += skill.name to result.reason
+            }
+            onProgress(index + 1, pending.size, skill.name)
+        }
+        return BatchReport(pending.size, succeeded, failures)
     }
 
 }
