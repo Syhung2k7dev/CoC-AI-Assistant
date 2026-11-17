@@ -1,36 +1,46 @@
 # Hướng dẫn sử dụng CoC Agent
 
+## Trung tâm AI
+
+1. Mở ứng dụng và nhập mục tiêu vào ô hội thoại Trung tâm AI.
+2. Chọn **Phân tích CoC** để ứng dụng mở Clash of Clans, chụp màn hình qua Accessibility và chạy OCR cục bộ.
+3. Gemini phân tích văn bản OCR. Nếu muốn gửi cả ảnh, bật lựa chọn **Cho phép gửi ảnh màn hình lên Gemini** trước khi phân tích.
+4. Kết quả phải phân biệt điều đã quan sát, suy luận và thông tin còn thiếu. Phân tích từ Gemini chưa phải lệnh thao tác.
+
+Bạn cũng có thể dùng **Chat với AI** để trao đổi bằng văn bản mà không mở game hoặc chụp màn hình.
+
 ## Bật Accessibility
 
-1. Mở tab **Tổng quan** và tìm bảng **CoC Agent · Điều khiển tự động**.
-2. Chọn **Mở cài đặt Accessibility**.
-3. Trong danh sách dịch vụ Android, bật **CoC Agent Accessibility** và đọc kỹ màn hình xác nhận của Android.
-4. Quay lại ứng dụng. Trạng thái quyền được kiểm tra lại khi màn hình được mở lại.
+1. Mở **Cài đặt** trong ứng dụng.
+2. Tìm mục **Kiểm tra quyền Trợ năng** và chọn **Mở cài đặt Accessibility**.
+3. Trong danh sách dịch vụ Android, bật **CoC Agent – Quyền Trợ năng** và đọc kỹ màn hình xác nhận của Android.
+4. Quay lại ứng dụng. Nếu trạng thái chưa cập nhật, mở lại màn hình hoặc kiểm tra dịch vụ trong Android Settings.
 
 Nếu Android hoặc Play Protect chặn cài đặt hay bật dịch vụ, không tắt bảo vệ để tiếp tục. Hãy kiểm tra nguồn APK, chữ ký và cảnh báo trước.
 
-## Chạy thử thao tác
+## Nguyên tắc hệ thống
 
-1. Đưa Clash of Clans hoặc màn hình thử nghiệm có thể thao tác hợp lệ lên trước.
-2. Nhập tọa độ X/Y theo pixel màn hình.
-3. Nhấn **Xác nhận và chạy thử thao tác chạm**.
-4. Đọc hộp thoại xác nhận. Khi bắt đầu, ứng dụng chờ 5 giây rồi thực hiện một lần chạm.
-5. Dùng **Pause / Resume** để tạm dừng/tiếp tục hoặc **Stop** để dừng.
+Trong Trung tâm AI, chọn **Xem / sửa nguyên tắc Agent** để xem nội dung đang dùng. Thay đổi chỉ được lưu sau khi chọn xem thay đổi và nhấn **Đồng ý áp dụng** ở hộp thoại xác nhận thứ hai. Đóng hoặc từ chối hộp thoại sẽ không áp dụng thay đổi.
 
-Workflow hiện hỗ trợ Tap, Swipe và Wait ở lớp runtime nền. Mỗi workflow tối đa 50 bước và 20 lần lặp; mỗi thao tác có giới hạn thời lượng. Tọa độ ngoài màn hình hoặc thao tác bị Android từ chối sẽ làm workflow dừng.
+## Nghiên cứu kỹ năng
 
-## Chụp màn hình
+1. Mở tab **Kỹ năng**.
+2. Các mục **Chưa nghiên cứu** mới chỉ là mục tiêu/năng lực dự kiến, chưa có quy trình thao tác.
+3. Chọn **Nghiên cứu kỹ năng này** để Gemini tạo phiên bản mới có mô tả điều kiện, quy trình, trạng thái mong đợi và cách xác minh.
+4. Kết quả chuyển thành **Đã nghiên cứu · Chờ kiểm thử**. Trạng thái này không cho phép thực thi.
+5. Chỉ Skill đã qua kiểm thử, có dependency hợp lệ và được đánh dấu **Đã xác minh** mới được ActionExecutor chấp nhận.
 
-Runtime cung cấp API chụp màn hình qua Accessibility trên Android 11 trở lên. Thiết bị và cửa sổ được bảo vệ có thể từ chối chụp. Chức năng OCR và pipeline nhận diện màn hình đầy đủ vẫn đang được phát triển.
+Nghiên cứu bằng Gemini không chứng minh rằng quy trình đã chạy thành công trên thiết bị thật. Khi thiếu ảnh hoặc bằng chứng, nội dung nghiên cứu phải ghi rõ điều chưa biết thay vì bịa tọa độ.
 
-## Gemini và workflow
+## Công cụ nâng cao
 
-Gemini là thành phần phân tích/lập kế hoạch. Đề xuất từ AI cần được chuyển thành workflow có schema hợp lệ và được người dùng xem lại trước khi chạy. Không tự động thực thi văn bản phản hồi từ mô hình như lệnh.
-
-## Lưu trữ và backup
-
-CADSS và Vision Memory tiếp tục lưu trạng thái, metadata và mẫu hình ảnh cục bộ. Tạo bản backup trước khi thay đổi cấu trúc dữ liệu hoặc khôi phục gói ZIP.
+Tab **Cài đặt** giữ bảng điều khiển thao tác thử để kiểm tra tọa độ, chụp màn hình/OCR, Pause/Resume/Stop. Bảng này dành cho chẩn đoán, không phải cách sử dụng chính của Agent.
 
 ## Giới hạn hiện tại
 
-Bản runtime đầu tiên chưa phải Agent tự động hoàn chỉnh. OCR condition, IF/ELSE JSON workflow editor, Gemini draft review, vòng lặp xác minh sau thao tác, floating dashboard toàn hệ thống và scheduler chuyên dụng còn cần triển khai và kiểm thử. Cần xác minh thực tế trên thiết bị Android/ColorOS vì chính sách nền và Accessibility khác nhau theo nhà sản xuất.
+- Người dùng phải tự bật quyền Accessibility trong Android Settings.
+- Chụp màn hình có thể thất bại với cửa sổ được bảo vệ hoặc khi Android từ chối.
+- Ảnh chỉ được gửi lên Gemini khi người dùng chủ động bật lựa chọn chia sẻ; mặc định chỉ gửi văn bản OCR.
+- Agent hiện có thể tự mở game, chụp và phân tích. Vòng lặp tự chọn Skill, tự click theo kế hoạch hội thoại và tự xác minh toàn bộ trạng thái game vẫn cần tích hợp thêm.
+- Không biến văn bản hoặc tọa độ do mô hình sinh ra thành thao tác thiết bị trực tiếp.
+- Cần kiểm thử trên thiết bị Android thật vì quyền Accessibility, capture và chính sách nền khác nhau theo nhà sản xuất.
