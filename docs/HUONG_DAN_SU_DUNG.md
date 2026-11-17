@@ -3,13 +3,13 @@
 ## Trung tâm AI
 
 1. Mở ứng dụng và nhập mục tiêu vào ô hội thoại Trung tâm AI.
-2. Chọn **Phân tích CoC** để ứng dụng mở Clash of Clans, chụp màn hình qua Accessibility và chạy OCR cục bộ.
-3. Gemini phân tích văn bản OCR. Nếu muốn gửi cả ảnh, bật lựa chọn **Cho phép gửi ảnh màn hình lên Gemini** trước khi phân tích.
+2. Chọn **Chạy Agent tự động**. Agent tự mở Clash of Clans, chụp màn hình qua Accessibility và chạy OCR/OpenCV; người dùng không cần tải ảnh lên.
+3. Agent sử dụng ảnh màn hình làm dữ liệu thị giác nội bộ để Gemini phân tích trạng thái và quyết định Skill phù hợp.
 4. Kết quả phải phân biệt điều đã quan sát, suy luận và thông tin còn thiếu. Phân tích từ Gemini chưa phải lệnh thao tác.
-5. Để chạy vòng lặp Agent, nhập mục tiêu rồi chọn **Chạy Agent tự động**. Đây là xác nhận cho phép Agent chạy tối đa 5 lần Skill đã VERIFIED và một lượt quan sát xác minh cuối.
+5. Agent không có giới hạn cứng về số lần chạy Skill. Phiên tự dừng khi hoàn thành, cần người dùng, không đủ bằng chứng hoặc hết ngân sách 30 phút; từng Skill vẫn bị giới hạn bước và thời gian.
 6. Agent chỉ chọn Skill có đúng ID/version và trạng thái VERIFIED; sau mỗi lần chạy sẽ chụp/OCR lại màn hình. Nếu không có bằng chứng xác minh rõ ràng, Agent dừng. Có thể chọn **Dừng Agent ngay** trong khi chạy.
 
-Bạn cũng có thể dùng **Chat với AI** để trao đổi bằng văn bản mà không mở game hoặc chụp màn hình.
+Bạn cũng có thể dùng **Chat với AI** để trao đổi bằng văn bản mà không mở game hoặc chụp màn hình. Trong Cài đặt, nhập API Key (được che) và chọn **Kiểm tra API Key**; khóa chỉ nằm trong bộ nhớ phiên và không được lưu.
 
 ## Bật Accessibility
 
@@ -42,8 +42,8 @@ Tab **Cài đặt** giữ bảng điều khiển thao tác thử để kiểm tr
 
 - Người dùng phải tự bật quyền Accessibility trong Android Settings.
 - Chụp màn hình có thể thất bại với cửa sổ được bảo vệ hoặc khi Android từ chối.
-- Ảnh chỉ được gửi lên Gemini khi người dùng chủ động bật lựa chọn chia sẻ; mặc định chỉ gửi văn bản OCR.
-- Vòng lặp Agent đã có thể chọn và chạy Skill VERIFIED theo CASL, nhưng chỉ trong giới hạn một phiên và cần có Skill đã được kiểm thử phù hợp với mục tiêu.
+- Ảnh màn hình chỉ được Agent thu thập trong phiên chạy đã được người dùng khởi động; không có chức năng tải ảnh thủ công. Agent dùng ảnh và OCR để nhận diện trạng thái.
+- Vòng lặp Agent có thể chạy nhiều Skill VERIFIED trong một phiên, với ngân sách thời gian 30 phút, giới hạn thực thi từng Skill và nút Dừng.
 - Xác minh sau hành động hiện dựa trên OCR/ảnh và đánh giá của Gemini; không bảo đảm nhận diện đúng mọi trạng thái game. Khi không chắc chắn Agent phải dừng.
 - Cần kiểm thử trên thiết bị Android thật vì quyền Accessibility, capture và chính sách nền khác nhau theo nhà sản xuất.
 - Không biến văn bản hoặc tọa độ do mô hình sinh ra thành thao tác thiết bị trực tiếp.
