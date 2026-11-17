@@ -33,6 +33,9 @@ CoC-AI-Assistant là AI Agent hỗ trợ tự động hóa giao diện Clash of 
 - System Prompt có màn hình xem/sửa và bước xác nhận riêng trước khi lưu.
 - Skill catalog có trạng thái Chưa nghiên cứu/Đang nghiên cứu/Đã nghiên cứu và nút nghiên cứu từng Skill.
 - Nghiên cứu Skill tạo phiên bản mới, yêu cầu manifest và CASL script khớp ID/version; nghiên cứu không đồng nghĩa với kiểm thử hoặc VERIFIED.
+- Vòng lặp Agent giới hạn: observe → Gemini chọn Skill VERIFIED theo ID/version → kiểm tra script → chạy CASL qua ActionExecutor → capture/OCR lại → yêu cầu Gemini xác minh bằng chứng trước khi tiếp tục.
+- Giới hạn phiên ở tối đa 5 lần chạy Skill, có lượt quan sát xác minh cuối, chặn lặp Skill và có nút Dừng Agent.
+- Gemini chỉ được chọn Skill trong allow-list; không thể tự sinh tọa độ hay lệnh thao tác trực tiếp.
 - Tên Skill và nhóm danh mục được Việt hóa trong thư viện.
 
 ### Đã có trong nhánh runtime
