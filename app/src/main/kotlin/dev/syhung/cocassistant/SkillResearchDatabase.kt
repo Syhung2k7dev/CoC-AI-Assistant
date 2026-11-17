@@ -161,9 +161,18 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         db.beginTransaction()
         try {
             db.delete("procedure_steps", "session_id=?", arrayOf(sessionId))
+            // AI-generated IDs are only stable labels, not globally unique database keys.
+            // Namespace every ID by session and retain repeated IDs as distinct indexed rows.
+            val usedStepIds = mutableSetOf<String>()
             for (i in 0 until steps.length()) {
                 val item = steps.optJSONObject(i) ?: continue
-                val id = item.optString("id").ifBlank { "$sessionId:step:$i" }
+                val suppliedId = item.optString("id").trim().ifBlank { "step:$i" }
+                val baseId = "$sessionId:$suppliedId"
+                val id = if (usedStepIds.add(baseId)) baseId else {
+                    val duplicateId = "$baseId:duplicate:$i"
+                    usedStepIds.add(duplicateId)
+                    duplicateId
+                }
                 db.execSQL(
                     "INSERT INTO procedure_steps VALUES(?,?,?,?,?,?,?,?,?,?)",
                     arrayOf(id, sessionId, i, item.optString("title", "Step ${i + 1}"),
