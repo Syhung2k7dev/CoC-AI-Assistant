@@ -5,6 +5,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -137,6 +139,33 @@ class AIProviderRuntimeTest {
                 AIProviderConfiguration(AIProviderId.GEMINI),
                 " "
             )
+        }
+    }
+
+    @Test
+    fun parentTimeoutIsNotReclassifiedAsProviderTimeout(): Unit = runBlocking {
+        val adapter = AIProviderAdapter { awaitCancellation() }
+        assertThrows(TimeoutCancellationException::class.java) {
+            runBlocking {
+                withTimeout(100L) {
+                    AIProviderRuntime.generate(
+                        adapter,
+                        AIProviderRequest("hello"),
+                        noWait,
+                        requestTimeoutMillis = 10_000L
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun retryPolicyRejectsUnboundedConfiguration() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AIRetryPolicy(maxRetries = 100)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AIRetryPolicy(maxDelayMillis = Long.MAX_VALUE)
         }
     }
 
