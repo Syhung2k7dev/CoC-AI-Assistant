@@ -60,7 +60,7 @@ class CaslRuntimeTest {
     }
 
     @Test
-    fun runtimeRejectsUnapprovedExecutionAndUnknownApis() = runBlocking {
+    fun runtimeRejectsUnapprovedExecutionAndUnknownApis(): Unit = runBlocking {
         val program = JSONObject()
             .put("format", "CASL").put("schemaVersion", CaslScriptRuntime.SCHEMA_VERSION)
             .put("kind", "workflow").put("id", "test.workflow").put("version", 1)
