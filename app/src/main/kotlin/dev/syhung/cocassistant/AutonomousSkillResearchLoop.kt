@@ -193,6 +193,11 @@ object AutonomousSkillResearchLoop {
                 }
                 val layoutForAction = response.optJSONObject("layout")
                 layoutForAction?.let { db.upsertLayout(sessionId, observationId, it) }
+                response.optJSONArray("baseLayouts")?.let { items ->
+                    for (i in 0 until items.length()) items.optJSONObject(i)?.let {
+                        db.upsertBaseLayout(sessionId, observationId, it)
+                    }
+                }
                 response.optJSONArray("procedure")?.let {
                     db.replaceProcedure(sessionId, observationId, it)
                 }
@@ -402,6 +407,8 @@ object AutonomousSkillResearchLoop {
               "layout":{"screenKey":"stable_screen_identifier","screenName":"","confidence":0.0,
                 "components":[{"key":"","label":"","type":"","x":0,"y":0,"width":0,"height":0,
                   "anchor":"","properties":{}}]},
+              "baseLayouts":[{"key":"","name":"","baseType":"home_village|builder_base|war_base","townHallLevel":0,"confidence":0.0,"constraints":{},
+                "items":[{"key":"","type":"","level":0,"x":0,"y":0,"rotation":0,"width":1,"height":1,"confidence":0.0,"metadata":{}}]}],
               "cropRects":[{"x":0,"y":0,"width":1000,"height":1000,"label":""}],
               "procedure":[{"id":"","title":"","preconditions":{},"action":{},"postconditions":{},"status":"OBSERVED"}],
               "strategies":[{"key":"","kind":"attack|farming|upgrade|navigation|other","confidence":0.0,"content":{}}],
@@ -421,6 +428,7 @@ object AutonomousSkillResearchLoop {
             - Inspect prior sessions for the same Skill ID or goal in the database snapshot and reuse their evidence; do not discard previous observations.
             - Never invent a coordinate, label, game state, formula, result, layout, or strategy. Mark unknowns.
             - A component coordinate is a normalized bounding box (x,y,width,height), not a guessed pixel location.
+            - Store CoC village/base layouts separately from screen UI layouts. Base-layout items use game-grid coordinates, building type, level, rotation, footprint, constraints and evidence confidence; do not confuse screen pixels with village grid cells.
             - cropRects are optional normalized rectangles; only request crops that contain useful visual detail.
             - Record every discovered screen layout, UI component, action, precondition, postcondition and result.
             - Procedure steps must describe a reproducible sequence with conditions and observable outcomes.
