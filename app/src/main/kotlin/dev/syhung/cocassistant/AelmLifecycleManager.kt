@@ -297,6 +297,11 @@ class AelmLifecycleManager(context: Context) {
                 require(arguments.optString("hash").matches(Regex("[0-9a-fA-F]{16}")))
                 JSONObject().put("matched", false).put("distance", -1)
             }
+            register("vision.feedback") { arguments, context ->
+                require(context.optString("skillId").isNotBlank() && context.optInt("skillVersion", 0) > 0)
+                require(arguments.optString("templateId").isNotBlank())
+                JSONObject().put("updated", true).put("confidence", 0.5)
+            }
             register("action.tap") { arguments, context ->
                 require(arguments.optInt("x", -1) in 0..1000 && arguments.optInt("y", -1) in 0..1000)
                 require(arguments.optLong("durationMs", 100L) in 50L..10_000L)
@@ -316,7 +321,7 @@ class AelmLifecycleManager(context: Context) {
     }
 
     private fun sandboxApiNames(): List<String> =
-        listOf("memory.read", "memory.write", "memory.append", "system.time", "vision.match", "action.tap", "action.swipe", "action.wait")
+        listOf("memory.read", "memory.write", "memory.append", "system.time", "vision.match", "vision.feedback", "action.tap", "action.swipe", "action.wait")
 
 
     private fun assertExpected(expected: JSONObject, actual: JSONObject) {
