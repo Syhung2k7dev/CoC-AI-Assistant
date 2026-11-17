@@ -127,8 +127,8 @@ object GeminiSkillAuthoring {
             Chỉ dùng operation CASL đã hỗ trợ và API nằm trong allow-list; không tạo API mới.
             Không tự đánh dấu VERIFIED. Không tạo Kotlin, Java, JavaScript, shell hay mã tùy ý.
         """.trimIndent()
-        require(registry.setLifecycle(current.id, SkillLifecycle.RESEARCHING, current.version)) {
-            "Không thể chuyển Skill sang trạng thái đang nghiên cứu."
+        if (!registry.setLifecycle(current.id, SkillLifecycle.RESEARCHING, current.version)) {
+            return SkillDraftOutcome.Failed("Không thể chuyển Skill sang trạng thái đang nghiên cứu.")
         }
         return runCatching {
             val raw = GeminiClient.generate(apiKey, prompt)
