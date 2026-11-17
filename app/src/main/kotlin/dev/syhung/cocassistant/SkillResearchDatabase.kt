@@ -189,6 +189,10 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
     }
 
     @Synchronized
+    fun deleteDataset(sessionId: String, name: String): Boolean =
+        writableDatabase.delete("custom_datasets", "session_id=? AND dataset_name=?", arrayOf(sessionId, name)) > 0
+
+    @Synchronized
     fun recordMedia(sessionId: String, observationId: String, asset: JSONObject, kind: String) {
         writableDatabase.execSQL(
             "INSERT OR REPLACE INTO media_assets VALUES(?,?,?,?,?,?,?,?)",
