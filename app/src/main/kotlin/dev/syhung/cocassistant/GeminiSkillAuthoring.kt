@@ -164,4 +164,44 @@ object GeminiSkillAuthoring {
         }
     }
 
+
+
+    data class BatchReport(
+        val total: Int,
+        val succeeded: Int,
+        val failures: List<Pair<String, String>>
+    )
+
+    /**
+     * Researches every latest-version Skill still marked RESEARCH_REQUIRED.
+     * Requests run sequentially to avoid flooding the provider and each failure is isolated.
+     */
+    suspend fun researchPendingSkills(
+        apiKey: String,
+        registry: AgentSkillRegistry,
+        availableApiNames: List<String> = emptyList(),
+        onProgress: (completed: Int, total: Int, skillName: String) -> Unit = { _, _, _ -> }
+    ): BatchReport {
+        if (apiKey.isBlank()) return BatchReport(0, 0, listOf("API Key" to "Chưa có Gemini API Key."))
+
+        val pending = registry.all()
+            .groupBy { it.id }
+            .values
+            .mapNotNull { versions -> versions.maxByOrNull { it.version } }
+            .filter { it.status == SkillLifecycle.RESEARCH_REQUIRED }
+            .sortedWith(compareBy<AgentSkill> { it.category }.thenBy { it.name })
+
+        var succeeded = 0
+        val failures = mutableListOf<Pair<String, String>>()
+        pending.forEachIndexed { index, skill ->
+            val result = researchExistingSkill(apiKey, skill.id, registry, availableApiNames)
+            when (result) {
+                is SkillDraftOutcome.Created -> succeeded++
+                is SkillDraftOutcome.Failed -> failures += skill.name to result.reason
+            }
+            onProgress(index + 1, pending.size, skill.name)
+        }
+        return BatchReport(pending.size, succeeded, failures)
+    }
+
 }
