@@ -139,6 +139,7 @@ object GeminiSkillAuthoring {
             val parsed = JSONObject(raw.substring(start, end + 1))
             val script = parsed.optJSONObject("script") ?: error("Thiếu CASL script.")
             val researched = AgentSkill.fromJson(parsed) ?: error("Manifest Skill không hợp lệ.")
+            require(researched.instructions.length >= 80) { "Hồ sơ nghiên cứu thiếu quy trình thao tác và xác minh chi tiết." }
             require(researched.id == current.id && researched.version == current.version + 1) {
                 "Gemini đã thay đổi ID hoặc version không đúng."
             }
