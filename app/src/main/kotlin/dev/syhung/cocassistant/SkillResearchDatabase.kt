@@ -201,6 +201,37 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
+    @Synchronized
+    fun queryTable(table: String, offset: Int = 0, limit: Int = 50): JSONObject {
+        val allowed = setOf("sessions", "observations", "layouts", "layout_components",
+            "procedure_steps", "strategies", "calculations", "skill_documents",
+            "custom_datasets", "media_assets")
+        require(table in allowed) { "Bảng dữ liệu không được phép truy vấn." }
+        require(offset in 0..100_000 && limit in 1..100) { "Phân trang database không hợp lệ." }
+        val db = readableDatabase
+        val total = db.rawQuery("SELECT COUNT(*) FROM $table", null).use {
+            if (it.moveToFirst()) it.getInt(0) else 0
+        }
+        val rows = JSONArray()
+        db.rawQuery("SELECT * FROM $table ORDER BY rowid LIMIT ? OFFSET ?",
+            arrayOf(limit.toString(), offset.toString())).use { cursor ->
+            while (cursor.moveToNext()) {
+                val row = JSONObject()
+                for (i in 0 until cursor.columnCount) {
+                    if (cursor.isNull(i)) row.put(cursor.getColumnName(i), JSONObject.NULL)
+                    else when (cursor.getType(i)) {
+                        android.database.Cursor.FIELD_TYPE_INTEGER -> row.put(cursor.getColumnName(i), cursor.getLong(i))
+                        android.database.Cursor.FIELD_TYPE_FLOAT -> row.put(cursor.getColumnName(i), cursor.getDouble(i))
+                        else -> row.put(cursor.getColumnName(i), cursor.getString(i))
+                    }
+                }
+                rows.put(row)
+            }
+        }
+        return JSONObject().put("table", table).put("offset", offset)
+            .put("limit", limit).put("total", total).put("rows", rows)
+    }
+
     /** Complete, versioned relational export for inclusion in the CADSS ZIP backup. */
     @Synchronized
     fun exportJson(): JSONObject {
