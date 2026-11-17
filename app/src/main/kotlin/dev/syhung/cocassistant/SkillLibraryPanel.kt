@@ -65,6 +65,10 @@ fun SkillLibraryPanel(
             "Research Agent tự mở CoC, chụp màn hình, gửi Gemini, suy luận và thực hiện thao tác khám phá trong game. Mỗi vòng đều lưu bằng chứng và cập nhật database.",
             color = Color(0xFF9AA8C0), fontSize = 12.sp
         )
+        ResearchDebugConsole(
+            events = debugEvents,
+            onCopy = { clipboard.setText(AnnotatedString(ResearchDebugLog.exportText())) }
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SkillCountChip("Chưa nghiên cứu", pendingCount)
             SkillCountChip("Đã nghiên cứu", skills.count { it.status == SkillLifecycle.RESEARCHED })
@@ -224,10 +228,6 @@ fun SkillLibraryPanel(
         if (statusState.value.isNotBlank()) {
             Text(statusState.value, color = Color(0xFF4DD8D0), fontSize = 11.sp)
         }
-        ResearchDebugConsole(
-            events = debugEvents,
-            onCopy = { clipboard.setText(AnnotatedString(ResearchDebugLog.exportText())) }
-        )
         Spacer(Modifier.height(6.dp))
     }
 }
@@ -287,6 +287,7 @@ private fun ResearchDebugConsole(
             if (events.isEmpty()) {
                 Text("Chưa có log. Bắt đầu một phiên nghiên cứu để theo dõi từng bước.", color = Color(0xFF9AA8C0), fontSize = 11.sp)
             } else {
+                var shownScreenshotPreviews = 0
                 events.takeLast(60).asReversed().forEach { event ->
                     Column(
                         Modifier.fillMaxWidth()
@@ -302,7 +303,10 @@ private fun ResearchDebugConsole(
                         if (event.details.isNotBlank()) {
                             Text(event.details, color = Color(0xFFB5C2D8), fontSize = 9.sp)
                         }
-                        event.imageName?.let { ResearchDebugScreenshot(it) }
+                        event.imageName?.takeIf { shownScreenshotPreviews < 4 }?.let {
+                            ResearchDebugScreenshot(it)
+                            shownScreenshotPreviews++
+                        }
                     }
                 }
             }
