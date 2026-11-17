@@ -95,6 +95,7 @@ class WorkflowEngine(
 ) {
     private val workflows = CaslWorkflowRegistry(context)
     private val skills = AgentSkillRegistry(context)
+    private val skillLoader = SkillLoader(skills)
     private val runs = WorkflowRunStore(context)
 
     suspend fun execute(
@@ -122,7 +123,7 @@ class WorkflowEngine(
         return try {
             val apiRegistry = createApiRegistry()
             configureTrustedApis(apiRegistry)
-            val runtime = CaslScriptRuntime(apiRegistry, skills::findVerifiedScript)
+            val runtime = CaslScriptRuntime(apiRegistry, skillLoader::loadScript)
             val result = withTimeout(MAX_RUN_TIME_MS) {
                 runtime.execute(program, inputs, userApproved = true)
             }
@@ -339,7 +340,7 @@ class WorkflowTestRunner(
             try {
                 val runtime = CaslScriptRuntime(
                     apiRegistry,
-                    skills::findVerifiedScript,
+                    skillLoader::loadScript,
                     maxSteps = 500,
                     maxDepth = 12,
                     maxRepeat = 20,
@@ -383,7 +384,7 @@ class WorkflowTestRunner(
                     if (id.isNotBlank() && version > 0 && visitedSkills.add(key)) {
                         val skill = skills.find(id, version)
                             ?: throw CaslRuntimeException("Không tìm thấy Skill dependency $key.")
-                        val script = skills.findVerifiedScript(id, version)
+                        val script = skillLoader.loadScript(id, version)
                             ?: throw CaslRuntimeException("Skill $key chưa VERIFIED hoặc dependency chưa sẵn sàng.")
                         val skillSteps = script.optJSONArray("steps") ?: JSONArray()
                         validateSkillApiCapabilities(skillSteps, skill.capabilities, key)
