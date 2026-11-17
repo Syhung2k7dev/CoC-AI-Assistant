@@ -146,6 +146,21 @@ class VisionLearningManager(context: Context) {
     }
 
     @Synchronized
+    fun reverifyTemplate(templateId: String, confirmedLabel: String): JSONObject? {
+        require(confirmedLabel.isNotBlank() && confirmedLabel.length <= 120)
+        val template = cadss.findRecord(TEMPLATES, "id", templateId) ?: return null
+        if (template.optString("status") != STATUS_REVIEW_REQUIRED) return null
+        val updated = JSONObject(template.toString())
+            .put("status", STATUS_VERIFIED)
+            .put("label", confirmedLabel.trim())
+            .put("confidence", maxOf(0.5, template.optDouble("confidence", 0.0)))
+            .put("manuallyReverifiedAt", System.currentTimeMillis())
+            .put("updatedAt", System.currentTimeMillis())
+        cadss.putRecord(TEMPLATES, "id", templateId, updated)
+        return updated
+    }
+
+    @Synchronized
     fun recordOutcome(templateId: String, successful: Boolean): JSONObject? {
         val template = cadss.findRecord(TEMPLATES, "id", templateId) ?: return null
         if (template.optString("status") != STATUS_VERIFIED) return null
