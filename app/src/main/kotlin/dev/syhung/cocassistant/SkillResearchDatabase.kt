@@ -19,6 +19,8 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL("CREATE INDEX idx_observations_session ON observations(session_id, cycle)")
         db.execSQL("CREATE TABLE layouts (layout_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, screen_key TEXT NOT NULL, screen_name TEXT NOT NULL, version INTEGER NOT NULL, confidence REAL NOT NULL, evidence_observation_id TEXT, components_json TEXT NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(session_id, screen_key, version))")
         db.execSQL("CREATE INDEX idx_layouts_screen ON layouts(session_id, screen_key)")
+        db.execSQL("CREATE TABLE layout_components (component_id TEXT PRIMARY KEY, layout_id TEXT NOT NULL, component_key TEXT NOT NULL, label TEXT NOT NULL, type TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL, anchor TEXT NOT NULL, properties_json TEXT NOT NULL)")
+        db.execSQL("CREATE INDEX idx_layout_components_layout ON layout_components(layout_id)")
         db.execSQL("CREATE TABLE procedure_steps (step_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, step_index INTEGER NOT NULL, title TEXT NOT NULL, preconditions_json TEXT NOT NULL, action_json TEXT NOT NULL, postconditions_json TEXT NOT NULL, evidence_observation_id TEXT, status TEXT NOT NULL, updated_at INTEGER NOT NULL)")
         db.execSQL("CREATE INDEX idx_procedure_session ON procedure_steps(session_id, step_index)")
         db.execSQL("CREATE TABLE strategies (strategy_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, strategy_key TEXT NOT NULL, kind TEXT NOT NULL, content_json TEXT NOT NULL, confidence REAL NOT NULL, evidence_observation_id TEXT, updated_at INTEGER NOT NULL)")
@@ -88,6 +90,26 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
                 version, layout.optDouble("confidence", 0.0), observationId,
                 components.toString(), System.currentTimeMillis())
         )
+        for (i in 0 until components.length()) {
+            val component = components.optJSONObject(i) ?: continue
+            val key = component.optString("key").ifBlank { "component-$i" }
+            val bounds = listOf("x", "y", "width", "height")
+            val numbers = bounds.map { component.optDouble(it, 0.0).coerceIn(0.0, 1000.0) }
+            db.execSQL(
+                "INSERT OR REPLACE INTO layout_components VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf("$id:$key", id, key, component.optString("label"),
+                    component.optString("type"), numbers[0], numbers[1], numbers[2], numbers[3],
+                    component.optString("anchor"), (component.optJSONObject("properties") ?: JSONObject()).toString())
+            )
+        }
+    }
+
+    @Synchronized
+    fun updateObservationActionResult(observationId: String, result: JSONObject) {
+        writableDatabase.execSQL(
+            "UPDATE observations SET action_result_json=? WHERE observation_id=?",
+            arrayOf(result.toString(), observationId)
+        )
     }
 
     @Synchronized
@@ -151,7 +173,7 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
     @Synchronized
     fun exportJson(): JSONObject {
         val db = readableDatabase
-        val tables = listOf("sessions", "observations", "layouts", "procedure_steps", "strategies", "calculations", "skill_documents")
+        val tables = listOf("sessions", "observations", "layouts", "layout_components", "procedure_steps", "strategies", "calculations", "skill_documents")
         val exported = JSONObject()
         tables.forEach { table ->
             val rows = JSONArray()
@@ -195,6 +217,7 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
                         "sessions" -> listOf("session_id","skill_id","goal","status","started_at","updated_at","completed_at","cycle_count","summary")
                         "observations" -> listOf("observation_id","session_id","cycle","captured_at","screen_key","screenshot_asset","crop_assets_json","phash","ocr_text","ai_analysis","action_json","action_result_json")
                         "layouts" -> listOf("layout_id","session_id","screen_key","screen_name","version","confidence","evidence_observation_id","components_json","updated_at")
+                        "layout_components" -> listOf("component_id","layout_id","component_key","label","type","x","y","width","height","anchor","properties_json")
                         "procedure_steps" -> listOf("step_id","session_id","step_index","title","preconditions_json","action_json","postconditions_json","evidence_observation_id","status","updated_at")
                         "strategies" -> listOf("strategy_id","session_id","strategy_key","kind","content_json","confidence","evidence_observation_id","updated_at")
                         "calculations" -> listOf("calculation_id","session_id","name","formula","inputs_json","result_json","evidence_observation_id","updated_at")
