@@ -157,6 +157,7 @@ object GeminiSkillAuthoring {
                 source = "gemini_skill_research"
             )
             require(registry.saveResearched(saved)) { "Không thể lưu phiên bản nghiên cứu mới." }
+            registry.setLifecycle(current.id, SkillLifecycle.RESEARCH_REQUIRED, current.version)
             val known = registry.all().map { it.id }.toSet()
             SkillDraftOutcome.Created(saved, saved.dependencies.filterNot(known::contains))
         }.getOrElse { error ->
