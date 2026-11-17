@@ -434,7 +434,7 @@ object AutonomousSkillResearchLoop {
         val riskText = (component.optString("type") + " " + component.optString("label") + " " +
             (component.optJSONObject("properties") ?: JSONObject()).toString()).lowercase()
         val blocked = listOf("purchase", "paid", "offer", "gem_pack", "real_money", "checkout",
-            "buy", "payment", "clan_chat", "chat", "account_link", "delete", "remove", "reset",
+            "buy", "payment", "gem", "spend", "confirm", "clan_chat", "chat", "account_link", "delete", "remove", "reset",
             "destructive", "external_app")
         if (blocked.any(riskText::contains)) return false
         val left = component.optDouble("x", -1.0)
