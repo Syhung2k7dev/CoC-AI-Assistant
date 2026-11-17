@@ -193,6 +193,22 @@ class WorkflowEngine(
                     .put("distance", match.second)
             }
         }
+        registry.register("vision.feedback") { args, executionContext ->
+            val skillId = executionContext.optString("skillId")
+            val skillVersion = executionContext.optInt("skillVersion", 0)
+            if (skillId.isBlank() || skillVersion < 1) {
+                throw CaslRuntimeException("Vision feedback chỉ được ghi từ Skill đã pin version.")
+            }
+            val templateId = args.optString("templateId")
+            val successful = args.optBoolean("success", false)
+            val updated = VisionLearningManager(context).recordOutcome(templateId, successful)
+                ?: throw CaslRuntimeException("Không tìm thấy VERIFIED Vision template.")
+            JSONObject()
+                .put("updated", true)
+                .put("templateId", templateId)
+                .put("status", updated.optString("status"))
+                .put("confidence", updated.optDouble("confidence", 0.0))
+        }
         registry.register("action.tap") { args, executionContext ->
             val skillId = executionContext.optString("skillId")
             val skillVersion = executionContext.optInt("skillVersion", 0)
@@ -250,7 +266,7 @@ class WorkflowEngine(
     companion object {
         const val MAX_RUN_TIME_MS = 10 * 60 * 1000L
         val AVAILABLE_API_NAMES = listOf(
-            "memory.read", "memory.write", "memory.append", "system.time", "vision.match",
+            "memory.read", "memory.write", "memory.append", "system.time", "vision.match", "vision.feedback",
             "action.tap", "action.swipe", "action.wait"
         )
     }
