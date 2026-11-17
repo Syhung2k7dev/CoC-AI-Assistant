@@ -186,6 +186,9 @@ object AutonomousSkillResearchLoop {
                 )
                 response.optJSONObject("manifest")?.let { latestManifest = JSONObject(it.toString()) }
                 response.optJSONObject("casl")?.let { latestCasl = JSONObject(it.toString()) }
+                if (latestManifest != null && latestCasl != null) {
+                    db.saveSkillDocument(sessionId, latestManifest!!, latestCasl!!)
+                }
                 response.optJSONObject("layout")?.let {
                     db.upsertLayout(sessionId, observationId, it)
                 }
@@ -314,8 +317,8 @@ object AutonomousSkillResearchLoop {
                 }
             }
             error(
-                if (cycle >= MAX_CYCLES) "Đã đạt giới hạn $MAX_CYCLES vòng quan sát; phiên được lưu để tiếp tục sau."
-                else "Đã hết ngân sách 30 phút; phiên được lưu để tiếp tục sau."
+                if (cycle >= MAX_CYCLES) "Đã đạt giới hạn $MAX_CYCLES vòng quan sát; bằng chứng và bản nháp hiện tại đã được lưu. Có thể khởi chạy phiên mới để AI tham chiếu dữ liệu cũ."
+                else "Đã hết ngân sách 30 phút; bằng chứng và bản nháp hiện tại đã được lưu. Có thể khởi chạy phiên mới để AI tham chiếu dữ liệu cũ."
             )
         } catch (cancelled: CancellationException) {
             db.updateSession(sessionId, target?.id, "STOPPED", cycle, "Người dùng đã dừng phiên.")
