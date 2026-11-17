@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main", "feature/**" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "feature/**" ]
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Run unit tests
+        run: gradle --no-daemon testDebugUnitTest
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
       - name: Upload APK

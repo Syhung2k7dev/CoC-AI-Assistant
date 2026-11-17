@@ -3,6 +3,7 @@ package dev.syhung.cocassistant
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -69,6 +70,10 @@ class CaslScriptRuntime(
             .put("inputs", JSONObject(inputs.toString()))
             .put("vars", JSONObject())
             .put("outputs", JSONObject())
+        if (program.optString("kind") == "skill") {
+            context.put("skillId", program.optString("id"))
+                .put("skillVersion", program.optInt("version"))
+        }
         val returned = runProgram(program, context, 0)
         CaslExecutionResult(
             outputs = JSONObject(context.getJSONObject("outputs").toString()),
@@ -108,10 +113,17 @@ class CaslScriptRuntime(
                     requireName(name)
                     context.getJSONObject("vars").put(name, resolveValue(step.opt("value"), context))
                 }
+                "output" -> {
+                    val name = step.optString("name")
+                    requireName(name)
+                    context.getJSONObject("outputs").put(name, resolveValue(step.opt("value"), context) ?: JSONObject.NULL)
+                }
                 "call" -> {
                     val api = step.optString("api")
                     val args = resolveObject(step.optJSONObject("args") ?: JSONObject(), context)
-                    val result = apiRegistry.invoke(api, args, context)
+                    val timeoutMs = step.optLong("timeoutMs", 120_000L)
+                    if (timeoutMs !in 1L..120_000L) throw CaslRuntimeException("CALL timeoutMs phải từ 1 đến 120000.")
+                    val result = withTimeout(timeoutMs) { apiRegistry.invoke(api, args, context) }
                     val assign = step.optString("assign")
                     if (assign.isNotBlank()) context.getJSONObject("vars").put(assign, result)
                 }
@@ -130,6 +142,8 @@ class CaslScriptRuntime(
                         .put("inputs", args)
                         .put("vars", JSONObject())
                         .put("outputs", JSONObject())
+                        .put("skillId", skillId)
+                        .put("skillVersion", skillProgram.optInt("version"))
                     val skillResult = runProgram(skillProgram, skillContext, depth + 1)
                     val assign = step.optString("assign")
                     if (assign.isNotBlank()) {
@@ -196,6 +210,7 @@ class CaslScriptRuntime(
         require(program.optString("kind") in setOf("workflow", "skill")) { "CASL kind phải là workflow hoặc skill." }
         require(program.optString("id").matches(Regex("[a-z0-9][a-z0-9._-]{1,79}"))) { "CASL ID không hợp lệ." }
         require(program.optInt("version", 0) >= 1) { "CASL version không hợp lệ." }
+        require(program.toString().length <= 128_000) { "CASL program vượt giới hạn kích thước." }
         val steps = program.optJSONArray("steps")
             ?: throw CaslRuntimeException("CASL steps phải là array.")
         validateSteps(steps, 0, intArrayOf(0))
@@ -209,12 +224,14 @@ class CaslScriptRuntime(
             val step = steps.optJSONObject(index)
                 ?: throw CaslRuntimeException("CASL step phải là object.")
             when (step.optString("op")) {
-                "set" -> requireName(step.optString("name"))
+                "set", "output" -> requireName(step.optString("name"))
                 "call" -> {
                     if (!step.optString("api").matches(Regex("[a-z][a-z0-9_.-]{1,79}"))) {
                         throw CaslRuntimeException("Tên API CASL không hợp lệ.")
                     }
                     step.optString("assign").takeIf(String::isNotBlank)?.let(::requireName)
+                    val timeoutMs = step.optLong("timeoutMs", 120_000L)
+                    if (timeoutMs !in 1L..120_000L) throw CaslRuntimeException("CALL timeoutMs không hợp lệ.")
                 }
                 "skill" -> {
                     if (!step.optString("id").matches(Regex("[a-z0-9][a-z0-9._-]{1,79}")) ||
@@ -226,10 +243,7 @@ class CaslScriptRuntime(
                 "if", "assert" -> {
                     val condition = step.optJSONObject("condition")
                         ?: throw CaslRuntimeException("Điều kiện CASL không hợp lệ.")
-                    if (condition.optString("path").isBlank() ||
-                        condition.optString("op") !in setOf("exists", "equals", "not_equals", "contains", "greater_than", "less_than", "in")) {
-                        throw CaslRuntimeException("Toán tử hoặc đường dẫn điều kiện không hợp lệ.")
-                    }
+                    validateCondition(condition)
                     if (step.optString("op") == "if") {
                         validateSteps(step.optJSONArray("then") ?: JSONArray(), depth + 1, count)
                         validateSteps(step.optJSONArray("else") ?: JSONArray(), depth + 1, count)
@@ -252,6 +266,33 @@ class CaslScriptRuntime(
                 else -> throw CaslRuntimeException("CASL operation không được hỗ trợ: " + step.optString("op"))
             }
         }
+    }
+
+    private fun validateCondition(condition: JSONObject, depth: Int = 0) {
+        if (depth > maxDepth) throw CaslRuntimeException("Điều kiện CASL lồng quá sâu.")
+        val groups = listOf("all", "any", "not").filter(condition::has)
+        if (groups.isNotEmpty()) {
+            if (groups.size != 1 || condition.length() != 1) throw CaslRuntimeException("Điều kiện nhóm không hợp lệ.")
+            when (groups.single()) {
+                "all", "any" -> {
+                    val items = condition.optJSONArray(groups.single())
+                        ?: throw CaslRuntimeException("all/any phải là mảng.")
+                    if (items.length() > maxSteps) throw CaslRuntimeException("Quá nhiều điều kiện CASL.")
+                    for (i in 0 until items.length()) {
+                        validateCondition(items.optJSONObject(i) ?: throw CaslRuntimeException("Điều kiện con phải là object."), depth + 1)
+                    }
+                }
+                "not" -> validateCondition(condition.optJSONObject("not")
+                    ?: throw CaslRuntimeException("not phải chứa object."), depth + 1)
+            }
+            return
+        }
+        if (condition.optString("path").isBlank() || condition.optString("path").length > 256 ||
+            condition.optString("op") !in setOf(
+                "exists", "not_exists", "equals", "not_equals", "contains", "starts_with",
+                "ends_with", "greater_than", "less_than", "greater_or_equal",
+                "less_or_equal", "in", "not_in"
+            )) throw CaslRuntimeException("Toán tử hoặc đường dẫn điều kiện không hợp lệ.")
     }
 
     private fun resolveObject(source: JSONObject, context: JSONObject): JSONObject {
@@ -279,7 +320,10 @@ class CaslScriptRuntime(
         var current: Any? = root
         path.split('.').forEach { part ->
             current = when (val value = current) {
-                is JSONObject -> if (value.has(part)) value.opt(part) else null
+                is JSONObject -> if (value.has(part)) value.opt(part) else return null
+                is JSONArray -> part.toIntOrNull()
+                    ?.takeIf { it in 0 until value.length() }
+                    ?.let(value::opt) ?: return null
                 else -> return null
             }
         }

@@ -35,9 +35,22 @@ Các phần OCR, workflow editor JSON hoàn chỉnh, vòng lặp Agent tự xác
 
 ## Tài liệu
 
+- [Vision Memory & Auto-learning](docs/VISION_MEMORY.md)
+
 - [Hướng dẫn sử dụng](docs/HUONG_DAN_SU_DUNG.md)
+- [Kiến trúc AI Core Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md)
 - [Kiến trúc CADSS/CASL](docs/KIEN_TRUC_CADSS_CASL.md)
 - [Lộ trình CoC Agent](docs/ROADMAP_COC_AGENT.md)
 - [Kiến trúc Skill và HVCS](docs/ARCHITECTURE_SKILLS_HVCS.md)
 
 CI thành công chỉ xác nhận quá trình build; vẫn cần cài và kiểm tra trên thiết bị Android thật, bao gồm khả năng bật Accessibility trên từng phiên bản Android/ColorOS.
+
+
+## CASL và Workflow Engine
+
+- [Đặc tả CASL JSON DSL, Script Runtime, Workflow Engine và Scheduler](docs/CASL_WORKFLOW_ENGINE.md)
+
+
+### Workflow Engine
+
+Workflow đã VERIFIED được chạy hoặc lên lịch qua WorkManager; CASL Skill script dùng chung interpreter và API allow-list. Test runner dùng API mock trước khi chuyển Workflow sang VERIFIED. Xem [CASL_WORKFLOW_ENGINE.md](docs/CASL_WORKFLOW_ENGINE.md) để biết schema, lifecycle, run state và giới hạn thực thi.

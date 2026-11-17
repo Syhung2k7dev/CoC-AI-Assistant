@@ -1,23 +1,18 @@
 package dev.syhung.cocassistant
 
 import android.content.Context
-import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.WorkerParameters
-import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 
-/** Tác vụ bảo trì nhẹ; thời điểm thực thi do Android WorkManager điều phối. */
-class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = Result.success()
-}
-
+/** Compatibility facade over the real per-Workflow WorkManager scheduler. */
 object SchedulerManager {
-    private const val WORK_NAME = "cadss_daily_maintenance"
-    fun scheduleDaily(context: Context) {
-        val request = PeriodicWorkRequestBuilder<MaintenanceWorker>(24, TimeUnit.HOURS).build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+    fun scheduleDaily(
+        context: Context,
+        workflowId: String,
+        version: Int,
+        inputs: JSONObject = JSONObject()
+    ): String = WorkflowScheduler.schedulePeriodic(context, workflowId, version, 24 * 60L, inputs)
+
+    fun cancel(context: Context, scheduleId: String) {
+        WorkflowScheduler.cancel(context, scheduleId)
     }
-    fun cancel(context: Context) { WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME) }
 }

@@ -11,6 +11,8 @@ import android.os.Looper
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 sealed class AutomationStep {
     data class Tap(val x: Float, val y: Float, val durationMs: Long = 100L) : AutomationStep()
@@ -134,6 +136,60 @@ class CoCAccessibilityService : AccessibilityService() {
         return true
     }
 
+
+    private suspend fun dispatchSingleStep(step: AutomationStep): Boolean =
+        suspendCancellableCoroutine { continuation ->
+            handler.post {
+                if (!continuation.isActive) return@post
+                if (!isValid(step)) {
+                    continuation.resume(false)
+                    return@post
+                }
+                if (step is AutomationStep.Wait) {
+                    val waitTask = Runnable { if (continuation.isActive) continuation.resume(true) }
+                    handler.postDelayed(waitTask, step.durationMs)
+                    continuation.invokeOnCancellation { handler.removeCallbacks(waitTask) }
+                    return@post
+                }
+                val metrics = resources.displayMetrics
+                val startX: Float
+                val startY: Float
+                val endX: Float
+                val endY: Float
+                val duration: Long
+                when (step) {
+                    is AutomationStep.Tap -> {
+                        startX = step.x; startY = step.y; endX = step.x; endY = step.y
+                        duration = step.durationMs
+                    }
+                    is AutomationStep.Swipe -> {
+                        startX = step.startX; startY = step.startY; endX = step.endX; endY = step.endY
+                        duration = step.durationMs
+                    }
+                    is AutomationStep.Wait -> return@post
+                }
+                if (startX !in 0f..metrics.widthPixels.toFloat() ||
+                    endX !in 0f..metrics.widthPixels.toFloat() ||
+                    startY !in 0f..metrics.heightPixels.toFloat() ||
+                    endY !in 0f..metrics.heightPixels.toFloat()) {
+                    continuation.resume(false)
+                    return@post
+                }
+                val path = Path().apply { moveTo(startX, startY); lineTo(endX, endY) }
+                val gesture = GestureDescription.Builder()
+                    .addStroke(GestureDescription.StrokeDescription(path, 0L, duration)).build()
+                val accepted = dispatchGesture(gesture, object : GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        if (continuation.isActive) continuation.resume(true)
+                    }
+                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                        if (continuation.isActive) continuation.resume(false)
+                    }
+                }, handler)
+                if (!accepted && continuation.isActive) continuation.resume(false)
+            }
+        }
+
     private fun capture(callback: (Bitmap?) -> Unit) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) { callback(null); return }
         try {
@@ -157,6 +213,7 @@ class CoCAccessibilityService : AccessibilityService() {
         private const val STEP_GAP_MS = 250L
         @Volatile private var instance: CoCAccessibilityService? = null
         fun isConnected(): Boolean = instance != null
+        suspend fun performSingleStep(step: AutomationStep): Boolean = instance?.dispatchSingleStep(step) ?: false
         fun startWorkflow(context: Context, steps: List<AutomationStep>, repeats: Int = 1): Boolean {
             val service = instance ?: return false
             return try { service.begin(steps, repeats); true } catch (_: IllegalArgumentException) { false }

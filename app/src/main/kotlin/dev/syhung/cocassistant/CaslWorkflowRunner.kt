@@ -1,6 +1,7 @@
 package dev.syhung.cocassistant
 
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 
 sealed class WorkflowRunOutcome {
@@ -35,6 +36,8 @@ class CaslWorkflowRunner(
             WorkflowRunOutcome.Completed(
                 runtime.execute(program, inputs, userApproved = true)
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             WorkflowRunOutcome.Failed(error.message ?: "Workflow thất bại.")
         }

@@ -1,5 +1,7 @@
 package dev.syhung.cocassistant
 
+import kotlinx.coroutines.CancellationException
+
 import android.graphics.Bitmap
 import org.json.JSONObject
 
@@ -45,9 +47,9 @@ object GeminiSkillAuthoring {
             Nếu có ảnh tham chiếu, dùng ảnh đó làm dữ liệu quan sát và phân biệt điều đã thấy với suy luận.
             instructions là mô tả ngắn. script là CASL JSON AST hoàn chỉnh, kind=skill,
             id trùng id Skill, version trùng version Skill, schemaVersion=1.
-            script.steps chỉ dùng các op: set, call, skill, if, repeat, wait, assert, log, return.
-            Mỗi call phải gọi tên API trong allow-list; nếu danh sách trống thì không được dùng call.
-            Không tạo mã Kotlin, Java, JavaScript, shell, reflection hoặc nội dung thực thi tùy ý.
+            script.steps chỉ dùng các op: set, output, call, skill, if, repeat, wait, assert, log, return.
+            Mỗi call phải gọi tên API trong allow-list; nếu danh sách trống thì không được dùng call. API action.tap/action.swipe/action.wait chỉ chạy khi Skill đã VERIFIED, capability tương ứng được khai báo và Accessibility đã được người dùng bật.
+            Điều kiện hỗ trợ all / any / not và exists, not_exists, equals, not_equals, contains, starts_with, ends_with, greater_than, less_than, greater_or_equal, less_or_equal, in, not_in. Không tạo mã Kotlin, Java, JavaScript, shell, reflection hoặc nội dung thực thi tùy ý.
         """.trimIndent()
         return runCatching {
             val raw = GeminiClient.generate(apiKey, prompt, referenceImage)
@@ -77,6 +79,7 @@ object GeminiSkillAuthoring {
             val known = registry.all().map { it.id }.toSet()
             SkillDraftOutcome.Created(draft, draft.dependencies.filterNot(known::contains))
         }.getOrElse { error ->
+            if (error is CancellationException) throw error
             SkillDraftOutcome.Failed(error.message ?: "Không thể tạo Skill Draft.")
         }
     }
