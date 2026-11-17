@@ -6,6 +6,8 @@
 2. Chọn **Phân tích CoC** để ứng dụng mở Clash of Clans, chụp màn hình qua Accessibility và chạy OCR cục bộ.
 3. Gemini phân tích văn bản OCR. Nếu muốn gửi cả ảnh, bật lựa chọn **Cho phép gửi ảnh màn hình lên Gemini** trước khi phân tích.
 4. Kết quả phải phân biệt điều đã quan sát, suy luận và thông tin còn thiếu. Phân tích từ Gemini chưa phải lệnh thao tác.
+5. Để chạy vòng lặp Agent, nhập mục tiêu rồi chọn **Chạy Agent tự động**. Đây là xác nhận cho phép Agent chạy tối đa 5 lần Skill đã VERIFIED và một lượt quan sát xác minh cuối.
+6. Agent chỉ chọn Skill có đúng ID/version và trạng thái VERIFIED; sau mỗi lần chạy sẽ chụp/OCR lại màn hình. Nếu không có bằng chứng xác minh rõ ràng, Agent dừng. Có thể chọn **Dừng Agent ngay** trong khi chạy.
 
 Bạn cũng có thể dùng **Chat với AI** để trao đổi bằng văn bản mà không mở game hoặc chụp màn hình.
 
