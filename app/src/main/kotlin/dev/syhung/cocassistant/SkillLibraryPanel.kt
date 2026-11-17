@@ -1,5 +1,8 @@
 package dev.syhung.cocassistant
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,12 +21,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Job
@@ -35,6 +43,8 @@ fun SkillLibraryPanel(
     apiKey: String,
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val debugEvents = ResearchDebugLog.events.collectAsState().value
     val skillsState = remember { mutableStateOf(registry.all()) }
     val goalState = remember { mutableStateOf("") }
     val statusState = remember { mutableStateOf("") }
@@ -213,6 +223,10 @@ fun SkillLibraryPanel(
         if (statusState.value.isNotBlank()) {
             Text(statusState.value, color = Color(0xFF4DD8D0), fontSize = 11.sp)
         }
+        ResearchDebugConsole(
+            events = debugEvents,
+            onCopy = { clipboard.setText(AnnotatedString(ResearchDebugLog.exportText())) }
+        )
         Spacer(Modifier.height(6.dp))
     }
 }
@@ -248,4 +262,75 @@ private fun skillCategoryLabel(category: String): String = when (category) {
     "village" -> "QUẢN LÝ LÀNG"
     "primitive" -> "NĂNG LỰC NỀN"
     else -> category.replace('_', ' ').uppercase()
+}
+
+
+@Composable
+private fun ResearchDebugConsole(
+    events: List<ResearchDebugLog.Event>,
+    onCopy: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF101827))
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("RESEARCH DEBUG CONSOLE", color = Color(0xFF4DD8D0), fontSize = 10.sp)
+                    Text("${events.size} sự kiện · lưu cục bộ trên thiết bị", color = Color.White, fontSize = 12.sp)
+                }
+                OutlinedButton(onClick = onCopy) { Text("Sao chép log") }
+            }
+            if (events.isEmpty()) {
+                Text("Chưa có log. Bắt đầu một phiên nghiên cứu để theo dõi từng bước.", color = Color(0xFF9AA8C0), fontSize = 11.sp)
+            } else {
+                events.takeLast(60).asReversed().forEach { event ->
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .background(Color(0xFF1B263A), RoundedCornerShape(10.dp))
+                            .padding(9.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "${java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.getDefault()).format(java.util.Date(event.time))} · ${event.stage}",
+                            color = Color(0xFF4DD8D0), fontSize = 9.sp
+                        )
+                        Text(event.message, color = Color.White, fontSize = 11.sp)
+                        if (event.details.isNotBlank()) {
+                            Text(event.details, color = Color(0xFFB5C2D8), fontSize = 9.sp)
+                        }
+                        event.imageName?.let { ResearchDebugScreenshot(it) }
+                    }
+                }
+            }
+            Text(
+                "Log không ghi API key hoặc nội dung header xác thực. Có thể xem ảnh đã chụp, kích thước payload, HTTP status, latency, phản hồi AI và hành động.",
+                color = Color(0xFF71819D), fontSize = 9.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResearchDebugScreenshot(fileName: String) {
+    val context = LocalContext.current
+    val bitmap = remember(fileName) {
+        val file = VisionMemory.resolve(context, fileName)
+        if (file == null) null else {
+            val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+            BitmapFactory.decodeFile(file.absolutePath, options)
+        }
+    }
+    if (bitmap != null && !bitmap.isRecycled) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = "Ảnh màn hình CoC đã chụp: $fileName",
+            modifier = Modifier.fillMaxWidth().height(170.dp),
+            contentScale = ContentScale.Fit
+        )
+    } else {
+        Text("Không đọc được ảnh: $fileName", color = Color(0xFFFFC66D), fontSize = 9.sp)
+    }
 }
