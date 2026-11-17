@@ -122,7 +122,7 @@ fun SkillLibraryPanel(
                             Text(skill.status.name, color = Color(0xFFFFC66D), fontSize = 9.sp)
                         }
                         Text(skill.description, color = Color(0xFF9AA8C0), fontSize = 11.sp)
-                        Text("ID: ${skill.id} · v${skill.version}", color = Color(0xFF71819D), fontSize = 9.sp)
+                        Text("${skill.level.name} · ID: ${skill.id} · v${skill.version}", color = Color(0xFF71819D), fontSize = 9.sp)
                     }
                 }
             }
