@@ -174,6 +174,8 @@ object AutonomousSkillResearchLoop {
                         .put("verificationReason", verification.optString("reason").take(500))
                     db.updateObservationActionResult(previousObservationId!!, previousActionResult)
                 }
+                val previousActionType = previousAction.optString("type")
+                val previousVerificationStatus = previousActionResult.optString("verification")
                 lastAnalysis = response.optString("analysis").take(5_000)
                 val screenKey = response.optString("screenKey", "unknown_screen").take(100)
                 val cropAssets = saveRequestedCrops(
@@ -270,8 +272,8 @@ object AutonomousSkillResearchLoop {
                 onStatus("Vòng $cycle · ${actionType.uppercase()} · đã lưu ảnh, layout, procedure và dữ liệu")
 
                 if (actionType == "done") {
-                    if (previousObservationId != null && previousAction.optString("type") in setOf("tap", "swipe")) {
-                        require(previousActionResult.optString("verification") == "success") {
+                    if (previousObservationId != null && previousActionType in setOf("tap", "swipe")) {
+                        require(previousVerificationStatus == "success") {
                             "Chưa có bằng chứng xác minh thành công cho thao tác cuối; không thể kết thúc nghiên cứu."
                         }
                     }
