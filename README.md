@@ -5,8 +5,8 @@
 ## Trải nghiệm chính
 
 - **Trung tâm AI tiếng Việt:** hội thoại với Agent, nhập mục tiêu, theo dõi trạng thái và nhận phân tích.
-- **Quan sát tự động:** mở Clash of Clans, chụp màn hình qua Accessibility và nhận diện văn bản cục bộ; không yêu cầu người dùng tự chụp hoặc tải ảnh lên.
-- **Quyền riêng tư:** ảnh chỉ được gửi lên Gemini khi người dùng bật lựa chọn chia sẻ ảnh; mặc định gửi văn bản OCR.
+- **Thị giác Agent-only:** Agent tự chụp màn hình, chạy OCR/OpenCV và gửi ảnh cho Gemini trong quá trình điều phối; không có trang tải ảnh lên hoặc phân tích ảnh thủ công.
+- **API Key:** chỉ nhập trong Cài đặt để kiểm tra kết nối và cấp cho Agent; khóa được che trên giao diện, chỉ giữ trong bộ nhớ phiên, không ghi vào CADSS/backup.
 - **Nguyên tắc hệ thống:** người dùng có thể đề xuất chỉnh sửa System Prompt; thay đổi chỉ được lưu sau bước xem lại và xác nhận riêng.
 - **Thư viện kỹ năng tiếng Việt:** mỗi Skill có trạng thái Chưa nghiên cứu, Đang nghiên cứu, Đã nghiên cứu, Bản nháp, Đang kiểm thử, Đã xác minh, Thử nghiệm hoặc Đã tắt.
 - **Nghiên cứu Skill:** Gemini có thể nghiên cứu một Skill catalog, tạo phiên bản CASL mới, mô tả điều kiện, quy trình, kết quả mong đợi và cách xác minh. Kết quả nghiên cứu không tự động được xem là đã kiểm thử.
@@ -18,7 +18,7 @@
 
 Bản triển khai trên nhánh này bổ sung giao diện Trung tâm AI, tự mở game, chụp ảnh và OCR. Gemini phân tích mục tiêu dựa trên OCR; gửi ảnh lên Gemini là lựa chọn riêng. Thư viện Skill phân biệt rõ kỹ năng chưa nghiên cứu và đã nghiên cứu, đồng thời có luồng tạo phiên bản nghiên cứu mới.
 
-**Vòng lặp Agent đã được tích hợp ở mức giới hạn:** nút Chạy Agent mở game, quan sát OCR/ảnh theo lựa chọn chia sẻ, yêu cầu Gemini chọn đúng ID/version của Skill VERIFIED, thực thi CASL qua ActionExecutor, chụp lại màn hình và yêu cầu xác minh trước khi đi tiếp. Một phiên tối đa 5 lần chạy Skill, có một lượt quan sát xác minh cuối và có nút Dừng. Gemini không được phát tọa độ hoặc thao tác tùy ý.
+**Vòng lặp Agent:** nút Chạy Agent mở game, tự quan sát OCR/ảnh, yêu cầu Gemini chọn đúng ID/version của Skill VERIFIED, thực thi CASL qua ActionExecutor và xác minh sau mỗi hành động. Không đặt giới hạn cứng số Skill; phiên có ngân sách thời gian 30 phút, từng Skill vẫn có giới hạn bước/thời gian và có nút Dừng. Gemini không được phát tọa độ hoặc thao tác tùy ý.
 
 **Giới hạn cần kiểm chứng:** việc xác minh hiện dựa trên phân tích OCR/ảnh của Gemini, chưa phải bộ xác minh trạng thái UI tất định cho mọi màn hình. Nếu thiếu Skill VERIFIED, không nhận diện được màn hình, AI trả kế hoạch sai schema hoặc không chứng minh được kết quả, Agent sẽ dừng. Chưa có bằng chứng chạy thành công trên thiết bị thật; OCR chưa nhận diện đầy đủ mọi thành phần game.
 

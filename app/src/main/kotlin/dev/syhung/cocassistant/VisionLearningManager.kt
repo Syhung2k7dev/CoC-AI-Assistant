@@ -14,8 +14,8 @@ sealed class VisionObservationResult {
 /**
  * Local template-learning lifecycle.
  *
- * Novel images become pending candidates. Only an explicit approval promotes a candidate
- * into the verified template collection; model output never silently changes active templates.
+ * Only Agent-owned screen observations enter this lifecycle. Repeated local observations may
+ * promote a stable candidate; a single model response never changes active templates.
  */
 class VisionLearningManager(context: Context) {
     private val appContext = context.applicationContext
@@ -70,6 +70,33 @@ class VisionLearningManager(context: Context) {
     }
 
     /**
+     * Agent-only observation path. A candidate becomes trusted only after three similar
+     * local screen captures, never from a single Gemini response or a user-uploaded image.
+     */
+    @Synchronized
+    internal fun observeForAgent(
+        bitmap: Bitmap,
+        suggestedLabel: String = "",
+        metadata: JSONObject = JSONObject(),
+        threshold: Int = DEFAULT_MATCH_THRESHOLD
+    ): VisionObservationResult {
+        val observation = observe(bitmap, suggestedLabel, metadata, threshold)
+        if (observation !is VisionObservationResult.NeedsReview ||
+            observation.candidate.optInt("sightings", 1) < AUTO_PROMOTION_SIGHTINGS
+        ) return observation
+
+        val label = observation.candidate.optString("suggestedLabel")
+            .ifBlank { suggestedLabel.trim() }
+            .ifBlank { "CoC screen state" }
+        val promoted = promoteCandidate(
+            observation.candidate.optString("id"),
+            label,
+            "agent_auto_learning"
+        )
+        return VisionObservationResult.Known(promoted, observation.distance)
+    }
+
+    /**
      * Imports legacy auto-promoted templates as pending candidates. Legacy templates are never
      * trusted automatically after the approval-gated learning lifecycle is enabled.
      */
@@ -110,15 +137,30 @@ class VisionLearningManager(context: Context) {
             "Ảnh nguồn của candidate không còn tồn tại."
         }
 
+        return promoteCandidate(candidateId, confirmedLabel.trim(), "manual_legacy")
+    }
+
+    private fun promoteCandidate(candidateId: String, label: String, source: String): JSONObject {
+        val candidate = cadss.findRecord(CANDIDATES, "id", candidateId)
+            ?: throw IllegalArgumentException("Không tìm thấy Vision candidate.")
+        require(candidate.optString("status") == STATUS_PENDING) {
+            "Chỉ candidate đang chờ xử lý mới được phát hành."
+        }
+        require(VisionMemory.resolve(appContext, candidate.optString("original")) != null &&
+            VisionMemory.resolve(appContext, candidate.optString("crop")) != null) {
+            "Ảnh nguồn của candidate không còn tồn tại."
+        }
         val now = System.currentTimeMillis()
         val template = JSONObject(candidate.toString())
             .put("status", STATUS_VERIFIED)
-            .put("label", confirmedLabel.trim())
+            .put("label", label.take(120))
             .put("version", 1)
             .put("successCount", 0)
             .put("failureCount", 0)
             .put("confidence", 0.5)
-            .put("approvedAt", now)
+            .put("promotionSource", source)
+            .put("verificationMethod", "repeated_local_observation")
+            .put("verifiedAt", now)
             .put("updatedAt", now)
         cadss.putRecord(TEMPLATES, "id", candidateId, template)
         cadss.putRecord(
@@ -209,6 +251,7 @@ class VisionLearningManager(context: Context) {
 
     companion object {
         const val DEFAULT_MATCH_THRESHOLD = 5
+        private const val AUTO_PROMOTION_SIGHTINGS = 3
         private const val MAX_METADATA_CHARS = 16_000
         private const val REVIEW_CONFIDENCE = 0.4
         private const val CANDIDATES = "vision_candidates"

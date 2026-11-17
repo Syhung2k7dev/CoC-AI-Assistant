@@ -73,7 +73,7 @@ Quy tắc này áp dụng cho thành phần server/proxy nếu dự án bổ sun
 
 ## 6. Ranh giới bảo mật
 
-- API key được giữ trong vùng lưu trữ bí mật phù hợp; không đưa vào CADSS, Workflow, Skill script, prompt log hoặc crash report.
+- API key do người dùng nhập chỉ được giữ trong bộ nhớ phiên ứng dụng; không ghi vào SharedPreferences, CADSS, backup, Workflow, Skill script, prompt log hoặc crash report. Trường nhập khóa phải che nội dung và chỉ cung cấp thao tác kiểm tra kết nối.
 - Script chỉ được gọi AI thông qua capability được cấp quyền, không được tự mở kết nối tùy ý.
 - Provider Adapter chỉ nhận thông tin xác thực từ credential boundary; không trả key về Workflow/Skill.
 - Log mặc định chỉ lưu metadata vận hành. Nội dung prompt/response chỉ được lưu khi có mục đích rõ ràng và chính sách đồng ý phù hợp.
@@ -106,7 +106,7 @@ Trong nhánh triển khai AI Provider Runtime:
 
 Các phần vẫn chưa được triển khai đầy đủ:
 
-- Đăng ký Provider hiện mới có Gemini; chưa có cấu hình Provider thứ hai, lưu credential an toàn hoặc fallback có chính sách.
+- Đăng ký Provider hiện mới có Gemini; chưa có cấu hình Provider thứ hai hoặc fallback có chính sách. Credential vault không được bật: API Key chỉ tồn tại trong bộ nhớ phiên theo quyết định sản phẩm.
 - Cancellation: Gemini adapter chạy request trên Dispatchers.IO; khi coroutine bị hủy, cancellation handler đóng HttpURLConnection đang hoạt động. Cần CI và kiểm thử thiết bị để xác nhận hành vi trên các tình huống mạng thực tế.
 - Streaming/SSE và idle-timeout cho stream.
 - Usage/Diagnostics bền vững và chính sách redaction nâng cao.
