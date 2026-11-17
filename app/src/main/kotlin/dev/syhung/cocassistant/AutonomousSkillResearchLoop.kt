@@ -398,10 +398,10 @@ object AutonomousSkillResearchLoop {
             Mandatory rules:
             - First assess previousActionVerification from the newly attached screenshot. If previous action was tap/swipe, never omit this assessment; quote visible evidence or mark uncertain/failed.
             - Choose exactly one nextAction each cycle. Coordinates use normalized 0..1000 screen space.
-            - Tap/swipe only visible in-game UI controls. Do not interact with Android system UI, external apps,
+            - Tap/swipe must name targetComponentKey from the current layout and all coordinates must lie inside that component bounding box.\n            - Tap/swipe only visible in-game UI controls. Do not interact with Android system UI,
               purchases, paid offers, account linking, clan chat, or destructive confirmation dialogs.
               If such a screen appears, choose observe or stop and explain.
-            - Never invent a coordinate, label, game state, formula, result, layout, or strategy. Mark unknowns.
+            - Inspect prior sessions for the same Skill ID or goal in the database snapshot and reuse their evidence; do not discard previous observations.\n            - Never invent a coordinate, label, game state, formula, result, layout, or strategy. Mark unknowns.
             - A component coordinate is a normalized bounding box (x,y,width,height), not a guessed pixel location.
             - cropRects are optional normalized rectangles; only request crops that contain useful visual detail.
             - Record every discovered screen layout, UI component, action, precondition, postcondition and result.
