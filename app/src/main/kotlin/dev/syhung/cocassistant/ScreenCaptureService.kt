@@ -144,5 +144,8 @@ class ScreenCaptureService : Service() {
             callbacks.add(callback)
             return true
         }
+        fun stop(context: Context) {
+            context.stopService(Intent(context, ScreenCaptureService::class.java))
+        }
     }
 }

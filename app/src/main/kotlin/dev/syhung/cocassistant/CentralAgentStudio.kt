@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 private val AgentBg = Color(0xFF141B2B)
 private val AgentText = Color(0xFFF4F6FC)
@@ -137,6 +138,15 @@ fun CentralAgentStudio(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Cấp quyền chụp màn hình (Android 10)") }
+            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                OutlinedButton(
+                    onClick = {
+                        ScreenCaptureService.stop(context)
+                        projectionReady = false
+                        status = "Đã dừng chia sẻ màn hình."
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Dừng chia sẻ màn hình") }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {

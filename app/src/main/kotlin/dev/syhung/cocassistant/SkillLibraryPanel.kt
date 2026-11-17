@@ -106,6 +106,16 @@ fun SkillLibraryPanel(
                 }
             }
         }
+        if (projectionReady.value && Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            OutlinedButton(
+                onClick = {
+                    ScreenCaptureService.stop(context)
+                    projectionReady.value = false
+                    statusState.value = "Đã dừng chia sẻ màn hình."
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Dừng chia sẻ màn hình") }
+        }
         ResearchDebugConsole(
             events = debugEvents,
             onCopy = { clipboard.setText(AnnotatedString(ResearchDebugLog.exportText())) },
