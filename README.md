@@ -1,58 +1,52 @@
 # CoC AI Assistant
 
-**Trợ lý AI CoC** là ứng dụng Android AI Agent hướng tới tự động hóa Clash of Clans. Gemini hỗ trợ phân tích và lập kế hoạch; OpenCV và OCR xử lý thị giác cục bộ; Accessibility thực hiện thao tác chạm/vuốt; CADSS và Vision Memory lưu trạng thái; CASL điều phối điều kiện và workflow.
+**CoC AI Assistant** là ứng dụng Android hướng tới mô hình AI Agent điều phối Clash of Clans. Người dùng giao mục tiêu trong **Trung tâm AI**; Agent có thể mở trò chơi, tự chụp màn hình bằng Android Accessibility, chạy OCR cục bộ, phân tích tình huống bằng Gemini và sử dụng CADSS/CASL/Skill để quản lý công việc.
 
-## Thành phần
+## Trải nghiệm chính
 
-- **Accessibility Automation:** dịch vụ Android cho phép workflow đã được người dùng xác nhận thực hiện tap/swipe.
-- **Gemini Agent:** phân tích ngữ cảnh và tạo bản nháp workflow có cấu trúc; bản nháp phải được kiểm tra trước khi chạy.
-- **OpenCV / Vision Memory:** xử lý ảnh cục bộ, pHash và lưu mẫu.
-- **CADSS:** dữ liệu Agent có phiên bản, lưu trữ và backup.
-- **CASL:** điều kiện IF/ELSE và JSON DSL có kiểm tra.
-- **Scheduler / Deep Sleep:** điều phối công việc nền và thời gian nghỉ.
-- **Floating Dashboard / Watchdog:** điều khiển tiến trình và phát hiện trạng thái màn hình bất thường.
+- **Trung tâm AI tiếng Việt:** hội thoại với Agent, nhập mục tiêu, theo dõi trạng thái và nhận phân tích.
+- **Quan sát tự động:** mở Clash of Clans, chụp màn hình qua Accessibility và nhận diện văn bản cục bộ; không yêu cầu người dùng tự chụp hoặc tải ảnh lên.
+- **Quyền riêng tư:** ảnh chỉ được gửi lên Gemini khi người dùng bật lựa chọn chia sẻ ảnh; mặc định gửi văn bản OCR.
+- **Nguyên tắc hệ thống:** người dùng có thể đề xuất chỉnh sửa System Prompt; thay đổi chỉ được lưu sau bước xem lại và xác nhận riêng.
+- **Thư viện kỹ năng tiếng Việt:** mỗi Skill có trạng thái Chưa nghiên cứu, Đang nghiên cứu, Đã nghiên cứu, Bản nháp, Đang kiểm thử, Đã xác minh, Thử nghiệm hoặc Đã tắt.
+- **Nghiên cứu Skill:** Gemini có thể nghiên cứu một Skill catalog, tạo phiên bản CASL mới, mô tả điều kiện, quy trình, kết quả mong đợi và cách xác minh. Kết quả nghiên cứu không tự động được xem là đã kiểm thử.
+- **CADSS / Vision Memory:** lưu trạng thái, phiên bản, dữ liệu và mẫu thị giác.
+- **CASL / Workflow Engine:** điều kiện IF/ELSE, điều phối Skill, giới hạn thực thi và lịch chạy.
+- **Accessibility Runtime:** thao tác tap/swipe/wait có giới hạn, Pause/Resume/Stop và kiểm tra tọa độ.
 
-## Trạng thái triển khai
+## Trạng thái thực tế của Agent
 
-Nhánh runtime hiện bổ sung nền tảng Accessibility: khai báo service, thao tác tap/swipe/wait có giới hạn, countdown 5 giây, Pause/Resume/Stop, xác thực tọa độ và API chụp màn hình Android 11+. Bảng điều khiển thử đã được gắn vào giao diện.
+Bản triển khai trên nhánh này bổ sung giao diện Trung tâm AI, tự mở game, chụp ảnh và OCR. Gemini phân tích mục tiêu dựa trên OCR; gửi ảnh lên Gemini là lựa chọn riêng. Thư viện Skill phân biệt rõ kỹ năng chưa nghiên cứu và đã nghiên cứu, đồng thời có luồng tạo phiên bản nghiên cứu mới.
 
-Các phần OCR, workflow editor JSON hoàn chỉnh, vòng lặp Agent tự xác minh, Gemini draft review, overlay toàn hệ thống và Scheduler chuyên dụng vẫn đang được triển khai. Không xem các phần này là đã hoàn tất cho đến khi có kiểm thử và bằng chứng build tương ứng.
+**Chưa được coi là hoàn tất:** Agent chưa có vòng lặp tự động đầy đủ để tự chọn mọi Skill, thực hiện hành động click từ hội thoại và xác minh kết quả game theo thời gian thực. Câu trả lời Gemini hiện chỉ là phân tích/đề xuất; không được biến văn bản hoặc tọa độ do mô hình tự sinh thành thao tác thiết bị. Muốn thực thi, cần Skill/Workflow CASL đã kiểm thử và VERIFIED cùng ActionExecutor/Accessibility phù hợp. OCR cũng chưa phải bộ nhận diện đầy đủ mọi thành phần giao diện game.
 
-## Quyền riêng tư và kiểm soát
+## Quyền Android và giới hạn
 
-- Chỉ chạy workflow sau thao tác bắt đầu và xác nhận rõ ràng của người dùng.
-- Workflow do Gemini đề xuất là bản nháp; không tự động gửi hành động AI chưa kiểm tra tới Accessibility.
-- Mọi workflow cần giới hạn bước, thời lượng và số lần lặp; có Pause/Resume/Stop.
-- Xử lý ảnh cục bộ theo mặc định; tải ảnh lên Gemini cần sự đồng ý riêng.
-- Không vượt qua Play Protect, quyền Android, màn hình bảo vệ hoặc cơ chế anti-cheat. Nếu Android hoặc Play Protect cảnh báo ứng dụng, cần điều tra bản build và chữ ký thay vì tắt bảo vệ.
+- Người dùng phải tự bật Accessibility trong Cài đặt Android.
+- Android có thể từ chối chụp màn hình hoặc thao tác trên cửa sổ được bảo vệ.
+- Ứng dụng không tự cấp quyền, không vượt Play Protect, không ẩn hoạt động và không né cơ chế bảo vệ của nền tảng.
+- Mọi workflow thực thi cần phạm vi rõ ràng, giới hạn bước/thời gian và khả năng Pause/Stop.
+- Không tuyên bố CI thành công là bằng chứng app đã hoạt động trên thiết bị thật.
 
-## Yêu cầu xây dựng
+## Công nghệ và yêu cầu xây dựng
 
 - Android Gradle Plugin 8.7.3
 - Kotlin 2.0.21
 - JDK 17, Gradle 8.9
 - Android API 23 trở lên; compile/target API 35
+- Jetpack Compose, Gemini Provider Runtime, OpenCV, ML Kit OCR, WorkManager
 
 ## Tài liệu
 
-- [AELM – Agent Evolution Lifecycle Manager](docs/AELM_LIFECYCLE.md)
-
-- [Vision Memory & Auto-learning](docs/VISION_MEMORY.md)
-
 - [Hướng dẫn sử dụng](docs/HUONG_DAN_SU_DUNG.md)
-- [Kiến trúc AI Core Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md)
-- [Kiến trúc CADSS/CASL](docs/KIEN_TRUC_CADSS_CASL.md)
 - [Lộ trình CoC Agent](docs/ROADMAP_COC_AGENT.md)
 - [Kiến trúc Skill và HVCS](docs/ARCHITECTURE_SKILLS_HVCS.md)
+- [Đặc tả CASL và Workflow Engine](docs/CASL_WORKFLOW_ENGINE.md)
+- [AELM – vòng đời tạo và xác minh Skill](docs/AELM_LIFECYCLE.md)
+- [Vision Memory](docs/VISION_MEMORY.md)
+- [Kiến trúc AI Core Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md)
+- [Kiến trúc CADSS/CASL](docs/KIEN_TRUC_CADSS_CASL.md)
 
-CI thành công chỉ xác nhận quá trình build; vẫn cần cài và kiểm tra trên thiết bị Android thật, bao gồm khả năng bật Accessibility trên từng phiên bản Android/ColorOS.
+## Kiểm thử
 
-
-## CASL và Workflow Engine
-
-- [Đặc tả CASL JSON DSL, Script Runtime, Workflow Engine và Scheduler](docs/CASL_WORKFLOW_ENGINE.md)
-
-
-### Workflow Engine
-
-Workflow đã VERIFIED được chạy hoặc lên lịch qua WorkManager; CASL Skill script dùng chung interpreter và API allow-list. Test runner dùng API mock trước khi chuyển Workflow sang VERIFIED. Xem [CASL_WORKFLOW_ENGINE.md](docs/CASL_WORKFLOW_ENGINE.md) để biết schema, lifecycle, run state và giới hạn thực thi.
+GitHub Actions chạy unit tests và build debug APK cho các nhánh main và feature/**. Vẫn cần cài đặt, cấp quyền và kiểm thử trên thiết bị Android thật, bao gồm các thiết bị có tùy biến hệ thống như ColorOS.
