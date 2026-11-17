@@ -287,6 +287,8 @@ internal class GeminiProviderAdapter(
                     true
                 )
             } else bitmap
+            val uploadWidth = uploadBitmap.width
+            val uploadHeight = uploadBitmap.height
             val bytes = try {
                 ByteArrayOutputStream().use { output ->
                     uploadBitmap.compress(Bitmap.CompressFormat.JPEG, 80, output)
@@ -296,7 +298,7 @@ internal class GeminiProviderAdapter(
                 if (uploadBitmap !== bitmap && !uploadBitmap.isRecycled) uploadBitmap.recycle()
             }
             ResearchDebugLog.record("IMAGE_ENCODING", "Đã mã hóa ảnh gửi Gemini",
-                "source=${bitmap.width}x${bitmap.height}\nupload=${uploadBitmap.width}x${uploadBitmap.height}\nquality=80\nimageBytes=${bytes.size}\nbase64Bytes~=${bytes.size * 4L / 3L}")
+                "source=${bitmap.width}x${bitmap.height}\nupload=${uploadWidth}x${uploadHeight}\nquality=80\nimageBytes=${bytes.size}\nbase64Bytes~=${bytes.size * 4L / 3L}")
             parts.put(
                 JSONObject().put(
                     "inlineData",
