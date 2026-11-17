@@ -50,7 +50,8 @@ CoC-AI-Assistant là AI Agent hỗ trợ tự động hóa giao diện Clash of 
 - Điều kiện chờ văn bản và bộ nhận diện trạng thái UI có kiểm chứng (OCR cục bộ cơ bản đã được nối vào Trung tâm AI).
 - So khớp template đa tỉ lệ và điều kiện IF/ELSE cho ảnh.
 - Kết nối ảnh chụp màn hình với Vision Memory/CADSS.
-- Agent planner/executor loop có xác minh trạng thái sau từng hành động; hiện Trung tâm AI mới mở game, capture, OCR và phân tích, chưa tự click từ câu trả lời Gemini.
+- Bộ xác minh trạng thái UI tất định (hiện vòng lặp dùng OCR/ảnh và Gemini để đánh giá bằng chứng, nên vẫn cần kiểm thử và bộ nhận diện chuyên biệt cho từng màn hình).
+- Quan sát thị giác đầy đủ cho các thành phần không có chữ, vùng động và trạng thái game phức tạp.
 - Gemini workflow draft có schema validation và review UI.
 - Floating dashboard toàn hệ thống và notification action.
 - Scheduler/Deep Sleep thực sự, khôi phục lịch sau reboot.
