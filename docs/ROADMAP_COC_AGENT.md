@@ -26,6 +26,15 @@ CoC-AI-Assistant là AI Agent hỗ trợ tự động hóa giao diện Clash of 
 
 ## Trạng thái triển khai
 
+### Đã bổ sung trên nhánh Central Agent Studio
+- Giao diện Trung tâm AI tiếng Việt với hội thoại và nhập mục tiêu.
+- Từ nút Phân tích CoC, ứng dụng mở trò chơi, chụp màn hình qua Accessibility và chạy OCR cục bộ.
+- Ảnh không được gửi lên Gemini mặc định; người dùng phải bật lựa chọn chia sẻ.
+- System Prompt có màn hình xem/sửa và bước xác nhận riêng trước khi lưu.
+- Skill catalog có trạng thái Chưa nghiên cứu/Đang nghiên cứu/Đã nghiên cứu và nút nghiên cứu từng Skill.
+- Nghiên cứu Skill tạo phiên bản mới, yêu cầu manifest và CASL script khớp ID/version; nghiên cứu không đồng nghĩa với kiểm thử hoặc VERIFIED.
+- Tên Skill và nhóm danh mục được Việt hóa trong thư viện.
+
 ### Đã có trong nhánh runtime
 - Accessibility Service được khai báo trong Manifest và cấu hình XML.
 - Thực thi tap/swipe/wait có countdown 5 giây, tối đa 50 bước, 20 lần lặp.
