@@ -56,6 +56,7 @@ private fun CoCAssistantApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { CadssStore(context) }
+    val visionLearning = remember { VisionLearningManager(context) }
     val skillRegistry = remember { AgentSkillRegistry(context).also { BuiltinSkillCatalog.install(it) } }
     val workflowRegistry = remember { CaslWorkflowRegistry(context) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -70,6 +71,7 @@ private fun CoCAssistantApp() {
     var timerSeconds by rememberSaveable { mutableIntStateOf(0) }
     var timerRunning by rememberSaveable { mutableStateOf(false) }
     var showQuickPanel by remember { mutableStateOf(false) }
+    var visionLabel by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(timerRunning, timerSeconds) {
         while (timerRunning && timerSeconds > 0) {
@@ -78,33 +80,42 @@ private fun CoCAssistantApp() {
         }
         if (timerSeconds == 0) timerRunning = false
     }
-    var templateCount by remember { mutableIntStateOf(store.count("template_memory")) }
-    var history by remember { mutableStateOf(store.getRecords("vision_memory")) }
+    var templateCount by remember { mutableIntStateOf(visionLearning.listTemplates().size) }
+    var history by remember { mutableStateOf(visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")) }
+    var pendingCandidates by remember { mutableStateOf(visionLearning.listCandidates()) }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            visionLearning.migrateLegacyTemplates(store.getRecords("template_memory"))
+        }
+        pendingCandidates = visionLearning.listCandidates()
+        history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
+        templateCount = visionLearning.listTemplates().size
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             busy = true
             scope.launch {
                 try {
-                    val bitmap = withContext(Dispatchers.IO) {
-                        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-                    }
+                    val bitmap = withContext(Dispatchers.IO) { decodeImage(context, uri) }
                     if (bitmap != null) {
                         selectedBitmap = bitmap
-                        val hash = withContext(Dispatchers.Default) { VisionProcessor.perceptualHash(bitmap) }
-                        val match = VisionWatchdog.nearest(hash, history)
-                        val novel = VisionWatchdog.learnIfNovel(hash, history)
-                        val record = VisionMemory.save(context, bitmap, hash)
-                        store.addRecord("vision_memory", record)
-                        if (novel) store.addRecord("template_memory", JSONObject(record.toString()).put("learnedAt", System.currentTimeMillis()))
-                        history = store.getRecords("vision_memory")
-                        templateCount = store.count("template_memory")
-                        visionResult = if (match.record == null) {
-                            "Đã xử lý hình ảnh bằng OpenCV và ghi nhận mẫu mới.\npHash: $hash"
-                        } else {
-                            "Đã xử lý hình ảnh bằng OpenCV.\nĐộ khác biệt với mẫu gần nhất: ${match.distance}/64\n" +
-                                if (novel) "Đã ghi nhận mẫu mới." else "Đã nhận ra mẫu tương tự."
+                        val outcome = withContext(Dispatchers.Default) {
+                            visionLearning.observe(bitmap, suggestedLabel = visionLabel)
                         }
-                        status = "Bộ xử lý ảnh đang hoạt động"
+                        history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
+                        pendingCandidates = visionLearning.listCandidates()
+                        templateCount = visionLearning.listTemplates().size
+                        visionResult = when (outcome) {
+                            is VisionObservationResult.Known ->
+                                "Đã nhận diện template VERIFIED: ${outcome.template.optString("label")}\nKhoảng cách pHash: ${outcome.distance}/64"
+                            is VisionObservationResult.NeedsReview ->
+                                if (outcome.distance == Int.MAX_VALUE) {
+                                    "Đã tạo candidate mới. Candidate phải được duyệt trước khi trở thành template hoạt động.\npHash: ${outcome.candidate.optString("hash")}"
+                                } else {
+                                    "Ảnh gần với candidate đang chờ duyệt (${outcome.distance}/64). Đã tăng số lần quan sát."
+                                }
+                        }
+                        status = "Vision Memory cục bộ đang hoạt động"
                     } else visionResult = "Không thể đọc hình ảnh đã chọn."
                 } catch (e: Exception) {
                     visionResult = "Lỗi xử lý hình ảnh: ${e.message ?: "không xác định"}"
@@ -122,8 +133,9 @@ private fun CoCAssistantApp() {
         if (uri != null) runCatching { BackupManager.restore(context, uri, store) }
             .onSuccess {
                 note = store.getText("note", "")
-                history = store.getRecords("vision_memory")
-                templateCount = history.size
+                history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
+                pendingCandidates = visionLearning.listCandidates()
+                templateCount = visionLearning.listTemplates().size
                 status = "Đã khôi phục dữ liệu CADSS"
             }
             .onFailure { status = "Khôi phục thất bại: ${it.message}" }
@@ -253,7 +265,15 @@ private fun CoCAssistantApp() {
                             PanelCard {
                                 Icon(Icons.Default.AutoAwesome, null, tint = Cyan, modifier = Modifier.size(30.dp))
                                 Text("Bộ máy xử lý ảnh OpenCV", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                                Text("Chọn hình ảnh từ thiết bị. Ứng dụng tạo mã băm cảm nhận (pHash) và lưu thông tin vào bộ nhớ hình ảnh.", color = Muted, fontSize = 13.sp)
+                                Text("Chọn hình ảnh từ thiết bị. Ứng dụng tạo pHash cục bộ; mẫu mới sẽ ở trạng thái chờ duyệt, không tự động trở thành template hoạt động.", color = Muted, fontSize = 13.sp)
+                                OutlinedTextField(
+                                    value = visionLabel,
+                                    onValueChange = { visionLabel = it.take(120) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Nhãn mẫu (tùy chọn)") },
+                                    singleLine = true,
+                                    colors = darkFieldColors()
+                                )
                                 Button(onClick = { picker.launch("image/*") }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
                                     Icon(Icons.Default.AddPhotoAlternate, null); Spacer(Modifier.width(8.dp)); Text(if (busy) "Đang xử lý..." else "Chọn hình ảnh để phân tích")
                                 }
@@ -261,8 +281,46 @@ private fun CoCAssistantApp() {
                                 if (visionResult.isNotBlank()) Text(visionResult, color = Cyan, fontSize = 12.sp)
                             }
                         }
-                        item { SectionHeading("BỘ NHỚ HÌNH ẢNH", "Lịch sử hình ảnh đã phân tích") }
-                        if (history.isEmpty()) item { EmptyState("Chưa có dữ liệu", "Hình ảnh bạn chọn sẽ xuất hiện tại đây.") }
+                        item { SectionHeading("AUTO-LEARNING", "Candidate chờ xác nhận") }
+                        if (pendingCandidates.isEmpty()) item { EmptyState("Không có candidate", "Ảnh mới lạ sẽ được lưu ở trạng thái chờ duyệt.") }
+                        items(pendingCandidates.take(20)) { candidate ->
+                            val candidateId = candidate.optString("id")
+                            val suggested = candidate.optString("suggestedLabel")
+                            PanelCard {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(suggested.ifBlank { "Candidate ${candidateId.take(8)}" }, color = White, fontWeight = FontWeight.SemiBold)
+                                    Text("pHash: ${candidate.optString("hash")} · Số lần quan sát: ${candidate.optInt("sightings", 1)}", color = Muted, fontSize = 11.sp)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = {
+                                                val label = suggested.ifBlank { "Mẫu ${candidateId.take(8)}" }
+                                                runCatching { visionLearning.approve(candidateId, label) }
+                                                    .onSuccess {
+                                                        pendingCandidates = visionLearning.listCandidates()
+                                                        history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
+                                                        templateCount = visionLearning.listTemplates().size
+                                                        status = "Đã duyệt template: $label"
+                                                    }
+                                                    .onFailure { status = "Không thể duyệt template: ${it.message}" }
+                                            },
+                                            enabled = !busy,
+                                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                                        ) { Text("Duyệt template") }
+                                        TextButton(
+                                            onClick = {
+                                                if (visionLearning.reject(candidateId, "Người dùng từ chối")) {
+                                                    pendingCandidates = visionLearning.listCandidates()
+                                                    status = "Đã từ chối candidate"
+                                                }
+                                            },
+                                            enabled = !busy
+                                        ) { Text("Từ chối", color = Muted) }
+                                    }
+                                }
+                            }
+                        }
+                        item { SectionHeading("BỘ NHỚ HÌNH ẢNH", "Template đã xác minh và lịch sử") }
+                        if (history.isEmpty()) item { EmptyState("Chưa có dữ liệu", "Template được duyệt và ảnh đã phân tích sẽ xuất hiện tại đây.") }
                         items(history.take(30)) { obj ->
                             PanelCard {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -272,7 +330,23 @@ private fun CoCAssistantApp() {
                                         Text(obj.optString("label", "Vision record"), fontWeight = FontWeight.SemiBold)
                                         Text(obj.optString("hash", ""), color = Muted, fontSize = 11.sp)
                                     }
-                                    Text("CỤC BỘ", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text(obj.optString("status", "CỤC BỘ"), color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                }
+                                if (obj.optString("status") == "REVIEW_REQUIRED") {
+                                    TextButton(
+                                        onClick = {
+                                            runCatching {
+                                                visionLearning.reverifyTemplate(obj.optString("id"), obj.optString("label"))
+                                            }.onSuccess {
+                                                history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
+                                                templateCount = visionLearning.listTemplates().size
+                                                status = "Đã xác minh lại Vision template"
+                                            }.onFailure {
+                                                status = "Không thể xác minh template: ${it.message}"
+                                            }
+                                        },
+                                        enabled = !busy
+                                    ) { Text("Xác minh lại template", color = Cyan) }
                                 }
                             }
                         }
@@ -406,6 +480,26 @@ private fun CoCAssistantApp() {
                 confirmButton = { TextButton(onClick = { showQuickPanel = false }) { Text("Đóng", color = Cyan) } }
             )
         }
+    }
+}
+
+private fun decodeImage(context: android.content.Context, uri: Uri): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, bounds)
+    }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sampleSize = 1
+    while (
+        bounds.outWidth / sampleSize > 8_192 ||
+        bounds.outHeight / sampleSize > 8_192 ||
+        (bounds.outWidth / sampleSize).toLong() * (bounds.outHeight / sampleSize).toLong() > 32_000_000L
+    ) {
+        sampleSize *= 2
+    }
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+    return context.contentResolver.openInputStream(uri)?.use {
+        BitmapFactory.decodeStream(it, null, options)
     }
 }
 
