@@ -217,7 +217,7 @@ fun CentralAgentStudio(
                     Text(if (busy) "Đang xử lý…" else "Phân tích CoC")
                 }
                 Text(
-                    "Chạy Agent là xác nhận cho phép thực hiện tối đa 5 vòng. Agent chỉ gọi Skill VERIFIED, chụp lại màn hình sau mỗi Skill và tự dừng khi không xác minh được.",
+                    "Chạy Agent là xác nhận cho phép thực hiện tối đa 5 lần chạy Skill và một vòng xác minh cuối. Agent chỉ gọi Skill VERIFIED, chụp lại màn hình sau mỗi Skill và tự dừng khi không xác minh được.",
                     color = AgentMuted, fontSize = 10.sp
                 )
                 Button(
@@ -270,7 +270,7 @@ fun CentralAgentStudio(
                 ) {
                     androidx.compose.material3.Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     Spacer(Modifier.padding(horizontal = 3.dp))
-                    Text(if (busy) "Agent đang chạy…" else "Chạy Agent tự động · tối đa 5 vòng")
+                    Text(if (busy) "Agent đang chạy…" else "Chạy Agent tự động · tối đa 5 Skill")
                 }
                 OutlinedButton(
                     onClick = {
