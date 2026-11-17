@@ -237,6 +237,11 @@ object AutonomousSkillResearchLoop {
                 val actionType = action.optString("type", "stop")
                 val executedAction = JSONObject(action.toString())
                 val executedResult = JSONObject()
+                db.recordObservation(
+                    observationId, sessionId, cycle, screenKey,
+                    screenAsset.optString("original"), cropAssets,
+                    phash, ocr, lastAnalysis, executedAction, JSONObject().put("status", "planned")
+                )
                 when (actionType) {
                     "tap" -> {
                         require(CoCAccessibilityService.isGameForeground(GAME_PACKAGE)) {
@@ -283,7 +288,7 @@ object AutonomousSkillResearchLoop {
                             action.optLong("durationMs", 350L).coerceIn(100L, 2_000L)
                         )
                         val ok = CoCAccessibilityService.performSingleStep(step)
-                        previousActionResult = JSONObject().put("status", if (ok) "dispatched" else "rejected")
+                        executedResult.put("status", if (ok) "dispatched" else "rejected")
                         require(ok) { "Android từ chối thao tác swipe." }
                         delay(1_200L)
                     }
@@ -302,11 +307,10 @@ object AutonomousSkillResearchLoop {
                     else -> error("AI trả về loại hành động không hợp lệ: $actionType")
                 }
 
-                db.recordObservation(
-                    observationId, sessionId, cycle, screenKey,
-                    screenAsset.optString("original"), cropAssets,
-                    phash, ocr, lastAnalysis, action, previousActionResult
-                )
+                db.updateObservationActionResult(observationId, executedResult)
+                previousAction = executedAction
+                previousActionResult = executedResult
+                previousObservationId = observationId
                 db.updateSession(sessionId, target?.id ?: latestManifest?.optString("id"), "RUNNING", cycle, lastAnalysis)
                 onStatus("Vòng $cycle · ${actionType.uppercase()} · đã lưu ảnh, layout, procedure và dữ liệu")
                 if (actionType == "stop" || actionType == "ask_user") {
