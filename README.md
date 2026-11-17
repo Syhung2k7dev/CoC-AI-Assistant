@@ -46,6 +46,7 @@ Bản triển khai trên nhánh này bổ sung giao diện Trung tâm AI, tự m
 - [Đặc tả CASL và Workflow Engine](docs/CASL_WORKFLOW_ENGINE.md)
 - [AELM – vòng đời tạo và xác minh Skill](docs/AELM_LIFECYCLE.md)
 - [Vision Memory](docs/VISION_MEMORY.md)
+- [AII & SNM – Agent Interaction Intelligence và bản đồ điều hướng](docs/AII_SNM_ARCHITECTURE.md)
 - [Kiến trúc AI Core Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md)
 - [Kiến trúc CADSS/CASL](docs/KIEN_TRUC_CADSS_CASL.md)
 
