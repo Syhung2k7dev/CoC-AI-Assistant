@@ -6,7 +6,7 @@ AELM is the lifecycle coordinator for AI-authored CASL Workflow and Skill artifa
 
 1. **Create** – Gemini proposes a new Workflow or Skill as untrusted JSON. The authoring layer validates the CASL schema and stores it as Draft.
 2. **Revise** – a revision creates a new immutable version; the previous version is not overwritten. A revised Skill preserves its ID and increments the version by one.
-3. **Test** – AELM executes Draft scripts against a restricted in-process sandbox. The sandbox provides in-memory `memory.read`, `memory.write`, `memory.append`, deterministic `system.time`, and mock `action.tap`, `action.swipe`, and `action.wait` APIs. These mocks do not invoke Accessibility, WorkManager, or real device actions.
+3. **Test** – AELM executes Draft scripts against a restricted in-process sandbox. The sandbox provides in-memory `memory.read`, `memory.write`, `memory.append`, deterministic `system.time`, mock `vision.match` and Skill-scoped `vision.feedback`, and mock `action.tap`, `action.swipe`, and `action.wait` APIs. Vision mocks return a fixed sandbox template and never update real Vision Memory. These mocks do not invoke Accessibility, WorkManager, or real device actions.
 4. **Release** – release is rejected unless every test case passes and a receipt matches the exact artifact type, ID, version, and SHA-256 digest of the tested program. The registry then performs the TESTING → VERIFIED transition.
 
 ## Test contract
