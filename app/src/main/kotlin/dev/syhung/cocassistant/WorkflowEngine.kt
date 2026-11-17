@@ -34,20 +34,42 @@ class WorkflowRunStore(context: Context) {
     }
 
     @Synchronized
-    fun update(runId: String, state: WorkflowRunState, details: JSONObject = JSONObject()) {
-        val items = JSONArray(prefs.getString(KEY_RUNS, "[]"))
+    fun update(runId: String, state: WorkflowRunState, details: JSONObject = JSONObject()): Boolean {
+        val items = JSONArray(prefs.getString(KEY_RUNS, "[]") ?: "[]")
         for (i in items.length() - 1 downTo 0) {
             val old = items.optJSONObject(i) ?: continue
-            if (old.optString("runId") == runId) {
-                val updated = JSONObject(old.toString())
-                    .put("state", state.name)
-                    .put("updatedAt", System.currentTimeMillis())
-                details.keys().forEach { key -> updated.put(key, details.opt(key)) }
-                items.put(i, updated)
-                prefs.edit().putString(KEY_RUNS, items.toString()).apply()
-                return
+            if (old.optString("runId") != runId) continue
+            val current = runCatching {
+                WorkflowRunState.valueOf(old.optString("state"))
+            }.getOrDefault(WorkflowRunState.FAILED)
+            val allowed = when (current) {
+                WorkflowRunState.QUEUED -> state in setOf(
+                    WorkflowRunState.RUNNING,
+                    WorkflowRunState.FAILED,
+                    WorkflowRunState.CANCELLED
+                )
+                WorkflowRunState.RUNNING -> state in setOf(
+                    WorkflowRunState.SUCCEEDED,
+                    WorkflowRunState.FAILED,
+                    WorkflowRunState.CANCELLED
+                )
+                WorkflowRunState.SUCCEEDED,
+                WorkflowRunState.FAILED,
+                WorkflowRunState.CANCELLED -> false
             }
+            if (!allowed) return false
+            val updated = JSONObject(old.toString())
+                .put("state", state.name)
+                .put("updatedAt", System.currentTimeMillis())
+            val reserved = setOf("runId", "workflowId", "workflowVersion", "state", "createdAt", "updatedAt")
+            details.keys().forEach { key ->
+                if (key !in reserved) updated.put(key, details.opt(key))
+            }
+            items.put(i, updated)
+            prefs.edit().putString(KEY_RUNS, items.toString()).apply()
+            return true
         }
+        return false
     }
 
     @Synchronized
