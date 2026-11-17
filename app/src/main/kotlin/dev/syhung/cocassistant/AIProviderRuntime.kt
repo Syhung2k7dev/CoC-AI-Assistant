@@ -275,10 +275,28 @@ internal class GeminiProviderAdapter(
     private fun createPayload(request: AIProviderRequest): String {
         val parts = JSONArray().put(JSONObject().put("text", request.prompt))
         request.image?.let { bitmap ->
-            val bytes = ByteArrayOutputStream().use { output ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 86, output)
-                output.toByteArray()
+            // Keep the original full-resolution frame in Vision Memory, but send a
+            // bounded image to Gemini to reduce upload time and request size.
+            val longestEdge = maxOf(bitmap.width, bitmap.height)
+            val scale = minOf(1f, 1_536f / longestEdge.toFloat())
+            val uploadBitmap = if (scale < 1f) {
+                Bitmap.createScaledBitmap(
+                    bitmap,
+                    (bitmap.width * scale).toInt().coerceAtLeast(1),
+                    (bitmap.height * scale).toInt().coerceAtLeast(1),
+                    true
+                )
+            } else bitmap
+            val bytes = try {
+                ByteArrayOutputStream().use { output ->
+                    uploadBitmap.compress(Bitmap.CompressFormat.JPEG, 80, output)
+                    output.toByteArray()
+                }
+            } finally {
+                if (uploadBitmap !== bitmap && !uploadBitmap.isRecycled) uploadBitmap.recycle()
             }
+            ResearchDebugLog.record("IMAGE_ENCODING", "Đã mã hóa ảnh gửi Gemini",
+                "source=${bitmap.width}x${bitmap.height}\nupload=${uploadBitmap.width}x${uploadBitmap.height}\nquality=80\nimageBytes=${bytes.size}\nbase64Bytes~=${bytes.size * 4L / 3L}")
             parts.put(
                 JSONObject().put(
                     "inlineData",
