@@ -35,7 +35,7 @@ class AelmLifecycleManager(context: Context) {
     private val appContext = context.applicationContext
     private val skills = AgentSkillRegistry(appContext)
     private val workflows = CaslWorkflowRegistry(appContext)
-    private val receipts = appContext.getSharedPreferences("aelm_test_receipts_v1", Context.MODE_PRIVATE)
+    private val cadss = CadssStore(appContext)
 
     suspend fun createSkillDraft(
         apiKey: String,
@@ -145,7 +145,7 @@ class AelmLifecycleManager(context: Context) {
             "CASL script không khớp Skill manifest ID/version."
         }
         CaslScriptRuntime(CaslApiRegistry(), { _, _ -> null }).validateProgramDocument(program)
-        receipts.edit().remove(receiptKey("skill", skillId, version)).apply()
+        cadss.removeRecord("aelm_test_receipts", "receiptKey", receiptKey("skill", skillId, version))
         val failures = mutableListOf<String>()
         var passed = 0
         cases.forEach { test ->
@@ -185,7 +185,7 @@ class AelmLifecycleManager(context: Context) {
             "CASL program không khớp Workflow ID/version."
         }
         CaslScriptRuntime(CaslApiRegistry(), { _, _ -> null }).validateProgramDocument(program)
-        receipts.edit().remove(receiptKey("workflow", workflowId, version)).apply()
+        cadss.removeRecord("aelm_test_receipts", "receiptKey", receiptKey("workflow", workflowId, version))
         val failures = mutableListOf<String>()
         var passed = 0
         cases.forEach { test ->
@@ -338,6 +338,7 @@ class AelmLifecycleManager(context: Context) {
     }
 
     private fun saveReceipt(report: AelmTestReport, program: JSONObject) {
+        val key = receiptKey(report.artifactType, report.artifactId, report.version)
         val value = JSONObject()
             .put("artifactType", report.artifactType)
             .put("artifactId", report.artifactId)
@@ -346,13 +347,12 @@ class AelmLifecycleManager(context: Context) {
             .put("total", report.total)
             .put("programHash", sha256(program.toString()))
             .put("testedAt", System.currentTimeMillis())
-        receipts.edit().putString(receiptKey(report.artifactType, report.artifactId, report.version), value.toString()).apply()
+        cadss.putRecord("aelm_test_receipts", "receiptKey", key, value)
     }
 
     private fun hasValidReceipt(type: String, id: String, version: Int, program: JSONObject): Boolean {
-        val receipt = runCatching {
-            JSONObject(receipts.getString(receiptKey(type, id, version), "{}") ?: "{}")
-        }.getOrNull() ?: return false
+        val receipt = cadss.findRecord("aelm_test_receipts", "receiptKey", receiptKey(type, id, version))
+            ?: return false
         return receipt.optString("artifactType") == type &&
             receipt.optString("artifactId") == id &&
             receipt.optInt("version") == version &&
@@ -362,9 +362,8 @@ class AelmLifecycleManager(context: Context) {
     }
 
     private fun receiptTotal(type: String, id: String, version: Int): Int =
-        runCatching {
-            JSONObject(receipts.getString(receiptKey(type, id, version), "{}") ?: "{}").optInt("total", 0)
-        }.getOrDefault(0)
+        cadss.findRecord("aelm_test_receipts", "receiptKey", receiptKey(type, id, version))
+            ?.optInt("total", 0) ?: 0
 
     private fun receiptKey(type: String, id: String, version: Int) = "receipt:$type:$id:$version"
 
