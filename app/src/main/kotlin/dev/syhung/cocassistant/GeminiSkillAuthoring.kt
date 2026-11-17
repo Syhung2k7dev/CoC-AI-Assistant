@@ -97,7 +97,7 @@ object GeminiSkillAuthoring {
         if (current.status == SkillLifecycle.RESEARCHING) {
             return SkillDraftOutcome.Failed("Skill này đang được nghiên cứu.")
         }
-        val inventory = registry.all().joinToString("\\n") {
+        val inventory = registry.all().joinToString("\n") {
             "${it.id} | ${it.name} | ${it.status.name} | ${it.description}"
         }
         val allowList = availableApiNames.distinct().sorted().joinToString(", ")
@@ -127,7 +127,9 @@ object GeminiSkillAuthoring {
             Chỉ dùng operation CASL đã hỗ trợ và API nằm trong allow-list; không tạo API mới.
             Không tự đánh dấu VERIFIED. Không tạo Kotlin, Java, JavaScript, shell hay mã tùy ý.
         """.trimIndent()
-        registry.setLifecycle(current.id, SkillLifecycle.RESEARCHING, current.version)
+        require(registry.setLifecycle(current.id, SkillLifecycle.RESEARCHING, current.version)) {
+            "Không thể chuyển Skill sang trạng thái đang nghiên cứu."
+        }
         return runCatching {
             val raw = GeminiClient.generate(apiKey, prompt)
             val start = raw.indexOf('{')
