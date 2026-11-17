@@ -11,7 +11,7 @@
             android:name=".CoCAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true"
-            android:label="CoC Agent Accessibility">
+            android:label="@string/accessibility_service_name">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
