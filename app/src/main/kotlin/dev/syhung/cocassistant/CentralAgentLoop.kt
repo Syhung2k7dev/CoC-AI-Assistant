@@ -101,7 +101,8 @@ object CentralAgentLoop {
 
                 QUY TẮC BẮT BUỘC:
                 - Chỉ chọn chính xác id và version có trong danh sách trên.
-                - Chỉ chọn Skill nếu điều kiện trước của nó phù hợp với bằng chứng màn hình; khi execute_skill, đặt preconditionsSatisfied=true và ghi preconditionEvidence cụ thể từ OCR/ảnh.
+                - Chỉ chọn Skill nếu điều kiện trước phù hợp với OCR. preconditionEvidence phải là trích dẫn liên tục, nguyên văn từ OCR hiện tại; không diễn giải lại.
+                - Khi xác minh hành động trước, verificationEvidence cũng phải là trích dẫn liên tục, nguyên văn từ OCR mới; không có trích dẫn khớp thì chọn uncertain/stop.
                 - Không tạo tọa độ, tap, swipe, mã, API hoặc lệnh; không được tự mô tả thao tác ngoài Skill.
                 - Sau hành động trước, phải xác minh bằng màn hình mới. Nếu không có bằng chứng rõ ràng,
                   đặt verification=uncertain và decision=stop. Nếu thất bại, đặt verification=failed và stop.
@@ -121,20 +122,24 @@ object CentralAgentLoop {
             val decision = plan.optString("decision")
             val reason = plan.optString("reason").take(600)
             if (previousAction != "Chưa có hành động nào.") {
-                if (plan.optString("verification") != "success" || plan.optString("verificationEvidence").isBlank()) {
-                    return "Đã dừng sau hành động trước vì chưa xác minh được kết quả. $reason"
+                val verificationQuote = plan.optString("verificationEvidence").trim()
+                if (plan.optString("verification") != "success" ||
+                    !containsOcrQuote(recognizedText, verificationQuote)
+                ) {
+                    return "Đã dừng sau hành động trước vì không có bằng chứng OCR khớp để xác minh. $reason"
                 }
                 previousVerification = "success"
-                previousEvidence = plan.optString("verificationEvidence").take(800)
+                previousEvidence = verificationQuote.take(800)
             }
             when (decision) {
                 "done" -> return "Agent kết thúc: $reason\n\nNhật ký: ${executionNotes.joinToString(" → ").ifBlank { "Không có thao tác." }}"
                 "ask_user" -> return "Agent cần bạn xác nhận thêm: ${plan.optString("userQuestion").ifBlank { reason }}"
                 "stop" -> return "Agent chủ động dừng: $reason"
                 "execute_skill" -> {
+                    val preconditionQuote = plan.optString("preconditionEvidence").trim()
                     check(plan.optBoolean("preconditionsSatisfied", false) &&
-                        plan.optString("preconditionEvidence").isNotBlank()
-                    ) { "Agent không cung cấp bằng chứng điều kiện trước; từ chối chạy Skill." }
+                        containsOcrQuote(recognizedText, preconditionQuote)
+                    ) { "Điều kiện trước không có trích dẫn OCR khớp; từ chối chạy Skill." }
                     val skillId = plan.optString("skillId")
                     val version = plan.optInt("version", 0)
                     val skill = registry.find(skillId, version)
@@ -175,6 +180,12 @@ object CentralAgentLoop {
             }
         }
         return "Agent đã chạm giới hạn $MAX_CYCLES vòng và tự dừng. Nhật ký: ${executionNotes.joinToString(" → ")}"
+    }
+
+    private fun containsOcrQuote(ocr: String, quote: String): Boolean {
+        if (quote.length < 3) return false
+        fun normalize(value: String) = value.replace(Regex("\\s+"), " ").trim()
+        return normalize(ocr).contains(normalize(quote), ignoreCase = true)
     }
 
     private fun parsePlan(raw: String): JSONObject {
