@@ -192,6 +192,9 @@ internal class GeminiProviderAdapter(
         require(apiKey.isNotBlank()) { "Khóa API chưa được nhập" }
         require(connectTimeoutMillis in 1_000..120_000) { "Connect timeout không hợp lệ." }
         require(readTimeoutMillis in 1_000..180_000) { "Read timeout không hợp lệ." }
+        val requestStartedAt = android.os.SystemClock.elapsedRealtime()
+        ResearchDebugLog.record("HTTP", "Chuẩn bị Gemini HTTP request",
+            "model=$model\npromptCharacters=${request.prompt.length}\nimage=${request.image?.let { "${it.width}x${it.height} px" } ?: "none"}\nconnectTimeoutMs=$connectTimeoutMillis\nreadTimeoutMs=$readTimeoutMillis")
         return suspendCancellableCoroutine { continuation ->
             val activeConnection = AtomicReference<HttpURLConnection?>(null)
 
@@ -219,11 +222,17 @@ internal class GeminiProviderAdapter(
                     }
 
                     val payload = createPayload(request)
-                    connection.outputStream.use {
-                        it.write(payload.toByteArray(Charsets.UTF_8))
-                    }
+                    val payloadBytes = payload.toByteArray(Charsets.UTF_8)
+                    ResearchDebugLog.record("HTTP_UPLOAD", "Đang tải request lên Gemini",
+                        "model=$model\npayloadBytes=${payloadBytes.size}\nimageIncluded=${request.image != null}")
+                    val uploadStartedAt = android.os.SystemClock.elapsedRealtime()
+                    connection.outputStream.use { it.write(payloadBytes) }
+                    ResearchDebugLog.record("HTTP_UPLOAD", "Đã gửi payload request",
+                        "model=$model\nuploadWriteMs=${android.os.SystemClock.elapsedRealtime() - uploadStartedAt}\npayloadBytes=${payloadBytes.size}")
 
                     val status = connection.responseCode
+                    ResearchDebugLog.record("HTTP_RESPONSE", "Gemini trả HTTP $status",
+                        "model=$model\nstatus=$status\nrequestElapsedMs=${android.os.SystemClock.elapsedRealtime() - requestStartedAt}")
                     val responseBody = if (status in 200..299) {
                         connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                     } else {
@@ -231,7 +240,10 @@ internal class GeminiProviderAdapter(
                     }
 
                     if (status !in 200..299) {
-                        throw httpFailure(status, connection.getHeaderField("Retry-After"))
+                        val failure = httpFailure(status, connection.getHeaderField("Retry-After"))
+                        ResearchDebugLog.record("HTTP_ERROR", "Gemini HTTP error $status",
+                            "model=$model\nfailure=${failure.failure}\nretryable=${failure.retryable}\nmessage=${failure.message}")
+                        throw failure
                     }
 
                     val result = try {
@@ -243,10 +255,14 @@ internal class GeminiProviderAdapter(
                             cause = error
                         )
                     }
+                    ResearchDebugLog.record("HTTP_SUCCESS", "Gemini response body đã được phân tích",
+                        "model=$model\nrequestElapsedMs=${android.os.SystemClock.elapsedRealtime() - requestStartedAt}\nresponseCharacters=${result.length}")
                     if (continuation.isActive) {
                         continuation.resumeWith(Result.success(result))
                     }
                 } catch (error: Exception) {
+                    ResearchDebugLog.record("HTTP_EXCEPTION", "Lỗi trong Gemini HTTP adapter",
+                        "model=$model\nelapsedMs=${android.os.SystemClock.elapsedRealtime() - requestStartedAt}\n${error.javaClass.simpleName}: ${error.message}")
                     if (continuation.isActive) continuation.resumeWith(Result.failure(error))
                 } finally {
                     activeConnection.set(null)
