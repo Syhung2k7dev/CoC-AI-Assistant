@@ -82,6 +82,8 @@ object CentralAgentLoop {
                   "reason":"",
                   "verification":"not_applicable|success|failed|uncertain",
                   "verificationEvidence":"",
+                  "preconditionsSatisfied":false,
+                  "preconditionEvidence":"",
                   "userQuestion":""
                 }
 
@@ -99,7 +101,7 @@ object CentralAgentLoop {
 
                 QUY TẮC BẮT BUỘC:
                 - Chỉ chọn chính xác id và version có trong danh sách trên.
-                - Chỉ chọn Skill nếu điều kiện trước của nó phù hợp với bằng chứng màn hình.
+                - Chỉ chọn Skill nếu điều kiện trước của nó phù hợp với bằng chứng màn hình; khi execute_skill, đặt preconditionsSatisfied=true và ghi preconditionEvidence cụ thể từ OCR/ảnh.
                 - Không tạo tọa độ, tap, swipe, mã, API hoặc lệnh; không được tự mô tả thao tác ngoài Skill.
                 - Sau hành động trước, phải xác minh bằng màn hình mới. Nếu không có bằng chứng rõ ràng,
                   đặt verification=uncertain và decision=stop. Nếu thất bại, đặt verification=failed và stop.
@@ -118,16 +120,21 @@ object CentralAgentLoop {
             val plan = parsePlan(raw)
             val decision = plan.optString("decision")
             val reason = plan.optString("reason").take(600)
-            if (previousAction != "Chưa có hành động nào." &&
-                (plan.optString("verification") != "success" || plan.optString("verificationEvidence").isBlank())
-            ) {
-                return "Đã dừng sau hành động trước vì chưa xác minh được kết quả. $reason"
+            if (previousAction != "Chưa có hành động nào.") {
+                if (plan.optString("verification") != "success" || plan.optString("verificationEvidence").isBlank()) {
+                    return "Đã dừng sau hành động trước vì chưa xác minh được kết quả. $reason"
+                }
+                previousVerification = "success"
+                previousEvidence = plan.optString("verificationEvidence").take(800)
             }
             when (decision) {
                 "done" -> return "Agent kết thúc: $reason\n\nNhật ký: ${executionNotes.joinToString(" → ").ifBlank { "Không có thao tác." }}"
                 "ask_user" -> return "Agent cần bạn xác nhận thêm: ${plan.optString("userQuestion").ifBlank { reason }}"
                 "stop" -> return "Agent chủ động dừng: $reason"
                 "execute_skill" -> {
+                    check(plan.optBoolean("preconditionsSatisfied", false) &&
+                        plan.optString("preconditionEvidence").isNotBlank()
+                    ) { "Agent không cung cấp bằng chứng điều kiện trước; từ chối chạy Skill." }
                     val skillId = plan.optString("skillId")
                     val version = plan.optInt("version", 0)
                     val skill = registry.find(skillId, version)
