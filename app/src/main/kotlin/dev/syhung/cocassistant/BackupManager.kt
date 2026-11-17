@@ -126,9 +126,11 @@ object BackupManager {
             for (index in 0 until records.length()) {
                 val record = records.optJSONObject(index) ?: continue
                 listOf("original", "crop").forEach { field ->
-                    val name = record.optString(field).takeIf { it.isNotBlank() } ?: return@forEach
-                    require(isSafeAssetName(name)) { "Tên Vision asset không hợp lệ." }
-                    names.add(name)
+                    val name = record.optString(field)
+                    if (name.isNotBlank()) {
+                        require(isSafeAssetName(name)) { "Tên Vision asset không hợp lệ." }
+                        names.add(name)
+                    }
                 }
             }
         }
@@ -157,7 +159,7 @@ object BackupManager {
         return copied
     }
 
-    private const val MAX_ENTRIES = 5_100
+    private const val MAX_ENTRIES = 20_100
     private const val MAX_DOCUMENT_BYTES = 2_000_000L
     private const val MAX_ASSET_BYTES = 20L * 1024L * 1024L
     private const val MAX_TOTAL_ASSET_BYTES = 100L * 1024L * 1024L
