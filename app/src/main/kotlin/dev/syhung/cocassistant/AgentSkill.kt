@@ -290,6 +290,8 @@ class SkillLoader(
         val script = registry.findVerifiedScript(id, version) ?: return null
         return LoadedSkill(manifest, script)
     }
+
+    fun loadScript(id: String, version: Int? = null): JSONObject? = load(id, version)?.script
 }
 
 /** Typed action request; arbitrary shell commands and generated source are not accepted. */
