@@ -1,5 +1,7 @@
 package dev.syhung.cocassistant
 
+import kotlinx.coroutines.CancellationException
+
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -64,6 +66,7 @@ object GeminiWorkflowAuthoring {
             }
             WorkflowDraftOutcome.Created(program, missing)
         }.getOrElse { error ->
+            if (error is CancellationException) throw error
             WorkflowDraftOutcome.Failed(error.message ?: "Không thể tạo Workflow Draft.")
         }
     }
@@ -135,6 +138,7 @@ object GeminiWorkflowAuthoring {
             }
             WorkflowDraftOutcome.Created(program, missing)
         }.getOrElse { error ->
+            if (error is CancellationException) throw error
             WorkflowDraftOutcome.Failed(error.message ?: "Không thể sửa Workflow.")
         }
     }
