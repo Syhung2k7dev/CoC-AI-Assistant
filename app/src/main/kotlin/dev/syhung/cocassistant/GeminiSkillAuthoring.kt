@@ -2,7 +2,6 @@ package dev.syhung.cocassistant
 
 import kotlinx.coroutines.CancellationException
 
-import android.graphics.Bitmap
 import org.json.JSONObject
 
 sealed class SkillDraftOutcome {
@@ -16,7 +15,6 @@ object GeminiSkillAuthoring {
         apiKey: String,
         goal: String,
         registry: AgentSkillRegistry,
-        referenceImage: Bitmap? = null,
         availableApiNames: List<String> = emptyList()
     ): SkillDraftOutcome {
         if (goal.isBlank()) return SkillDraftOutcome.Failed("Mục tiêu nghiên cứu không được để trống.")
@@ -52,7 +50,7 @@ object GeminiSkillAuthoring {
             Điều kiện hỗ trợ all / any / not và exists, not_exists, equals, not_equals, contains, starts_with, ends_with, greater_than, less_than, greater_or_equal, less_or_equal, in, not_in. Không tạo mã Kotlin, Java, JavaScript, shell, reflection hoặc nội dung thực thi tùy ý.
         """.trimIndent()
         return runCatching {
-            val raw = GeminiClient.generate(apiKey, prompt, referenceImage)
+            val raw = GeminiClient.generate(apiKey, prompt)
             val start = raw.indexOf('{')
             val end = raw.lastIndexOf('}')
             require(start >= 0 && end > start) { "Gemini không trả về JSON Skill hợp lệ." }
