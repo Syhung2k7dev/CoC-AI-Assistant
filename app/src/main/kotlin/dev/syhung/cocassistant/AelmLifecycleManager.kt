@@ -136,7 +136,7 @@ class AelmLifecycleManager(context: Context) {
         validateCases(cases)
         val skill = skills.find(skillId, version)
             ?: throw CaslRuntimeException("Không tìm thấy Skill $skillId@$version.")
-        require(skill.status == SkillLifecycle.DRAFT) { "Chỉ Skill Draft mới được kiểm thử phát hành." }
+        require(skill.status == SkillLifecycle.DRAFT || skill.status == SkillLifecycle.RESEARCHED) { "Chỉ Skill đã nghiên cứu hoặc bản nháp mới được kiểm thử phát hành." }
         require(skills.all().none { it.id == skillId && it.status == SkillLifecycle.TESTING }) {
             "Đã có một phiên bản Skill khác đang ở trạng thái TESTING."
         }
@@ -213,7 +213,8 @@ class AelmLifecycleManager(context: Context) {
 
     fun releaseSkill(skillId: String, version: Int): Boolean {
         val skill = skills.find(skillId, version) ?: return false
-        if (skill.status != SkillLifecycle.DRAFT || !hasValidReceipt("skill", skillId, version, skill.toJson())) {
+        if ((skill.status != SkillLifecycle.DRAFT && skill.status != SkillLifecycle.RESEARCHED) ||
+            !hasValidReceipt("skill", skillId, version, skill.toJson())) {
             return false
         }
         if (!requireSingleTestingSkill(skillId)) return false
