@@ -113,3 +113,19 @@ Các phần vẫn chưa được triển khai đầy đủ:
 - Backend Express, `server.ts` hoặc SSE endpoint không thuộc ứng dụng Android hiện tại.
 
 Không bật fallback đa Provider khi chưa có Provider dự phòng, credentials và chính sách quyền riêng tư/chi phí được cấu hình rõ ràng. CI và kiểm thử thiết bị phải xác nhận riêng trước khi coi phần triển khai là ổn định.
+
+## Gemini lightweight model selection and fallback
+
+The Gemini adapter defaults to `gemini-3.5-flash-lite` for routine Agent decisions,
+Skill/Workflow authoring and multimodal observation. The ordered fallback catalog is:
+
+1. `gemini-3.5-flash-lite` — primary low-latency model.
+2. `gemini-3.1-flash-lite` — secondary lightweight model.
+3. `gemini-3.8-flash` — final higher-capability fallback.
+
+Each selected model receives the existing bounded retry policy. After retries are
+exhausted, AI Core advances only for transient server errors (HTTP 500, 502, 503,
+504) or an unavailable model (HTTP 404). Authentication/permission errors, invalid
+requests, rate limiting and malformed responses do not trigger model switching.
+The API key remains in-memory and is passed to the adapter only for the active
+request. User cancellation continues to cancel the active network connection.
