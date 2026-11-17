@@ -185,7 +185,9 @@ object CentralAgentLoop {
                     check(script.optString("kind") == "skill" &&
                         script.optString("id") == skillId && script.optInt("version") == version
                     ) { "CASL script không khớp ID/version đã pin." }
-                    if (sessionExpired) {
+                    if (sessionExpired ||
+                        SystemClock.elapsedRealtime() - sessionStartedAt >= MAX_SESSION_RUN_MS
+                    ) {
                         return "Đã hết ngân sách thời gian phiên. Agent đã xác minh hành động trước và không khởi chạy Skill mới. Nhật ký: ${executionNotes.joinToString(" → ")}"
                     }
 
