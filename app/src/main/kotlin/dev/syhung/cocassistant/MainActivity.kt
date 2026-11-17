@@ -178,7 +178,7 @@ private fun CoCAssistantApp() {
             bottomBar = {
                 NavigationBar(containerColor = Panel, contentColor = White) {
                     val items = listOf(
-                        "Tổng quan" to Icons.Default.Dashboard,
+                        "AI" to Icons.Default.Dashboard,
                         "Thị giác" to Icons.Default.Visibility,
                         "Quy trình" to Icons.Default.AccountTree,
                         "Kỹ năng" to Icons.Default.AutoAwesome,
@@ -235,7 +235,7 @@ private fun CoCAssistantApp() {
                         }
                         item { CentralAgentStudio(skillRegistry = skillRegistry, apiKey = apiKey, onStatus = { status = it }) }
                         item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Công cụ và dữ liệu") }
-                        item { PanelCard { AutomationControlPanel(onStatus = { status = it }) } }
+                        
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 QuickCard("Phân tích hình ảnh", "OpenCV cục bộ", Icons.Default.ImageSearch, Modifier.weight(1f)) { selectedTab = 1 }
@@ -414,6 +414,7 @@ private fun CoCAssistantApp() {
                     }
                     else -> {
                         item { PageIntro("Cài đặt", "Quản lý kết nối AI, quyền thiết bị và dữ liệu.") }
+                        item { PanelCard { Text("Kiểm tra quyền Trợ năng", fontWeight = FontWeight.Bold); Text("Bảng điều khiển nâng cao để kiểm tra kết nối và thao tác thử có xác nhận.", color = Muted, fontSize = 12.sp); AutomationControlPanel(onStatus = { status = it }) } }
                         item { PanelCard { Text("Kiểm tra quyền Trợ năng", fontWeight = FontWeight.Bold); Text("Bảng điều khiển nâng cao để kiểm tra kết nối và thao tác thử có xác nhận.", color = Muted, fontSize = 12.sp); AutomationControlPanel(onStatus = { status = it }) } }
                         item {
                             PanelCard {
