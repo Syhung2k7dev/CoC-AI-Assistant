@@ -32,6 +32,7 @@ The local SQLite database `skill_research.db` contains:
 - `observations`: OCR, pHash, screen key, model analysis, screenshot reference, crop references, action and post-action verification.
 - `layouts`: versioned screen layout snapshots.
 - `layout_components`: normalized bounding boxes, labels, component type, anchors and properties.
+- `base_layouts` and `base_layout_items`: separate Clash of Clans village, war and builder-base layouts, building placements, levels, rotations, footprints, constraints and evidence confidence.
 - `procedure_steps`: ordered preconditions, action, postconditions and evidence links.
 - `strategies`: strategy records with kind, structured content, confidence and evidence.
 - `calculations`: descriptive formula, inputs, result and evidence.
