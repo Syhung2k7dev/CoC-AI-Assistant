@@ -175,8 +175,8 @@ object BackupManager {
     }
 
     private const val MAX_ENTRIES = 20_100
-    private const val MAX_DOCUMENT_BYTES = 2_000_000L
+    private const val MAX_DOCUMENT_BYTES = 20L * 1024L * 1024L
     private const val MAX_ASSET_BYTES = 20L * 1024L * 1024L
     private const val MAX_TOTAL_ASSET_BYTES = 100L * 1024L * 1024L
-    private const val MAX_TOTAL_ARCHIVE_BYTES = 102L * 1024L * 1024L
+    private const val MAX_TOTAL_ARCHIVE_BYTES = 122L * 1024L * 1024L
 }
