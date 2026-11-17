@@ -76,7 +76,7 @@ object BuiltinSkillCatalog {
         var added = 0
         all().forEach {
             if (registry.find(it.id) == null && registry.saveDraft(it)) added++
-            else registry.markCatalogForResearch(it.id)
+            else registry.markCatalogForResearch(it)
         }
         return added
     }
