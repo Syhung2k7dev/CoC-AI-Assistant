@@ -171,7 +171,33 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
-    @Synchronized\n    fun upsertDataset(sessionId: String, dataset: JSONObject) {\n        val name = dataset.optString("name")\n        if (name.isBlank() || !name.matches(Regex("[a-zA-Z0-9_.-]{1,80}"))) return\n        val records = dataset.optJSONArray("records") ?: JSONArray()\n        require(records.toString().length <= 500_000) { "Dataset quá lớn." }\n        val existingVersion = writableDatabase.rawQuery(\n            "SELECT COALESCE(MAX(version),0) FROM custom_datasets WHERE session_id=? AND dataset_name=?",\n            arrayOf(sessionId, name)\n        ).use { if (it.moveToFirst()) it.getInt(0) else 0 }\n        writableDatabase.execSQL(\n            "INSERT OR REPLACE INTO custom_datasets VALUES(?,?,?,?,?,?,?)",\n            arrayOf("$sessionId:$name", sessionId, name, (dataset.optJSONObject("schema") ?: JSONObject()).toString(),\n                records.toString(), existingVersion + 1, System.currentTimeMillis())\n        )\n    }\n\n    @Synchronized\n    fun recordMedia(sessionId: String, observationId: String, asset: JSONObject, kind: String) {\n        writableDatabase.execSQL(\n            "INSERT OR REPLACE INTO media_assets VALUES(?,?,?,?,?,?,?,?)",\n            arrayOf(asset.optString("id"), sessionId, observationId, kind, asset.optString("original"),\n                asset.optString("crop"), asset.toString(), System.currentTimeMillis())\n        )\n    }\n\n    /** Complete, versioned relational export for inclusion in the CADSS ZIP backup. */
+    @Synchronized
+    fun upsertDataset(sessionId: String, dataset: JSONObject) {
+        val name = dataset.optString("name")
+        if (name.isBlank() || !name.matches(Regex("[a-zA-Z0-9_.-]{1,80}"))) return
+        val records = dataset.optJSONArray("records") ?: JSONArray()
+        require(records.toString().length <= 500_000) { "Dataset quá lớn." }
+        val existingVersion = writableDatabase.rawQuery(
+            "SELECT COALESCE(MAX(version),0) FROM custom_datasets WHERE session_id=? AND dataset_name=?",
+            arrayOf(sessionId, name)
+        ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        writableDatabase.execSQL(
+            "INSERT OR REPLACE INTO custom_datasets VALUES(?,?,?,?,?,?,?)",
+            arrayOf("$sessionId:$name", sessionId, name, (dataset.optJSONObject("schema") ?: JSONObject()).toString(),
+                records.toString(), existingVersion + 1, System.currentTimeMillis())
+        )
+    }
+
+    @Synchronized
+    fun recordMedia(sessionId: String, observationId: String, asset: JSONObject, kind: String) {
+        writableDatabase.execSQL(
+            "INSERT OR REPLACE INTO media_assets VALUES(?,?,?,?,?,?,?,?)",
+            arrayOf(asset.optString("id"), sessionId, observationId, kind, asset.optString("original"),
+                asset.optString("crop"), asset.toString(), System.currentTimeMillis())
+        )
+    }
+
+    /** Complete, versioned relational export for inclusion in the CADSS ZIP backup. */
     @Synchronized
     fun exportJson(): JSONObject {
         val db = readableDatabase
@@ -223,7 +249,9 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
                         "procedure_steps" -> listOf("step_id","session_id","step_index","title","preconditions_json","action_json","postconditions_json","evidence_observation_id","status","updated_at")
                         "strategies" -> listOf("strategy_id","session_id","strategy_key","kind","content_json","confidence","evidence_observation_id","updated_at")
                         "calculations" -> listOf("calculation_id","session_id","name","formula","inputs_json","result_json","evidence_observation_id","updated_at")
-                        "skill_documents" -> listOf("session_id","manifest_json","casl_json","updated_at")\n                        "custom_datasets" -> listOf("dataset_id","session_id","dataset_name","schema_json","records_json","version","updated_at")\n                        else -> listOf("asset_id","session_id","observation_id","kind","original_path","crop_path","metadata_json","created_at")
+                        "skill_documents" -> listOf("session_id","manifest_json","casl_json","updated_at")
+                        "custom_datasets" -> listOf("dataset_id","session_id","dataset_name","schema_json","records_json","version","updated_at")
+                        else -> listOf("asset_id","session_id","observation_id","kind","original_path","crop_path","metadata_json","created_at")
                     }
                     val values = columns.map { column ->
                         if (!row.has(column) || row.isNull(column)) null else row.opt(column)
