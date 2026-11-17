@@ -36,8 +36,11 @@ fun SkillLibraryPanel(
     val statusState = remember { mutableStateOf("") }
     val busyState = remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val skills = skillsState.value.groupBy { it.id }.values.mapNotNull { versions -> versions.maxByOrNull { it.version } }.sortedWith(compareBy<AgentSkill> { it.category }.thenBy { it.name })
+    val skills = skillsState.value.groupBy { it.id }.values.mapNotNull { versions ->
+        versions.maxByOrNull { it.version }
+    }.sortedWith(compareBy<AgentSkill> { it.category }.thenBy { it.name })
     val categories = skills.map { it.category }.distinct()
+    val pendingCount = skills.count { it.status == SkillLifecycle.RESEARCH_REQUIRED }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("THƯ VIỆN KỸ NĂNG", color = Color(0xFF4DD8D0), fontSize = 10.sp)
@@ -47,10 +50,71 @@ fun SkillLibraryPanel(
             color = Color(0xFF9AA8C0), fontSize = 12.sp
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SkillCountChip("Chưa nghiên cứu", skills.count { it.status == SkillLifecycle.RESEARCH_REQUIRED })
+            SkillCountChip("Chưa nghiên cứu", pendingCount)
             SkillCountChip("Đã nghiên cứu", skills.count { it.status == SkillLifecycle.RESEARCHED })
             SkillCountChip("Đã xác minh", skills.count { it.status == SkillLifecycle.VERIFIED })
         }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF202D43))
+        ) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("NGHIÊN CỨU HÀNG LOẠT", color = Color(0xFF4DD8D0), fontSize = 10.sp)
+                Text(
+                    "Agent sẽ lần lượt nghiên cứu tất cả Skill đang ở trạng thái Chưa nghiên cứu. Một Skill lỗi không làm dừng các Skill còn lại.",
+                    color = Color.White, fontSize = 12.sp
+                )
+                Button(
+                    onClick = {
+                        if (apiKey.isBlank()) {
+                            statusState.value = "Chưa có Gemini API Key. Mở Cài đặt để nhập khóa."
+                        } else {
+                            busyState.value = true
+                            statusState.value = "Đang chuẩn bị hàng đợi nghiên cứu..."
+                            scope.launch {
+                                val report = GeminiSkillAuthoring.researchPendingSkills(
+                                    apiKey = apiKey,
+                                    registry = registry,
+                                    availableApiNames = WorkflowEngine.AVAILABLE_API_NAMES,
+                                    onProgress = { completed, total, skillName ->
+                                        skillsState.value = registry.all()
+                                        statusState.value = "Đã xử lý $completed/$total · $skillName"
+                                    }
+                                )
+                                skillsState.value = registry.all()
+                                statusState.value = if (report.total == 0) {
+                                    report.failures.firstOrNull()?.second
+                                        ?: "Không có Skill nào đang chờ nghiên cứu."
+                                } else {
+                                    "Hoàn tất nghiên cứu hàng loạt: ${report.succeeded}/${report.total} thành công, ${report.failures.size} thất bại." +
+                                        if (report.failures.isEmpty()) "" else
+                                            "\n" + report.failures.take(5).joinToString("\n") { "${it.first}: ${it.second}" } +
+                                                if (report.failures.size > 5) "\n... và ${report.failures.size - 5} lỗi khác." else ""
+                                }
+                                busyState.value = false
+                            }
+                        }
+                    },
+                    enabled = !busyState.value && pendingCount > 0 && apiKey.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B7CFF))
+                ) {
+                    Text(
+                        when {
+                            busyState.value -> "Đang nghiên cứu hàng loạt..."
+                            pendingCount == 0 -> "Không còn Skill chờ nghiên cứu"
+                            else -> "Nghiên cứu hàng loạt ($pendingCount)"
+                        }
+                    )
+                }
+                if (apiKey.isBlank()) {
+                    Text("Cần nhập Gemini API Key trong Cài đặt. Khóa chỉ được dùng trong phiên hiện tại.", color = Color(0xFFFFC66D), fontSize = 10.sp)
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -94,17 +158,15 @@ fun SkillLibraryPanel(
                             }
                         }
                     },
-                    enabled = !busyState.value && goalState.value.isNotBlank(),
+                    enabled = !busyState.value && goalState.value.isNotBlank() && apiKey.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B7CFF))
                 ) {
                     Text(if (busyState.value) "Đang nghiên cứu..." else "Nghiên cứu kỹ năng mới")
                 }
-                if (statusState.value.isNotBlank()) {
-                    Text(statusState.value, color = Color(0xFF4DD8D0), fontSize = 11.sp)
-                }
             }
         }
+
         categories.forEach { category ->
             Text(skillCategoryLabel(category), color = Color(0xFF4DD8D0), fontSize = 10.sp)
             skills.filter { it.category == category }.forEach { skill ->
@@ -150,6 +212,9 @@ fun SkillLibraryPanel(
                 }
             }
         }
+        if (statusState.value.isNotBlank()) {
+            Text(statusState.value, color = Color(0xFF4DD8D0), fontSize = 11.sp)
+        }
         Spacer(Modifier.height(6.dp))
     }
 }
@@ -160,7 +225,6 @@ private fun SkillCountChip(label: String, count: Int) {
         Text(label + ": " + count, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color.White, fontSize = 10.sp)
     }
 }
-
 
 private fun skillStatusLabel(status: SkillLifecycle): String = when (status) {
     SkillLifecycle.RESEARCH_REQUIRED -> "CHƯA NGHIÊN CỨU"
