@@ -1,6 +1,9 @@
 package dev.syhung.cocassistant
 
+import android.app.Activity
 import android.content.Context
+import android.media.projection.MediaProjectionManager
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,6 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Send
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -76,6 +81,26 @@ fun CentralAgentStudio(
     var showRulesEditor by remember { mutableStateOf(false) }
     var showRulesApproval by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Đang chờ yêu cầu") }
+    var projectionReady by remember { mutableStateOf(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R || ScreenCaptureService.isReady()) }
+    val projectionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            ScreenCaptureService.start(context, result.resultCode, data)
+            scope.launch {
+                repeat(20) {
+                    delay(250L)
+                    if (ScreenCaptureService.isReady()) {
+                        projectionReady = true
+                        status = "Đã cấp quyền quan sát màn hình. Có thể chạy Agent."
+                        return@launch
+                    }
+                }
+                status = "Không khởi tạo được chụp màn hình. Hãy thử cấp quyền lại."
+            }
+        } else {
+            status = "Chưa cấp quyền chia sẻ màn hình; Agent chưa thể quan sát CoC trên Android 10."
+        }
+    }
     val messages = remember { mutableStateListOf<AgentChatMessage>().apply {
         add(AgentChatMessage("agent", "Tôi là AI điều phối trung tâm. Hãy mô tả mục tiêu; tôi sẽ quan sát CoC, phân tích bằng chứng và báo rõ việc nào đã làm, việc nào mới là đề xuất."))
     } }
@@ -104,6 +129,16 @@ fun CentralAgentStudio(
                 Text("Gemini", color = AgentCyan, fontSize = 11.sp)
             }
 
+            if (!projectionReady) {
+                OutlinedButton(
+                    onClick = {
+                        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                        projectionLauncher.launch(manager.createScreenCaptureIntent())
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Cấp quyền chụp màn hình (Android 10)") }
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 AgentStateChip("CADSS", "BỘ NHỚ")
                 AgentStateChip("CASL", "ĐIỀU PHỐI")
@@ -125,6 +160,10 @@ fun CentralAgentStudio(
                 )
                 Button(
                     onClick = {
+                        if (!projectionReady) {
+                            status = "Hãy cấp quyền chụp màn hình trước khi chạy Agent."
+                            return@Button
+                        }
                         if (goal.isBlank()) {
                             status = "Hãy nhập mục tiêu trước khi chạy Agent."
                             return@Button
@@ -167,7 +206,7 @@ fun CentralAgentStudio(
                             }
                         }
                     },
-                    enabled = !busy && goal.isNotBlank(),
+                    enabled = !busy && goal.isNotBlank() && projectionReady,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF167C78))
                 ) {
