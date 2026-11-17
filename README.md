@@ -1,59 +1,44 @@
 # CoC AI Assistant
 
-**Trợ lý AI CoC** là ứng dụng Android hỗ trợ quản lý dữ liệu cá nhân, phân tích hình ảnh và kiểm tra quy tắc tự động. Ứng dụng ưu tiên xử lý cục bộ; các tính năng AI trực tuyến chỉ hoạt động khi người dùng chủ động gửi yêu cầu.
+**Trợ lý AI CoC** là ứng dụng Android AI Agent hướng tới tự động hóa Clash of Clans. Gemini hỗ trợ phân tích và lập kế hoạch; OpenCV và OCR xử lý thị giác cục bộ; Accessibility thực hiện thao tác chạm/vuốt; CADSS và Vision Memory lưu trạng thái; CASL điều phối điều kiện và workflow.
 
-## 1. Các thành phần chính
+## Thành phần
 
-- **CADSS – Hệ thống lưu trữ dữ liệu:** lưu ghi chú, bộ sưu tập và thông tin có cấu trúc JSON kèm số phiên bản.
-- **CASL – Bộ máy quy tắc:** đánh giá điều kiện IF/ELSE bằng JSON DSL khai báo. Không thực thi mã tùy ý.
-- **Không gian xử lý hình ảnh:** xử lý hình ảnh do người dùng chọn bằng OpenCV trên thiết bị và tạo mã băm cảm nhận 64 bit (pHash).
-- **Bộ nhớ hình ảnh:** lưu hình ảnh gốc, hình ảnh cắt trung tâm và thông tin mô tả trong vùng lưu trữ riêng của ứng dụng.
-- **Học mẫu hình ảnh:** ghi nhận mẫu hình ảnh mới và tìm mẫu gần nhất bằng khoảng cách Hamming giữa các mã pHash.
-- **Kết nối Gemini:** hỗ trợ phân tích văn bản và hình ảnh khi người dùng nhập khóa API và chủ động gửi yêu cầu.
-- **Bộ lập lịch:** dùng WorkManager để đăng ký tác vụ bảo trì định kỳ theo cơ chế do Android quản lý.
-- **Sao lưu và khôi phục:** đóng gói dữ liệu CADSS cùng tài nguyên hình ảnh trong tệp ZIP có phiên bản.
+- **Accessibility Automation:** dịch vụ Android cho phép workflow đã được người dùng xác nhận thực hiện tap/swipe.
+- **Gemini Agent:** phân tích ngữ cảnh và tạo bản nháp workflow có cấu trúc; bản nháp phải được kiểm tra trước khi chạy.
+- **OpenCV / Vision Memory:** xử lý ảnh cục bộ, pHash và lưu mẫu.
+- **CADSS:** dữ liệu Agent có phiên bản, lưu trữ và backup.
+- **CASL:** điều kiện IF/ELSE và JSON DSL có kiểm tra.
+- **Scheduler / Deep Sleep:** điều phối công việc nền và thời gian nghỉ.
+- **Floating Dashboard / Watchdog:** điều khiển tiến trình và phát hiện trạng thái màn hình bất thường.
 
-## 2. Giao diện ứng dụng
+## Trạng thái triển khai
 
-Ứng dụng có năm khu vực:
+Nhánh runtime hiện bổ sung nền tảng Accessibility: khai báo service, thao tác tap/swipe/wait có giới hạn, countdown 5 giây, Pause/Resume/Stop, xác thực tọa độ và API chụp màn hình Android 11+. Bảng điều khiển thử đã được gắn vào giao diện.
 
-1. **Tổng quan:** trạng thái hệ thống, số mẫu hình ảnh, ghi chú và lối tắt.
-2. **Thị giác:** chọn hình ảnh, xử lý cục bộ và xem lịch sử bộ nhớ hình ảnh.
-3. **Quy tắc CASL:** chạy thử quy tắc IF/ELSE theo cấu trúc JSON.
-4. **Lịch tác vụ:** lên lịch bảo trì và sử dụng đồng hồ phiên 30 hoặc 60 phút.
-5. **Cài đặt:** kết nối Gemini, sao lưu/khôi phục và thông tin quyền riêng tư.
+Các phần OCR, workflow editor JSON hoàn chỉnh, vòng lặp Agent tự xác minh, Gemini draft review, overlay toàn hệ thống và Scheduler chuyên dụng vẫn đang được triển khai. Không xem các phần này là đã hoàn tất cho đến khi có kiểm thử và bằng chứng build tương ứng.
 
-Bảng điều khiển nhanh nằm bên trong ứng dụng; đây không phải cửa sổ nổi cấp hệ điều hành.
+## Quyền riêng tư và kiểm soát
 
-## 3. Yêu cầu xây dựng
+- Chỉ chạy workflow sau thao tác bắt đầu và xác nhận rõ ràng của người dùng.
+- Workflow do Gemini đề xuất là bản nháp; không tự động gửi hành động AI chưa kiểm tra tới Accessibility.
+- Mọi workflow cần giới hạn bước, thời lượng và số lần lặp; có Pause/Resume/Stop.
+- Xử lý ảnh cục bộ theo mặc định; tải ảnh lên Gemini cần sự đồng ý riêng.
+- Không vượt qua Play Protect, quyền Android, màn hình bảo vệ hoặc cơ chế anti-cheat. Nếu Android hoặc Play Protect cảnh báo ứng dụng, cần điều tra bản build và chữ ký thay vì tắt bảo vệ.
+
+## Yêu cầu xây dựng
 
 - Android Gradle Plugin 8.7.3
-- Kotlin 2.0.21 và Kotlin Compose Compiler Plugin
+- Kotlin 2.0.21
 - JDK 17, Gradle 8.9
-- Android API 23 trở lên; biên dịch và mục tiêu API 35
+- Android API 23 trở lên; compile/target API 35
 
-Có thể chạy quy trình **Android APK** trong GitHub Actions. Khi quy trình hoàn tất thành công, GitHub Actions sẽ cung cấp tệp hiện vật `CoC-AI-Assistant-debug`.
+## Tài liệu
 
-## 4. Quyền riêng tư và phạm vi hoạt động
+- [Hướng dẫn sử dụng](docs/HUONG_DAN_SU_DUNG.md)
+- [Kiến trúc AI Core Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md)
+- [Kiến trúc CADSS/CASL](docs/KIEN_TRUC_CADSS_CASL.md)
+- [Lộ trình CoC Agent](docs/ROADMAP_COC_AGENT.md)
+- [Kiến trúc Skill và HVCS](docs/ARCHITECTURE_SKILLS_HVCS.md)
 
-- Hình ảnh chỉ được xử lý sau khi người dùng chủ động chọn.
-- Hình ảnh gốc và ảnh cắt được lưu trong vùng riêng của ứng dụng.
-- Yêu cầu Gemini chỉ được gửi sau thao tác chủ động của người dùng.
-- Khóa API không được ứng dụng ghi vào kho dữ liệu CADSS.
-- Ứng dụng hiện không yêu cầu quyền Trợ năng, quyền hiển thị trên ứng dụng khác hoặc quyền chụp màn hình.
-- Ứng dụng không tự động thao tác hay điều khiển trò chơi Clash of Clans.
-
-## 5. Giới hạn hiện tại và kiểm thử
-
-- Tác vụ bảo trì định kỳ hiện là điểm móc nhẹ; chính sách dọn dẹp chi tiết và lịch tùy chỉnh chưa được triển khai đầy đủ.
-- Bảng điều khiển nhanh chỉ hiển thị trong ứng dụng, không phải lớp phủ toàn hệ thống.
-- Khôi phục bản sao lưu có kiểm tra gói ZIP và phiên bản dữ liệu, nhưng chưa có lựa chọn hợp nhất hoặc thay thế dữ liệu.
-- Cần cài đặt và kiểm tra thực tế trên thiết bị Android. Việc CI biên dịch thành công không tự chứng minh mọi chức năng đều hoạt động đúng trên thiết bị.
-
-## 6. Kiến trúc AI Core
-
-Thiết kế mục tiêu cho AI Provider, adapter, quản lý kết nối, timeout, retry, streaming và phân loại lỗi được mô tả tại [Kiến trúc AI Core và quản lý kết nối AI Provider](docs/KIEN_TRUC_AI_CORE_PROVIDER.md). Tài liệu phân biệt rõ phần đang có trong mã nguồn với kiến trúc mục tiêu; không coi backend Express/SSE là thành phần đã tồn tại trong repository hiện tại.
-
-## 7. Ngôn ngữ
-
-Giao diện và tài liệu hướng đến tiếng Việt. Các tên công nghệ, giao thức và định danh kỹ thuật như CADSS, CASL, OpenCV, pHash, JSON, Gemini và WorkManager được giữ nguyên để bảo đảm tính chính xác.
+CI thành công chỉ xác nhận quá trình build; vẫn cần cài và kiểm tra trên thiết bị Android thật, bao gồm khả năng bật Accessibility trên từng phiên bản Android/ColorOS.
