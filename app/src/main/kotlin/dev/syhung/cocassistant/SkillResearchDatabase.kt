@@ -21,6 +21,9 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL("CREATE INDEX idx_layouts_screen ON layouts(session_id, screen_key)")
         db.execSQL("CREATE TABLE layout_components (component_id TEXT PRIMARY KEY, layout_id TEXT NOT NULL, component_key TEXT NOT NULL, label TEXT NOT NULL, type TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL, anchor TEXT NOT NULL, properties_json TEXT NOT NULL)")
         db.execSQL("CREATE INDEX idx_layout_components_layout ON layout_components(layout_id)")
+        db.execSQL("CREATE TABLE base_layouts (layout_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, layout_key TEXT NOT NULL, name TEXT NOT NULL, base_type TEXT NOT NULL, town_hall_level INTEGER NOT NULL, version INTEGER NOT NULL, confidence REAL NOT NULL, evidence_observation_id TEXT, constraints_json TEXT NOT NULL, layout_json TEXT NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(session_id, layout_key, version))")
+        db.execSQL("CREATE TABLE base_layout_items (item_id TEXT PRIMARY KEY, layout_id TEXT NOT NULL, item_key TEXT NOT NULL, object_type TEXT NOT NULL, level INTEGER NOT NULL, grid_x REAL NOT NULL, grid_y REAL NOT NULL, rotation INTEGER NOT NULL, width REAL NOT NULL, height REAL NOT NULL, confidence REAL NOT NULL, metadata_json TEXT NOT NULL)")
+        db.execSQL("CREATE INDEX idx_base_layout_items_layout ON base_layout_items(layout_id)")
         db.execSQL("CREATE TABLE procedure_steps (step_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, step_index INTEGER NOT NULL, title TEXT NOT NULL, preconditions_json TEXT NOT NULL, action_json TEXT NOT NULL, postconditions_json TEXT NOT NULL, evidence_observation_id TEXT, status TEXT NOT NULL, updated_at INTEGER NOT NULL)")
         db.execSQL("CREATE INDEX idx_procedure_session ON procedure_steps(session_id, step_index)")
         db.execSQL("CREATE TABLE strategies (strategy_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, strategy_key TEXT NOT NULL, kind TEXT NOT NULL, content_json TEXT NOT NULL, confidence REAL NOT NULL, evidence_observation_id TEXT, updated_at INTEGER NOT NULL)")
@@ -102,6 +105,40 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
                 arrayOf("$id:$key", id, key, component.optString("label"),
                     component.optString("type"), numbers[0], numbers[1], numbers[2], numbers[3],
                     component.optString("anchor"), (component.optJSONObject("properties") ?: JSONObject()).toString())
+            )
+        }
+    }
+
+    @Synchronized
+    fun upsertBaseLayout(sessionId: String, observationId: String, item: JSONObject) {
+        val key = item.optString("key")
+        if (key.isBlank() || !key.matches(Regex("[a-zA-Z0-9_.-]{1,80}"))) return
+        val db = writableDatabase
+        val version = db.rawQuery(
+            "SELECT COALESCE(MAX(version),0)+1 FROM base_layouts WHERE session_id=? AND layout_key=?",
+            arrayOf(sessionId, key)
+        ).use { if (it.moveToFirst()) it.getInt(0) else 1 }
+        val id = "$sessionId:base:$key:$version"
+        val items = item.optJSONArray("items") ?: JSONArray()
+        db.execSQL(
+            "INSERT INTO base_layouts VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            arrayOf(id, sessionId, key, item.optString("name", key),
+                item.optString("baseType", "unknown"), item.optInt("townHallLevel", 0),
+                version, item.optDouble("confidence", 0.0), observationId,
+                (item.optJSONObject("constraints") ?: JSONObject()).toString(),
+                item.toString(), System.currentTimeMillis())
+        )
+        for (i in 0 until items.length()) {
+            val building = items.optJSONObject(i) ?: continue
+            val itemKey = building.optString("key").ifBlank { "object-$i" }
+            db.execSQL(
+                "INSERT OR REPLACE INTO base_layout_items VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf("$id:$itemKey", id, itemKey, building.optString("type"),
+                    building.optInt("level", 0), building.optDouble("x", 0.0),
+                    building.optDouble("y", 0.0), building.optInt("rotation", 0),
+                    building.optDouble("width", 1.0), building.optDouble("height", 1.0),
+                    building.optDouble("confidence", 0.0),
+                    (building.optJSONObject("metadata") ?: JSONObject()).toString())
             )
         }
     }
@@ -236,7 +273,7 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
     @Synchronized
     fun exportJson(): JSONObject {
         val db = readableDatabase
-        val tables = listOf("sessions", "observations", "layouts", "layout_components", "procedure_steps", "strategies", "calculations", "skill_documents", "custom_datasets", "media_assets")
+        val tables = listOf("sessions", "observations", "layouts", "layout_components", "base_layouts", "base_layout_items", "procedure_steps", "strategies", "calculations", "skill_documents", "custom_datasets", "media_assets")
         val exported = JSONObject()
         tables.forEach { table ->
             val rows = JSONArray()
@@ -268,7 +305,7 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         require(document.optInt("schemaVersion") in 1..DATABASE_VERSION)
         val tables = document.optJSONObject("tables") ?: error("Thiếu tables.")
         val db = writableDatabase
-        val names = listOf("sessions", "observations", "layouts", "layout_components", "procedure_steps", "strategies", "calculations", "skill_documents", "custom_datasets", "media_assets")
+        val names = listOf("sessions", "observations", "layouts", "layout_components", "base_layouts", "base_layout_items", "procedure_steps", "strategies", "calculations", "skill_documents", "custom_datasets", "media_assets")
         db.beginTransaction()
         try {
             names.forEach { table ->
@@ -281,6 +318,8 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
                         "observations" -> listOf("observation_id","session_id","cycle","captured_at","screen_key","screenshot_asset","crop_assets_json","phash","ocr_text","ai_analysis","action_json","action_result_json")
                         "layouts" -> listOf("layout_id","session_id","screen_key","screen_name","version","confidence","evidence_observation_id","components_json","updated_at")
                         "layout_components" -> listOf("component_id","layout_id","component_key","label","type","x","y","width","height","anchor","properties_json")
+                        "base_layouts" -> listOf("layout_id","session_id","layout_key","name","base_type","town_hall_level","version","confidence","evidence_observation_id","constraints_json","layout_json","updated_at")
+                        "base_layout_items" -> listOf("item_id","layout_id","item_key","object_type","level","grid_x","grid_y","rotation","width","height","confidence","metadata_json")
                         "procedure_steps" -> listOf("step_id","session_id","step_index","title","preconditions_json","action_json","postconditions_json","evidence_observation_id","status","updated_at")
                         "strategies" -> listOf("strategy_id","session_id","strategy_key","kind","content_json","confidence","evidence_observation_id","updated_at")
                         "calculations" -> listOf("calculation_id","session_id","name","formula","inputs_json","result_json","evidence_observation_id","updated_at")
