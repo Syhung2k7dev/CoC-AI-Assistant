@@ -52,6 +52,7 @@ object CentralAgentLoop {
         }
 
         val visionLearning = VisionLearningManager(context)
+        visionLearning.migrateLegacyTemplates(CadssStore(context).getRecords("template_memory"))
         val sessionStartedAt = SystemClock.elapsedRealtime()
         var cycle = 0
         var previousAction = "Chưa có hành động nào."
