@@ -203,10 +203,13 @@ class AgentSkillRegistry(context: Context) {
         if (index < 0) return false
         val skill = current[index]
         if (skill.scriptJson.isBlank()) return false
-        val byId = current.associateBy { it.id }
+        val verifiedById = current
+            .filter { it.status == SkillLifecycle.VERIFIED }
+            .groupBy { it.id }
+            .mapValues { (_, versions) -> versions.maxByOrNull { it.version } }
         if (skill.dependencies.any { dependency ->
-                val found = byId[dependency]
-                found == null || found.status != SkillLifecycle.VERIFIED ||
+                val found = verifiedById[dependency]
+                found == null ||
                     (skill.dependencyVersions[dependency]?.let { found.version < it } == true)
             }) return false
         current[index] = skill.copy(
