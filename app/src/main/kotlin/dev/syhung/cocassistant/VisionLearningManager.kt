@@ -69,6 +69,32 @@ class VisionLearningManager(context: Context) {
         return VisionObservationResult.NeedsReview(candidate, Int.MAX_VALUE)
     }
 
+    /**
+     * Imports legacy auto-promoted templates as pending candidates. Legacy templates are never
+     * trusted automatically after the approval-gated learning lifecycle is enabled.
+     */
+    @Synchronized
+    fun migrateLegacyTemplates(records: List<JSONObject>): Int {
+        var migrated = 0
+        records.forEach { legacy ->
+            val id = legacy.optString("id").ifBlank { UUID.randomUUID().toString() }
+            if (cadss.findRecord(CANDIDATES, "id", id) != null ||
+                cadss.findRecord(TEMPLATES, "id", id) != null) return@forEach
+            if (VisionMemory.resolve(appContext, legacy.optString("original")) == null ||
+                VisionMemory.resolve(appContext, legacy.optString("crop")) == null) return@forEach
+            val candidate = JSONObject(legacy.toString())
+                .put("id", id)
+                .put("status", STATUS_PENDING)
+                .put("suggestedLabel", legacy.optString("label"))
+                .put("metadata", JSONObject().put("legacyImported", true))
+                .put("sightings", 1)
+                .put("migratedAt", System.currentTimeMillis())
+            cadss.putRecord(CANDIDATES, "id", id, candidate)
+            migrated++
+        }
+        return migrated
+    }
+
     @Synchronized
     fun approve(candidateId: String, confirmedLabel: String): JSONObject {
         require(confirmedLabel.isNotBlank() && confirmedLabel.length <= 120) {
