@@ -413,7 +413,8 @@ private fun CoCAssistantApp() {
                         }
                     }
                     else -> {
-                        item { PageIntro("Cài đặt", "Quản lý kết nối AI, dữ liệu và quyền riêng tư.") }
+                        item { PageIntro("Cài đặt", "Quản lý kết nối AI, quyền thiết bị và dữ liệu.") }
+                        item { PanelCard { Text("Kiểm tra quyền Trợ năng", fontWeight = FontWeight.Bold); Text("Bảng điều khiển nâng cao để kiểm tra kết nối và thao tác thử có xác nhận.", color = Muted, fontSize = 12.sp); AutomationControlPanel(onStatus = { status = it }) } }
                         item {
                             PanelCard {
                                 Text("Gemini 3.8 Flash", fontWeight = FontWeight.Bold, fontSize = 17.sp)
