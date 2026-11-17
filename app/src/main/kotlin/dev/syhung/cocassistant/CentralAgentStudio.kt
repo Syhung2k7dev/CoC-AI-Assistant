@@ -119,6 +119,10 @@ fun CentralAgentStudio(
                     minLines = 3,
                     placeholder = { Text("Ví dụ: mở CoC, kiểm tra trạng thái làng và báo công trình nào cần chú ý…") }
                 )
+                Text(
+                    "Khi bạn khởi chạy Agent, ảnh màn hình CoC được Agent tự thu thập và gửi Gemini để phân tích. Không có chức năng tải ảnh thủ công.",
+                    color = AgentMuted, fontSize = 10.sp
+                )
                 Button(
                     onClick = {
                         if (goal.isBlank()) {
