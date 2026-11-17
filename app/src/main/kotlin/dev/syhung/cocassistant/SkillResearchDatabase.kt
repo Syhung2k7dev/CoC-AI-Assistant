@@ -21,9 +21,7 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL("CREATE INDEX idx_layouts_screen ON layouts(session_id, screen_key)")
         db.execSQL("CREATE TABLE layout_components (component_id TEXT PRIMARY KEY, layout_id TEXT NOT NULL, component_key TEXT NOT NULL, label TEXT NOT NULL, type TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL, anchor TEXT NOT NULL, properties_json TEXT NOT NULL)")
         db.execSQL("CREATE INDEX idx_layout_components_layout ON layout_components(layout_id)")
-        db.execSQL("CREATE TABLE base_layouts (layout_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, layout_key TEXT NOT NULL, name TEXT NOT NULL, base_type TEXT NOT NULL, town_hall_level INTEGER NOT NULL, version INTEGER NOT NULL, confidence REAL NOT NULL, evidence_observation_id TEXT, constraints_json TEXT NOT NULL, layout_json TEXT NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(session_id, layout_key, version))")
-        db.execSQL("CREATE TABLE base_layout_items (item_id TEXT PRIMARY KEY, layout_id TEXT NOT NULL, item_key TEXT NOT NULL, object_type TEXT NOT NULL, level INTEGER NOT NULL, grid_x REAL NOT NULL, grid_y REAL NOT NULL, rotation INTEGER NOT NULL, width REAL NOT NULL, height REAL NOT NULL, confidence REAL NOT NULL, metadata_json TEXT NOT NULL)")
-        db.execSQL("CREATE INDEX idx_base_layout_items_layout ON base_layout_items(layout_id)")
+        createBaseLayoutTables(db)
         db.execSQL("CREATE TABLE procedure_steps (step_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, step_index INTEGER NOT NULL, title TEXT NOT NULL, preconditions_json TEXT NOT NULL, action_json TEXT NOT NULL, postconditions_json TEXT NOT NULL, evidence_observation_id TEXT, status TEXT NOT NULL, updated_at INTEGER NOT NULL)")
         db.execSQL("CREATE INDEX idx_procedure_session ON procedure_steps(session_id, step_index)")
         db.execSQL("CREATE TABLE strategies (strategy_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, strategy_key TEXT NOT NULL, kind TEXT NOT NULL, content_json TEXT NOT NULL, confidence REAL NOT NULL, evidence_observation_id TEXT, updated_at INTEGER NOT NULL)")
@@ -35,7 +33,13 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 1) onCreate(db)
+        if (oldVersion < 2) createBaseLayoutTables(db)
+    }
+
+    private fun createBaseLayoutTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS base_layouts (layout_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, layout_key TEXT NOT NULL, name TEXT NOT NULL, base_type TEXT NOT NULL, town_hall_level INTEGER NOT NULL, version INTEGER NOT NULL, confidence REAL NOT NULL, evidence_observation_id TEXT, constraints_json TEXT NOT NULL, layout_json TEXT NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(session_id, layout_key, version))")
+        db.execSQL("CREATE TABLE IF NOT EXISTS base_layout_items (item_id TEXT PRIMARY KEY, layout_id TEXT NOT NULL, item_key TEXT NOT NULL, object_type TEXT NOT NULL, level INTEGER NOT NULL, grid_x REAL NOT NULL, grid_y REAL NOT NULL, rotation INTEGER NOT NULL, width REAL NOT NULL, height REAL NOT NULL, confidence REAL NOT NULL, metadata_json TEXT NOT NULL)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_base_layout_items_layout ON base_layout_items(layout_id)")
     }
 
     @Synchronized
@@ -340,6 +344,6 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "skill_research.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
     }
 }
