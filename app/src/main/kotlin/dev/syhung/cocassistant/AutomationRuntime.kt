@@ -31,9 +31,12 @@ class CoCAccessibilityService : AccessibilityService() {
     private var paused = false
     private var generation = 0L
     private var pending: Runnable? = null
+    @Volatile private var lastObservedPackage: String = ""
 
     override fun onServiceConnected() { super.onServiceConnected(); instance = this }
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        event?.packageName?.toString()?.takeIf { it.isNotBlank() }?.let { lastObservedPackage = it }
+    }
     override fun onInterrupt() { stopWorkflow("Dịch vụ Trợ năng bị gián đoạn.") }
     override fun onDestroy() {
         stopWorkflow(null)
@@ -213,6 +216,11 @@ class CoCAccessibilityService : AccessibilityService() {
         private const val STEP_GAP_MS = 250L
         @Volatile private var instance: CoCAccessibilityService? = null
         fun isConnected(): Boolean = instance != null
+        fun isGameForeground(packageName: String): Boolean {
+            val service = instance ?: return false
+            val rootPackage = runCatching { service.rootInActiveWindow?.packageName?.toString() }.getOrNull()
+            return rootPackage == packageName || service.lastObservedPackage == packageName
+        }
         suspend fun performSingleStep(step: AutomationStep): Boolean = instance?.dispatchSingleStep(step) ?: false
         fun startWorkflow(context: Context, steps: List<AutomationStep>, repeats: Int = 1): Boolean {
             val service = instance ?: return false
