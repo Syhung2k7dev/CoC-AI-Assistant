@@ -1,6 +1,7 @@
 package dev.syhung.cocassistant
 
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 import java.security.MessageDigest
 import org.json.JSONArray
 import org.json.JSONObject
@@ -158,6 +159,8 @@ class AelmLifecycleManager(context: Context) {
                 val result = runtime.execute(program, test.inputs, userApproved = true)
                 assertExpected(test.expectedOutputs, result.outputs)
                 passed++
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 failures += "${test.id}: ${(error.message ?: error::class.java.simpleName).take(240)}"
             }
@@ -196,6 +199,8 @@ class AelmLifecycleManager(context: Context) {
                 val result = runtime.execute(program, test.inputs, userApproved = true)
                 assertExpected(test.expectedOutputs, result.outputs)
                 passed++
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 failures += "${test.id}: ${(error.message ?: error::class.java.simpleName).take(240)}"
             }
