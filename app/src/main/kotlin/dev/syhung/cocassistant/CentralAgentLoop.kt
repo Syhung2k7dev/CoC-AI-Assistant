@@ -16,7 +16,8 @@ import kotlin.coroutines.resume
  * All device actions remain behind ActionExecutor and the user's explicit start action.
  */
 object CentralAgentLoop {
-    private const val MAX_CYCLES = 5
+    private const val MAX_CYCLES = 6
+    private const val MAX_SKILL_ACTIONS = 5
     private const val MAX_SKILL_RUN_MS = 90_000L
     private const val MAX_SKILL_STEPS = 120
     private const val GAME_PACKAGE = "com.supercell.clashofclans"
@@ -55,6 +56,7 @@ object CentralAgentLoop {
         var previousVerification = "not_applicable"
         var previousEvidence = ""
         val skillRuns = linkedMapOf<String, Int>()
+        var totalSkillRuns = 0
         val executionNotes = mutableListOf<String>()
 
         for (cycle in 1..MAX_CYCLES) {
@@ -104,7 +106,7 @@ object CentralAgentLoop {
                 - Nếu hành động trước thành công, đặt verification=success và nêu bằng chứng OCR cụ thể.
                 - Nếu chưa cần hành động, chọn done. Nếu thiếu thông tin cần người dùng, chọn ask_user.
                 - Không tuyên bố hoàn thành nếu không có bằng chứng quan sát được.
-                - Một lần chỉ chọn một Skill. Ưu tiên an toàn, dừng khi không chắc chắn.
+                - Một lần chỉ chọn một Skill; tối đa $MAX_SKILL_ACTIONS lần chạy Skill trong phiên. Ưu tiên an toàn, dừng khi không chắc chắn.
                 - Với decision khác execute_skill, để skillId rỗng và version=0.
             """.trimIndent()
 
@@ -138,6 +140,7 @@ object CentralAgentLoop {
                     check(script.optString("kind") == "skill" &&
                         script.optString("id") == skillId && script.optInt("version") == version
                     ) { "CASL script không khớp ID/version đã pin." }
+                    check(totalSkillRuns < MAX_SKILL_ACTIONS) { "Agent đã đạt giới hạn $MAX_SKILL_ACTIONS lần chạy Skill; dừng để giữ an toàn." }
                     val runCount = (skillRuns[skillId] ?: 0) + 1
                     check(runCount <= 2) { "Agent chặn lặp Skill $skillId quá hai lần trong một phiên." }
                     skillRuns[skillId] = runCount
@@ -268,6 +271,22 @@ object CentralAgentLoop {
             JSONObject().put("appended", true)
         }
         registry.register("system.time") { _, _ -> JSONObject().put("epochMillis", System.currentTimeMillis()) }
+        registry.register("vision.feedback") { args, executionContext ->
+            val skillId = executionContext.optString("skillId")
+            val skillVersion = executionContext.optInt("skillVersion", 0)
+            require(skillId.isNotBlank() && skillVersion > 0) {
+                "Vision feedback chỉ được ghi từ Skill đã pin version."
+            }
+            val updated = VisionLearningManager(context).recordOutcome(
+                args.optString("templateId"),
+                args.optBoolean("success", false)
+            ) ?: error("Không tìm thấy VERIFIED Vision template.")
+            JSONObject()
+                .put("updated", true)
+                .put("templateId", args.optString("templateId"))
+                .put("status", updated.optString("status"))
+                .put("confidence", updated.optDouble("confidence", 0.0))
+        }
         registry.register("vision.match") { args, _ ->
             val match = VisionLearningManager(context).findNearest(args.optString("hash"))
             if (match == null) JSONObject().put("matched", false).put("distance", -1)
