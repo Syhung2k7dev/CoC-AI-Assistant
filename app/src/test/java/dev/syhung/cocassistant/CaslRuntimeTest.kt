@@ -88,4 +88,32 @@ class CaslRuntimeTest {
             runtime.validateProgramDocument(program)
         }
     }
+    @Test
+    fun directSkillExecutionProvidesItsPinnedIdentityToApis() = runBlocking {
+        var observedId = ""
+        var observedVersion = 0
+        val registry = CaslApiRegistry().apply {
+            register("test.identity") { _, context ->
+                observedId = context.optString("skillId")
+                observedVersion = context.optInt("skillVersion")
+                JSONObject()
+            }
+        }
+        val runtime = CaslScriptRuntime(registry, { _, _ -> null })
+        val program = JSONObject()
+            .put("format", "CASL")
+            .put("schemaVersion", CaslScriptRuntime.SCHEMA_VERSION)
+            .put("kind", "skill")
+            .put("id", "vision.feedback")
+            .put("version", 3)
+            .put("steps", JSONArray().put(
+                JSONObject().put("op", "call").put("api", "test.identity")
+            ))
+
+        runtime.execute(program, userApproved = true)
+
+        assertEquals("vision.feedback", observedId)
+        assertEquals(3, observedVersion)
+    }
+
 }
