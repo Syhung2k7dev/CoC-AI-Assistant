@@ -9,7 +9,7 @@ enum class SkillActionCapability {
 }
 
 enum class SkillLifecycle {
-    DRAFT, TESTING, VERIFIED, EXPERIMENTAL, DISABLED
+    RESEARCH_REQUIRED, RESEARCHING, RESEARCHED, DRAFT, TESTING, VERIFIED, EXPERIMENTAL, DISABLED
 }
 
 /** A Skill is validated data and a workflow contract, never executable source code. */
@@ -170,7 +170,7 @@ class AgentSkillRegistry(context: Context) {
         if (current.any { it.id == skill.id && it.version == skill.version }) return false
         val highestVersion = current.filter { it.id == skill.id }.maxOfOrNull { it.version } ?: 0
         if (skill.version <= highestVersion) return false
-        val draft = skill.copy(status = SkillLifecycle.DRAFT, updatedAt = System.currentTimeMillis())
+        val draft = skill.copy(updatedAt = System.currentTimeMillis())
         current.add(draft)
         persist(current)
         return true
@@ -183,7 +183,11 @@ class AgentSkillRegistry(context: Context) {
         if (index < 0) return false
         val old = current[index]
         val allowed = when (next) {
-            SkillLifecycle.TESTING -> old.status == SkillLifecycle.DRAFT || old.status == SkillLifecycle.EXPERIMENTAL
+            SkillLifecycle.RESEARCH_REQUIRED -> old.status == SkillLifecycle.RESEARCHING
+            SkillLifecycle.RESEARCHING -> old.status == SkillLifecycle.RESEARCH_REQUIRED
+            SkillLifecycle.RESEARCHED -> old.status == SkillLifecycle.RESEARCHING
+            SkillLifecycle.TESTING -> old.status == SkillLifecycle.DRAFT ||
+                old.status == SkillLifecycle.RESEARCHED || old.status == SkillLifecycle.EXPERIMENTAL
             SkillLifecycle.VERIFIED -> false
             SkillLifecycle.EXPERIMENTAL -> old.status == SkillLifecycle.TESTING || old.status == SkillLifecycle.VERIFIED
             SkillLifecycle.DISABLED -> true
