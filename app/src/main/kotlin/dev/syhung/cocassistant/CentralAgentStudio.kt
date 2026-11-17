@@ -1,19 +1,16 @@
 package dev.syhung.cocassistant
 
 import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
@@ -21,7 +18,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -41,11 +37,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 
 private val AgentBg = Color(0xFF141B2B)
 private val AgentText = Color(0xFFF4F6FC)
@@ -53,12 +46,11 @@ private val AgentMuted = Color(0xFF9AA8C0)
 private val AgentAccent = Color(0xFF8B7CFF)
 private val AgentCyan = Color(0xFF4DD8D0)
 
-private const val GAME_PACKAGE = "com.supercell.clashofclans"
 private const val DEFAULT_AGENT_RULES = """
 Bạn là CoC Agent, trợ lý điều phối tự động hóa Clash of Clans.
 Luôn phân biệt dữ liệu đã quan sát, suy luận và điều chưa biết.
 Không bịa tọa độ, trạng thái màn hình, kết quả thao tác hoặc khả năng Skill.
-Ưu tiên quan sát cục bộ, chỉ gửi ảnh lên AI khi người dùng bật lựa chọn chia sẻ.
+Thị giác là năng lực nội bộ của Agent: tự chụp và phân tích màn hình trong phiên Agent; không yêu cầu người dùng tải ảnh lên.
 Không tự ý sửa bộ nguyên tắc này. Mọi thay đổi phải được người dùng xem và xác nhận riêng.
 Chỉ đề xuất thao tác khi có đủ bằng chứng; hành động thiết bị phải đi qua Skill đã kiểm chứng và quyền Android.
 Sau mỗi hành động cần quan sát lại và xác minh kết quả; nếu không chắc chắn thì dừng.
@@ -79,7 +71,6 @@ fun CentralAgentStudio(
     var goal by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var agentJob by remember { mutableStateOf<Job?>(null) }
-    var shareScreenshot by remember { mutableStateOf(false) }
     var systemRules by remember { mutableStateOf(prefs.getString("system_rules", DEFAULT_AGENT_RULES) ?: DEFAULT_AGENT_RULES) }
     var editedRules by remember { mutableStateOf(systemRules) }
     var showRulesEditor by remember { mutableStateOf(false) }
@@ -128,100 +119,6 @@ fun CentralAgentStudio(
                     minLines = 3,
                     placeholder = { Text("Ví dụ: mở CoC, kiểm tra trạng thái làng và báo công trình nào cần chú ý…") }
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = shareScreenshot, onCheckedChange = { shareScreenshot = it })
-                    Column(Modifier.weight(1f)) {
-                        Text("Cho phép gửi ảnh màn hình lên Gemini", color = AgentText, fontSize = 12.sp)
-                        Text("Tắt: chỉ gửi phần văn bản OCR đã nhận diện cục bộ.", color = AgentMuted, fontSize = 10.sp)
-                    }
-                }
-                Button(
-                    onClick = {
-                        if (goal.isBlank()) {
-                            status = "Hãy nhập mục tiêu trước khi phân tích."
-                            return@Button
-                        }
-                        if (apiKey.isBlank()) {
-                            status = "Chưa có Gemini API Key. Hãy nhập khóa trong Cài đặt."
-                            messages.add(AgentChatMessage("agent", status))
-                            return@Button
-                        }
-                        if (!CoCAccessibilityService.isConnected()) {
-                            status = "Chưa kết nối Trợ năng. Hãy bật dịch vụ trong Cài đặt Android."
-                            messages.add(AgentChatMessage("agent", status))
-                            return@Button
-                        }
-                        busy = true
-                        messages.add(AgentChatMessage("user", goal))
-                        status = "Đang mở Clash of Clans…"
-                        scope.launch {
-                            var capturedScreenshot: android.graphics.Bitmap? = null
-                            try {
-                                val launchIntent = context.packageManager.getLaunchIntentForPackage(GAME_PACKAGE)
-                                    ?: error("Không tìm thấy Clash of Clans trên thiết bị.")
-                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(launchIntent)
-                                delay(2200L)
-                                status = "Đang tự chụp màn hình…"
-                                val screenshot = suspendCancellableCoroutine<android.graphics.Bitmap?> { continuation ->
-                                    val accepted = CoCAccessibilityService.captureScreen { bitmap ->
-                                        if (continuation.isActive) continuation.resume(bitmap)
-                                    }
-                                    if (!accepted && continuation.isActive) continuation.resume(null)
-                                } ?: error("Không chụp được màn hình. Kiểm tra quyền Trợ năng hoặc cửa sổ đang hiển thị.")
-                                capturedScreenshot = screenshot
-                                val ocrBitmap = screenshot.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
-                                val recognizedText = suspendCancellableCoroutine<String?> { continuation ->
-                                    LocalOcrProcessor.recognize(ocrBitmap) { result ->
-                                        if (continuation.isActive) continuation.resume(result)
-                                    }
-                                }.orEmpty()
-                                status = "Đang phân tích tình huống…"
-                                val inventory = skillRegistry.all().joinToString("\n") {
-                                    "${it.id} | ${it.name} | ${it.status.name} | ${it.description}"
-                                }
-                                val prompt = """
-                                    $systemRules
-
-                                    MỤC TIÊU NGƯỜI DÙNG:
-                                    $goal
-
-                                    VĂN BẢN OCR TỪ MÀN HÌNH HIỆN TẠI:
-                                    ${recognizedText.take(5000).ifBlank { "(OCR không nhận diện được văn bản)" }}
-
-                                    DANH MỤC SKILL:
-                                    $inventory
-
-                                    Hãy phân tích theo các mục: tình trạng quan sát được, suy luận có độ tin cậy,
-                                    thông tin còn thiếu, Skill phù hợp và bước tiếp theo. Không được giả vờ đã click
-                                    hoặc hoàn tất tác vụ. Chỉ đề xuất hành động; không trả về tọa độ để tự động click.
-                                    """.trimIndent()
-                                val result = GeminiClient.generate(apiKey, prompt, if (shareScreenshot) screenshot else null)
-                                messages.add(AgentChatMessage("agent", result))
-                                status = if (shareScreenshot) "Đã phân tích ảnh và OCR bằng Gemini." else "Đã phân tích OCR; ảnh vẫn ở trên thiết bị."
-                                onStatus(status)
-                            } catch (error: Exception) {
-                                status = "Chưa hoàn tất: ${error.message ?: "lỗi không xác định"}"
-                                messages.add(AgentChatMessage("agent", status))
-                                onStatus(status)
-                            } finally {
-                                capturedScreenshot?.recycle()
-                                busy = false
-                            }
-                        }
-                    },
-                    enabled = !busy && goal.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = AgentAccent)
-                ) {
-                    androidx.compose.material3.Icon(Icons.Default.Gamepad, contentDescription = null)
-                    Spacer(Modifier.height(4.dp))
-                    Text(if (busy) "Đang xử lý…" else "Phân tích CoC")
-                }
-                Text(
-                    "Chạy Agent là xác nhận cho phép thực hiện tối đa 5 lần chạy Skill và một vòng xác minh cuối. Agent chỉ gọi Skill VERIFIED, chụp lại màn hình sau mỗi Skill và tự dừng khi không xác minh được.",
-                    color = AgentMuted, fontSize = 10.sp
-                )
                 Button(
                     onClick = {
                         if (goal.isBlank()) {
@@ -248,7 +145,6 @@ fun CentralAgentStudio(
                                     apiKey = apiKey,
                                     goal = goal,
                                     registry = skillRegistry,
-                                    shareScreenshot = shareScreenshot,
                                     onStatus = { stage ->
                                         status = stage
                                         onStatus(stage)
@@ -273,7 +169,7 @@ fun CentralAgentStudio(
                 ) {
                     androidx.compose.material3.Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     Spacer(Modifier.padding(horizontal = 3.dp))
-                    Text(if (busy) "Agent đang chạy…" else "Chạy Agent tự động · tối đa 5 Skill")
+                    Text(if (busy) "Agent đang chạy…" else "Chạy Agent tự động")
                 }
                 if (agentJob != null) {
                     OutlinedButton(
@@ -343,7 +239,7 @@ fun CentralAgentStudio(
                 }) { Text("Xem / sửa nguyên tắc Agent", color = AgentCyan) }
             }
             Text(
-                "Giới hạn hiện tại: Agent tự mở game, chụp màn hình và phân tích. Thao tác chạm chỉ được chạy qua Workflow/Skill đã kiểm chứng; chưa tự click từ câu trả lời Gemini.",
+                "Agent tự quan sát màn hình và dùng Vision nội bộ. Không giới hạn cứng số lần chạy Skill; phiên chạy có ngân sách thời gian, mỗi Skill có giới hạn bước/thời gian và luôn có nút Dừng.",
                 color = AgentMuted, fontSize = 10.sp
             )
         }
