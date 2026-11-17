@@ -35,7 +35,7 @@ The local SQLite database `skill_research.db` contains:
 - `procedure_steps`: ordered preconditions, action, postconditions and evidence links.
 - `strategies`: strategy records with kind, structured content, confidence and evidence.
 - `calculations`: descriptive formula, inputs, result and evidence.
-- `custom_datasets`: AI-created named datasets with JSON schema and records.
+- `custom_datasets`: AI-created named datasets with JSON schema and records. The Agent can page through every table with bounded database queries and create/update/delete its session-owned datasets.
 - `media_assets`: indexed references to original and cropped media.
 - `skill_documents`: final manifest and CASL document.
 
