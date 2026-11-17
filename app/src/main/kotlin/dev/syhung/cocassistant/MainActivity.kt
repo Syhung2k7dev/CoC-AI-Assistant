@@ -180,8 +180,8 @@ private fun CoCAssistantApp() {
                     val items = listOf(
                         "Tổng quan" to Icons.Default.Dashboard,
                         "Thị giác" to Icons.Default.Visibility,
-                        "CASL" to Icons.Default.AccountTree,
-                        "Skills" to Icons.Default.AutoAwesome,
+                        "Quy trình" to Icons.Default.AccountTree,
+                        "Kỹ năng" to Icons.Default.AutoAwesome,
                         "Lịch" to Icons.Default.Schedule,
                         "Cài đặt" to Icons.Default.Settings
                     )
@@ -233,7 +233,8 @@ private fun CoCAssistantApp() {
                                 MetricCard("Phiên bản", "1.0", "Phiên bản CADSS", Icons.Default.Verified, Modifier.weight(1f))
                             }
                         }
-                        item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Lối tắt nhanh") }
+                        item { CentralAgentStudio(skillRegistry = skillRegistry, apiKey = apiKey, onStatus = { status = it }) }
+                        item { SectionHeading("TRUNG TÂM ĐIỀU KHIỂN", "Công cụ và dữ liệu") }
                         item { PanelCard { AutomationControlPanel(onStatus = { status = it }) } }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -260,7 +261,7 @@ private fun CoCAssistantApp() {
                         item { PanelCard { Text("TÌNH TRẠNG HỆ THỐNG", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(10.dp)); Text(status, color = Cyan, fontWeight = FontWeight.SemiBold); Text("Dữ liệu lưu trên thiết bị. AI chỉ kết nối khi bạn chủ động gửi yêu cầu.", color = Muted, fontSize = 12.sp) } }
                     }
                     1 -> {
-                        item { PageIntro("Không gian thị giác", "Phân tích hình ảnh cục bộ và lưu dấu vân tay thị giác.") }
+                        item { PageIntro("Thị giác", "Quan sát và ghi nhớ trạng thái màn hình.") }
                         item {
                             PanelCard {
                                 Icon(Icons.Default.AutoAwesome, null, tint = Cyan, modifier = Modifier.size(30.dp))
@@ -352,7 +353,7 @@ private fun CoCAssistantApp() {
                         }
                     }
                     2 -> {
-                        item { PageIntro("Trình quản lý quy tắc CASL", "Tạo và kiểm tra luồng IF / ELSE bằng JSON DSL an toàn.") }
+                        item { PageIntro("Quy trình tự động", "Điều phối công việc, điều kiện và nhánh bằng CASL.") }
                         item {
                             PanelCard {
                                 Text("Ví dụ quy tắc", color = Cyan, fontWeight = FontWeight.Bold)
@@ -380,7 +381,7 @@ private fun CoCAssistantApp() {
                         }
                     }
                     3 -> {
-                        item { PageIntro("Agent Workbench", "Tạo công việc bằng Workflow và mở rộng năng lực bằng Skill.") }
+                        item { PageIntro("Thư viện kỹ năng", "Theo dõi nghiên cứu, kiểm thử và xác minh từng kỹ năng.") }
                         item { WorkflowStudioPanel(workflowRegistry, skillRegistry, apiKey) }
                         item { SkillLibraryPanel(skillRegistry, apiKey, selectedBitmap) }
                     }
