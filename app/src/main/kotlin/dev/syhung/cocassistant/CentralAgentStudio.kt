@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -77,6 +78,7 @@ fun CentralAgentStudio(
     val prefs = remember { context.getSharedPreferences("coc_agent_preferences", Context.MODE_PRIVATE) }
     var goal by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var agentJob by remember { mutableStateOf<Job?>(null) }
     var shareScreenshot by remember { mutableStateOf(false) }
     var systemRules by remember { mutableStateOf(prefs.getString("system_rules", DEFAULT_AGENT_RULES) ?: DEFAULT_AGENT_RULES) }
     var editedRules by remember { mutableStateOf(systemRules) }
@@ -239,7 +241,7 @@ fun CentralAgentStudio(
                         busy = true
                         messages.add(AgentChatMessage("user", "Chạy Agent: $goal"))
                         status = "Đang khởi động vòng lặp Agent…"
-                        scope.launch {
+                        agentJob = scope.launch {
                             try {
                                 val outcome = CentralAgentLoop.run(
                                     context = context,
@@ -261,6 +263,7 @@ fun CentralAgentStudio(
                                 onStatus(status)
                             } finally {
                                 busy = false
+                                agentJob = null
                             }
                         }
                     },
@@ -271,6 +274,17 @@ fun CentralAgentStudio(
                     androidx.compose.material3.Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     Spacer(Modifier.padding(horizontal = 3.dp))
                     Text(if (busy) "Agent đang chạy…" else "Chạy Agent tự động · tối đa 5 Skill")
+                }
+                if (agentJob != null) {
+                    OutlinedButton(
+                        onClick = {
+                            CoCAccessibilityService.stop()
+                            agentJob?.cancel()
+                            status = "Đang dừng Agent theo yêu cầu…"
+                            messages.add(AgentChatMessage("agent", status))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Dừng Agent ngay") }
                 }
                 OutlinedButton(
                     onClick = {
