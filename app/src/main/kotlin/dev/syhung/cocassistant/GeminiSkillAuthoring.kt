@@ -1,5 +1,7 @@
 package dev.syhung.cocassistant
 
+import kotlinx.coroutines.CancellationException
+
 import android.graphics.Bitmap
 import org.json.JSONObject
 
@@ -77,6 +79,7 @@ object GeminiSkillAuthoring {
             val known = registry.all().map { it.id }.toSet()
             SkillDraftOutcome.Created(draft, draft.dependencies.filterNot(known::contains))
         }.getOrElse { error ->
+            if (error is CancellationException) throw error
             SkillDraftOutcome.Failed(error.message ?: "Không thể tạo Skill Draft.")
         }
     }
