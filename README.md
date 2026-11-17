@@ -18,7 +18,9 @@
 
 Bản triển khai trên nhánh này bổ sung giao diện Trung tâm AI, tự mở game, chụp ảnh và OCR. Gemini phân tích mục tiêu dựa trên OCR; gửi ảnh lên Gemini là lựa chọn riêng. Thư viện Skill phân biệt rõ kỹ năng chưa nghiên cứu và đã nghiên cứu, đồng thời có luồng tạo phiên bản nghiên cứu mới.
 
-**Chưa được coi là hoàn tất:** Agent chưa có vòng lặp tự động đầy đủ để tự chọn mọi Skill, thực hiện hành động click từ hội thoại và xác minh kết quả game theo thời gian thực. Câu trả lời Gemini hiện chỉ là phân tích/đề xuất; không được biến văn bản hoặc tọa độ do mô hình tự sinh thành thao tác thiết bị. Muốn thực thi, cần Skill/Workflow CASL đã kiểm thử và VERIFIED cùng ActionExecutor/Accessibility phù hợp. OCR cũng chưa phải bộ nhận diện đầy đủ mọi thành phần giao diện game.
+**Vòng lặp Agent đã được tích hợp ở mức giới hạn:** nút Chạy Agent mở game, quan sát OCR/ảnh theo lựa chọn chia sẻ, yêu cầu Gemini chọn đúng ID/version của Skill VERIFIED, thực thi CASL qua ActionExecutor, chụp lại màn hình và yêu cầu xác minh trước khi đi tiếp. Một phiên tối đa 5 lần chạy Skill, có một lượt quan sát xác minh cuối và có nút Dừng. Gemini không được phát tọa độ hoặc thao tác tùy ý.
+
+**Giới hạn cần kiểm chứng:** việc xác minh hiện dựa trên phân tích OCR/ảnh của Gemini, chưa phải bộ xác minh trạng thái UI tất định cho mọi màn hình. Nếu thiếu Skill VERIFIED, không nhận diện được màn hình, AI trả kế hoạch sai schema hoặc không chứng minh được kết quả, Agent sẽ dừng. Chưa có bằng chứng chạy thành công trên thiết bị thật; OCR chưa nhận diện đầy đủ mọi thành phần game.
 
 ## Quyền Android và giới hạn
 
