@@ -43,6 +43,8 @@ Tab **Cài đặt** giữ bảng điều khiển thao tác thử để kiểm tr
 - Người dùng phải tự bật quyền Accessibility trong Android Settings.
 - Chụp màn hình có thể thất bại với cửa sổ được bảo vệ hoặc khi Android từ chối.
 - Ảnh chỉ được gửi lên Gemini khi người dùng chủ động bật lựa chọn chia sẻ; mặc định chỉ gửi văn bản OCR.
-- Agent hiện có thể tự mở game, chụp và phân tích. Vòng lặp tự chọn Skill, tự click theo kế hoạch hội thoại và tự xác minh toàn bộ trạng thái game vẫn cần tích hợp thêm.
+- Vòng lặp Agent đã có thể chọn và chạy Skill VERIFIED theo CASL, nhưng chỉ trong giới hạn một phiên và cần có Skill đã được kiểm thử phù hợp với mục tiêu.
+- Xác minh sau hành động hiện dựa trên OCR/ảnh và đánh giá của Gemini; không bảo đảm nhận diện đúng mọi trạng thái game. Khi không chắc chắn Agent phải dừng.
+- Cần kiểm thử trên thiết bị Android thật vì quyền Accessibility, capture và chính sách nền khác nhau theo nhà sản xuất.
 - Không biến văn bản hoặc tọa độ do mô hình sinh ra thành thao tác thiết bị trực tiếp.
 - Cần kiểm thử trên thiết bị Android thật vì quyền Accessibility, capture và chính sách nền khác nhau theo nhà sản xuất.
