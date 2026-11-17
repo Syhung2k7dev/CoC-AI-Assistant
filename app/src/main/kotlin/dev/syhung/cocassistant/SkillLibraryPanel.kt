@@ -38,7 +38,7 @@ fun SkillLibraryPanel(
     val statusState = remember { mutableStateOf("") }
     val busyState = remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val skills = skillsState.value.sortedWith(compareBy<AgentSkill> { it.category }.thenBy { it.name })
+    val skills = skillsState.value.groupBy { it.id }.values.mapNotNull { versions -> versions.maxByOrNull { it.version } }.sortedWith(compareBy<AgentSkill> { it.category }.thenBy { it.name })
     val categories = skills.map { it.category }.distinct()
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
