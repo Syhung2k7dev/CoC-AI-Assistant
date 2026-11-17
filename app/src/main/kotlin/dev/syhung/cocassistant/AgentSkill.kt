@@ -12,12 +12,23 @@ enum class SkillLifecycle {
     DRAFT, TESTING, VERIFIED, EXPERIMENTAL, DISABLED
 }
 
+/** Higher levels may compose lower levels, never peers or ancestors. */
+enum class SkillLevel {
+    L0_PRIMITIVE,
+    L1_ATOMIC,
+    L2_COMPOSITE,
+    L3_ORCHESTRATOR;
+
+    fun canDependOn(dependency: SkillLevel): Boolean = dependency.ordinal < ordinal
+}
+
 /** A Skill is validated data and a workflow contract, never executable source code. */
 data class AgentSkill(
     val id: String,
     val name: String,
     val description: String,
     val category: String,
+    val level: SkillLevel = SkillLevel.L1_ATOMIC,
     val version: Int = 1,
     val status: SkillLifecycle = SkillLifecycle.DRAFT,
     val inputs: List<String> = emptyList(),
@@ -42,6 +53,9 @@ data class AgentSkill(
             description.isNotBlank() && description.length <= 500 &&
             category.isNotBlank() && category.length <= 60 &&
             version >= 1 && confidence in 0f..1f &&
+            dependencies.distinct().size == dependencies.size &&
+            dependencyVersions.keys.all { it in dependencies } &&
+            (level != SkillLevel.L0_PRIMITIVE || dependencies.isEmpty()) &&
             minAgentVersion >= 1 && (maxAgentVersion == null || maxAgentVersion >= minAgentVersion) &&
             dependencyVersions.size <= 40 && dependencyVersions.values.all { it >= 1 } &&
             testPassed >= 0 && testTotal >= 0 && testPassed <= testTotal &&
@@ -60,7 +74,8 @@ data class AgentSkill(
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("description", description)
-        .put("category", category).put("version", version).put("status", status.name)
+        .put("category", category).put("level", level.name)
+        .put("version", version).put("status", status.name)
         .put("inputs", JSONArray(inputs)).put("outputs", JSONArray(outputs))
         .put("dependencies", JSONArray(dependencies))
         .put("capabilities", JSONArray(capabilities.map { it.name }))
@@ -80,6 +95,8 @@ data class AgentSkill(
                 name = json.getString("name"),
                 description = json.getString("description"),
                 category = json.getString("category"),
+                level = runCatching { SkillLevel.valueOf(json.optString("level", SkillLevel.L1_ATOMIC.name)) }
+                    .getOrDefault(SkillLevel.L1_ATOMIC),
                 version = json.optInt("version", 1),
                 status = runCatching { SkillLifecycle.valueOf(json.optString("status", "DRAFT")) }
                     .getOrDefault(SkillLifecycle.DRAFT),
@@ -134,10 +151,18 @@ class AgentSkillRegistry(context: Context) {
             .maxByOrNull { it.version }
 
     @Synchronized
+    fun findVerified(id: String, version: Int? = null): AgentSkill? =
+        all().filter {
+            it.id == id && it.status == SkillLifecycle.VERIFIED &&
+                (version == null || it.version == version)
+        }.maxByOrNull { it.version }
+
+    @Synchronized
     fun findVerifiedScript(id: String, version: Int? = null): JSONObject? {
         val records = all()
         val skill = records.filter {
-            it.id == id && (version == null || it.version == version)
+            it.id == id && it.status == SkillLifecycle.VERIFIED &&
+                (version == null || it.version == version)
         }.maxByOrNull { it.version } ?: return null
         if (!isDependencyGraphVerified(skill, records, linkedSetOf())) return null
         return runCatching { JSONObject(skill.scriptJson) }.getOrNull()
@@ -157,7 +182,8 @@ class AgentSkillRegistry(context: Context) {
                 .filter { it.id == dependency && it.status == SkillLifecycle.VERIFIED }
                 .filter { minimumVersion == null || it.version >= minimumVersion }
                 .maxByOrNull { it.version }
-            target != null && isDependencyGraphVerified(target, records, visiting)
+            target != null && skill.level.canDependOn(target.level) &&
+                isDependencyGraphVerified(target, records, visiting)
         }
         visiting.remove(node)
         return ready
@@ -167,6 +193,10 @@ class AgentSkillRegistry(context: Context) {
     fun saveDraft(skill: AgentSkill): Boolean {
         if (!skill.validate()) return false
         val current = all().toMutableList()
+        if (skill.dependencies.any { dependency ->
+                val target = current.filter { it.id == dependency }.maxByOrNull { it.version }
+                target != null && !skill.level.canDependOn(target.level)
+            }) return false
         if (current.any { it.id == skill.id && it.version == skill.version }) return false
         val highestVersion = current.filter { it.id == skill.id }.maxOfOrNull { it.version } ?: 0
         if (skill.version <= highestVersion) return false
@@ -203,14 +233,14 @@ class AgentSkillRegistry(context: Context) {
         if (index < 0) return false
         val skill = current[index]
         if (skill.scriptJson.isBlank()) return false
-        val verifiedById = current
-            .filter { it.status == SkillLifecycle.VERIFIED }
-            .groupBy { it.id }
-            .mapValues { (_, versions) -> versions.maxByOrNull { it.version } }
         if (skill.dependencies.any { dependency ->
-                val found = verifiedById[dependency]
-                found == null ||
-                    (skill.dependencyVersions[dependency]?.let { found.version < it } == true)
+                val minimumVersion = skill.dependencyVersions[dependency]
+                val found = current.asSequence()
+                    .filter { it.id == dependency && it.status == SkillLifecycle.VERIFIED }
+                    .filter { minimumVersion == null || it.version >= minimumVersion }
+                    .maxByOrNull { it.version }
+                found == null || !skill.level.canDependOn(found.level) ||
+                    !isDependencyGraphVerified(found, current, linkedSetOf())
             }) return false
         current[index] = skill.copy(
             status = SkillLifecycle.VERIFIED,
@@ -223,6 +253,21 @@ class AgentSkillRegistry(context: Context) {
         return true
     }
 
+    @Synchronized
+    fun updateBuiltinLevel(id: String, level: SkillLevel): Boolean {
+        val current = all().toMutableList()
+        val index = current.indexOfLast { it.id == id && it.source == "builtin_catalog" }
+        if (index < 0 || current[index].status != SkillLifecycle.DRAFT) return false
+        val skill = current[index]
+        if (skill.dependencies.any { dependency ->
+                val target = current.filter { it.id == dependency }.maxByOrNull { it.version }
+                target != null && !level.canDependOn(target.level)
+            }) return false
+        current[index] = skill.copy(level = level, updatedAt = System.currentTimeMillis())
+        persist(current)
+        return true
+    }
+
     private fun persist(skills: List<AgentSkill>) {
         prefs.edit().putString(KEY_SKILLS, JSONArray().apply {
             skills.forEach { put(it.toJson()) }
@@ -230,6 +275,21 @@ class AgentSkillRegistry(context: Context) {
     }
 
     companion object { private const val KEY_SKILLS = "collection:skill_registry" }
+}
+
+/** Loads only verified, dependency-complete Skills compatible with this agent version. */
+data class LoadedSkill(val manifest: AgentSkill, val script: JSONObject)
+
+class SkillLoader(
+    private val registry: AgentSkillRegistry,
+    private val agentVersion: Int = 1
+) {
+    fun load(id: String, version: Int? = null): LoadedSkill? {
+        val manifest = registry.findVerified(id, version) ?: return null
+        if (!manifest.supportsAgentVersion(agentVersion)) return null
+        val script = registry.findVerifiedScript(id, version) ?: return null
+        return LoadedSkill(manifest, script)
+    }
 }
 
 /** Typed action request; arbitrary shell commands and generated source are not accepted. */
