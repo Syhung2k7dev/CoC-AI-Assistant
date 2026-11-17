@@ -106,7 +106,7 @@ Trong nhánh triển khai AI Provider Runtime:
 
 Các phần vẫn chưa được triển khai đầy đủ:
 
-- Đăng ký Provider hiện mới có Gemini; chưa có cấu hình Provider thứ hai, lưu credential an toàn hoặc fallback có chính sách.
+- Đăng ký Provider hiện mới có Gemini; chưa có cấu hình Provider thứ hai hoặc fallback có chính sách. Credential vault không được bật: API Key chỉ tồn tại trong bộ nhớ phiên theo quyết định sản phẩm.
 - Cancellation: Gemini adapter chạy request trên Dispatchers.IO; khi coroutine bị hủy, cancellation handler đóng HttpURLConnection đang hoạt động. Cần CI và kiểm thử thiết bị để xác nhận hành vi trên các tình huống mạng thực tế.
 - Streaming/SSE và idle-timeout cho stream.
 - Usage/Diagnostics bền vững và chính sách redaction nâng cao.
