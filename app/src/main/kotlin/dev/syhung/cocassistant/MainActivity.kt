@@ -332,6 +332,22 @@ private fun CoCAssistantApp() {
                                     }
                                     Text(obj.optString("status", "CỤC BỘ"), color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 }
+                                if (obj.optString("status") == "REVIEW_REQUIRED") {
+                                    TextButton(
+                                        onClick = {
+                                            runCatching {
+                                                visionLearning.reverifyTemplate(obj.optString("id"), obj.optString("label"))
+                                            }.onSuccess {
+                                                history = visionLearning.listTemplates(includeReviewRequired = true) + store.getRecords("vision_memory")
+                                                templateCount = visionLearning.listTemplates().size
+                                                status = "Đã xác minh lại Vision template"
+                                            }.onFailure {
+                                                status = "Không thể xác minh template: ${it.message}"
+                                            }
+                                        },
+                                        enabled = !busy
+                                    ) { Text("Xác minh lại template", color = Cyan) }
+                                }
                             }
                         }
                     }
