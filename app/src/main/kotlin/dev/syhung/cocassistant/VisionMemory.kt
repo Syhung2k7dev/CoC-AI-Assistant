@@ -29,8 +29,8 @@ object VisionMemory {
             val left = (bitmap.width - side) / 2
             val top = (bitmap.height - side) / 2
             val center = Bitmap.createBitmap(bitmap, left, top, side, side)
-            try {
-                val cropWritten = cropFile.outputStream().use {
+            val cropWritten = try {
+                cropFile.outputStream().use {
                     center.compress(Bitmap.CompressFormat.JPEG, 88, it)
                 }
             } finally {
