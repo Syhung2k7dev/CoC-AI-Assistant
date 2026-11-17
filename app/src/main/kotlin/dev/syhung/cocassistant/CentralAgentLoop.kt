@@ -3,6 +3,7 @@ package dev.syhung.cocassistant
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.SystemClock
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.delay
@@ -16,8 +17,7 @@ import kotlin.coroutines.resume
  * All device actions remain behind ActionExecutor and the user's explicit start action.
  */
 object CentralAgentLoop {
-    private const val MAX_CYCLES = 6
-    private const val MAX_SKILL_ACTIONS = 5
+    private const val MAX_SESSION_RUN_MS = 30 * 60_000L
     private const val MAX_SKILL_RUN_MS = 90_000L
     private const val MAX_SKILL_STEPS = 120
     private const val GAME_PACKAGE = "com.supercell.clashofclans"
@@ -27,7 +27,6 @@ object CentralAgentLoop {
         apiKey: String,
         goal: String,
         registry: AgentSkillRegistry,
-        shareScreenshot: Boolean,
         onStatus: (String) -> Unit
     ): String {
         require(apiKey.isNotBlank()) { "Chưa có Gemini API Key." }
@@ -52,15 +51,21 @@ object CentralAgentLoop {
                 "instructions=${it.instructions.take(900)}"
         }
 
+        val sessionStartedAt = SystemClock.elapsedRealtime()
+        var cycle = 0
         var previousAction = "Chưa có hành động nào."
         var previousVerification = "not_applicable"
         var previousEvidence = ""
-        val skillRuns = linkedMapOf<String, Int>()
         var totalSkillRuns = 0
         val executionNotes = mutableListOf<String>()
 
-        for (cycle in 1..MAX_CYCLES) {
-            onStatus("Vòng $cycle/$MAX_CYCLES · Đang quan sát màn hình CoC…")
+        while (true) {
+            cycle++
+            val sessionExpired = SystemClock.elapsedRealtime() - sessionStartedAt >= MAX_SESSION_RUN_MS
+            if (sessionExpired && previousAction == "Chưa có hành động nào.") {
+                return "Agent đã hết ngân sách thời gian phiên (30 phút) trước khi có hành động. Nhật ký: Không có thao tác."
+            }
+            onStatus("Vòng $cycle · Đang quan sát màn hình CoC…")
             val screenshot = captureScreen()
                 ?: error("Không chụp được màn hình. Agent đã dừng, không thực hiện thao tác.")
             val ocrBitmap = screenshot.copy(Bitmap.Config.ARGB_8888, false)
@@ -109,12 +114,13 @@ object CentralAgentLoop {
                 - Nếu hành động trước thành công, đặt verification=success và nêu bằng chứng OCR cụ thể.
                 - Nếu chưa cần hành động, chọn done. Nếu thiếu thông tin cần người dùng, chọn ask_user.
                 - Không tuyên bố hoàn thành nếu không có bằng chứng quan sát được.
-                - Một lần chỉ chọn một Skill; tối đa $MAX_SKILL_ACTIONS lần chạy Skill trong phiên. Ưu tiên an toàn, dừng khi không chắc chắn.
+                - Không có giới hạn cứng về tổng số lần chạy Skill. Chỉ chọn một Skill mỗi vòng, tiếp tục cho đến khi hoàn tất, cần người dùng, không chắc chắn hoặc hết ngân sách phiên 30 phút.
+                - Ngân sách phiên đã hết: $sessionExpired. Khi true, chỉ xác minh hành động vừa chạy rồi chọn done/ask_user/stop; tuyệt đối không bắt đầu Skill mới.
                 - Với decision khác execute_skill, để skillId rỗng và version=0.
             """.trimIndent()
 
             val raw = try {
-                GeminiClient.generate(apiKey, prompt, if (shareScreenshot) screenshot else null)
+                GeminiClient.generate(apiKey, prompt, screenshot)
             } finally {
                 screenshot.recycle()
             }
@@ -132,7 +138,7 @@ object CentralAgentLoop {
                 previousEvidence = verificationQuote.take(800)
             }
             when (decision) {
-                "done" -> return "Agent kết thúc: $reason\n\nNhật ký: ${executionNotes.joinToString(" → ").ifBlank { "Không có thao tác." }}"
+                "done" -> return "Agent kết thúc: $reason\nTổng số lần chạy Skill: $totalSkillRuns\n\nNhật ký: ${executionNotes.joinToString(" → ").ifBlank { "Không có thao tác." }}"
                 "ask_user" -> return "Agent cần bạn xác nhận thêm: ${plan.optString("userQuestion").ifBlank { reason }}"
                 "stop" -> return "Agent chủ động dừng: $reason"
                 "execute_skill" -> {
@@ -152,12 +158,11 @@ object CentralAgentLoop {
                     check(script.optString("kind") == "skill" &&
                         script.optString("id") == skillId && script.optInt("version") == version
                     ) { "CASL script không khớp ID/version đã pin." }
-                    check(totalSkillRuns < MAX_SKILL_ACTIONS) { "Agent đã đạt giới hạn $MAX_SKILL_ACTIONS lần chạy Skill; dừng để giữ an toàn." }
-                    val runCount = (skillRuns[skillId] ?: 0) + 1
-                    check(runCount <= 2) { "Agent chặn lặp Skill $skillId quá hai lần trong một phiên." }
-                    skillRuns[skillId] = runCount
+                    if (sessionExpired) {
+                        return "Đã hết ngân sách thời gian phiên. Agent đã xác minh hành động trước và không khởi chạy Skill mới. Nhật ký: ${executionNotes.joinToString(" → ")}"
+                    }
 
-                    onStatus("Vòng $cycle/$MAX_CYCLES · Đang chạy Skill đã xác minh: ${skill.name}")
+                    onStatus("Vòng $cycle · Đang chạy Skill đã xác minh: ${skill.name}")
                     val runtime = CaslScriptRuntime(
                         apiRegistry = createApiRegistry(context),
                         skillScriptProvider = registry::findVerifiedScript,
@@ -172,6 +177,7 @@ object CentralAgentLoop {
                     previousAction = "Đã chạy Skill $skillId@$version; số bước CASL=${result.executedSteps}; outputs=${result.outputs}"
                     previousVerification = "pending"
                     previousEvidence = ""
+                    totalSkillRuns++
                     executionNotes.add("$skillId@$version (${result.executedSteps} bước)")
                     onStatus("Skill đã chạy · Đang chụp lại màn hình để xác minh…")
                     delay(1_600L)
@@ -179,7 +185,6 @@ object CentralAgentLoop {
                 else -> error("Gemini trả decision không hợp lệ; Agent đã dừng để tránh thao tác ngoài kế hoạch.")
             }
         }
-        return "Agent đã chạm giới hạn $MAX_CYCLES vòng và tự dừng. Nhật ký: ${executionNotes.joinToString(" → ")}"
     }
 
     private fun containsOcrQuote(ocr: String, quote: String): Boolean {
