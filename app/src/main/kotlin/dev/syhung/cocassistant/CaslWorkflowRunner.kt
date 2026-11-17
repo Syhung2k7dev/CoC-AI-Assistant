@@ -16,6 +16,7 @@ class CaslWorkflowRunner(
 ) {
     private val workflows = CaslWorkflowRegistry(context)
     private val skills = AgentSkillRegistry(context)
+    private val skillLoader = SkillLoader(skills)
 
     suspend fun execute(
         workflowId: String,
@@ -29,7 +30,7 @@ class CaslWorkflowRunner(
         val runtime = CaslScriptRuntime(
             apiRegistry = apiRegistry,
             skillScriptProvider = { skillId, skillVersion ->
-                skills.findVerifiedScript(skillId, skillVersion)
+                skillLoader.loadScript(skillId, skillVersion)
             }
         )
         return try {
