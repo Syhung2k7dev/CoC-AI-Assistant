@@ -112,6 +112,10 @@ object AutonomousSkillResearchLoop {
         registry: AgentSkillRegistry,
         onStatus: (String) -> Unit
     ): SkillDraftOutcome {
+        val sessionId = UUID.randomUUID().toString()
+        ResearchDebugLog.begin(context, sessionId)
+        ResearchDebugLog.record("PRECHECK", "Kiểm tra điều kiện chạy nghiên cứu",
+            "apiKeyPresent=${apiKey.isNotBlank()}\naccessibilityConnected=${CoCAccessibilityService.isConnected()}\npackage=$GAME_PACKAGE")
         require(apiKey.isNotBlank()) { "Chưa có Gemini API Key." }
         require(CoCAccessibilityService.isConnected()) {
             "Chưa kết nối Accessibility Service. Hãy bật dịch vụ trong Cài đặt Android."
@@ -119,10 +123,12 @@ object AutonomousSkillResearchLoop {
         val launchIntent = context.packageManager.getLaunchIntentForPackage(GAME_PACKAGE)
             ?: error("Không tìm thấy Clash of Clans trên thiết bị.")
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        ResearchDebugLog.record("LAUNCH", "Đang mở Clash of Clans")
         context.startActivity(launchIntent)
         delay(5_000L)
+        ResearchDebugLog.record("LAUNCH", "Đã chờ game khởi động 5 giây",
+            "foreground=${CoCAccessibilityService.isGameForeground(GAME_PACKAGE)}")
 
-        val sessionId = UUID.randomUUID().toString()
         val db = SkillResearchDatabase(context)
         val cadss = CadssStore(context)
         db.startSession(sessionId, target?.id, goal)
@@ -143,12 +149,31 @@ object AutonomousSkillResearchLoop {
             ) {
                 cycle++
                 onStatus("Phiên ${sessionId.take(8)} · vòng $cycle · đang chụp màn hình CoC")
+                ResearchDebugLog.record("SCREENSHOT", "Vòng $cycle: yêu cầu chụp màn hình",
+                    "foreground=${CoCAccessibilityService.isGameForeground(GAME_PACKAGE)}")
+                val captureStarted = SystemClock.elapsedRealtime()
                 val screenshot = captureScreen()
-                    ?: error("Không chụp được màn hình CoC. Phiên nghiên cứu đã dừng.")
+                    ?: run {
+                        ResearchDebugLog.record("SCREENSHOT_ERROR", "Chụp màn hình thất bại",
+                            "captureScreen returned null; accessibilityConnected=${CoCAccessibilityService.isConnected()}")
+                        error("Không chụp được màn hình CoC. Phiên nghiên cứu đã dừng.")
+                    }
+                ResearchDebugLog.record("SCREENSHOT", "Đã nhận ảnh màn hình",
+                    "width=${screenshot.width}px\nheight=${screenshot.height}px\nbytesEstimate=${screenshot.byteCount}\ncaptureWaitMs=${SystemClock.elapsedRealtime() - captureStarted}")
                 val observationId = UUID.randomUUID().toString()
+                val visionStarted = SystemClock.elapsedRealtime()
                 val phash = withContext(Dispatchers.Default) { VisionProcessor.perceptualHash(screenshot) }
+                ResearchDebugLog.record("VISION", "Đã tính perceptual hash",
+                    "pHash=$phash\nelapsedMs=${SystemClock.elapsedRealtime() - visionStarted}")
+                val ocrStarted = SystemClock.elapsedRealtime()
                 val ocr = try { recognize(screenshot).orEmpty().take(12_000) }
-                    catch (_: Exception) { "" }
+                    catch (error: Exception) {
+                        ResearchDebugLog.record("OCR_ERROR", "OCR thất bại; tiếp tục bằng ảnh",
+                            "${error.javaClass.simpleName}: ${error.message}")
+                        ""
+                    }
+                ResearchDebugLog.record("OCR", "Hoàn tất OCR cục bộ",
+                    "elapsedMs=${SystemClock.elapsedRealtime() - ocrStarted}\ncharacters=${ocr.length}\ntextPreview=${ocr.take(700)}")
                 val screenAsset = withContext(Dispatchers.IO) {
                     VisionMemory.save(context, screenshot, phash).also { asset ->
                         val mediaRecord = JSONObject(asset.toString())
@@ -159,17 +184,33 @@ object AutonomousSkillResearchLoop {
                         db.recordMedia(sessionId, observationId, mediaRecord, "screenshot")
                     }
                 }
+                ResearchDebugLog.record("IMAGE_SAVED", "Đã lưu ảnh bằng chứng",
+                    "assetId=${screenAsset.optString("id")}\nfile=${screenAsset.optString("original")}\nresolution=${screenAsset.optInt("width")}x${screenAsset.optInt("height")}",
+                    screenAsset.optString("original"))
                 val prompt = buildResearchPrompt(
                     goal, target, cycle, ocr, previousAction, previousActionResult,
                     latestManifest, latestCasl, db, sessionId, databaseQueryResults
                 )
                 databaseQueryResults = JSONArray()
+                ResearchDebugLog.record("PROMPT", "Chuẩn bị gửi yêu cầu phân tích",
+                    "promptCharacters=${prompt.length}\nocrCharacters=${ocr.length}\nimage=${screenshot.width}x${screenshot.height}\nmodelFallbacks=${GeminiProviderAdapter.FALLBACK_MODELS.joinToString()}")
+                val apiStarted = SystemClock.elapsedRealtime()
+                ResearchDebugLog.record("API", "Bắt đầu gọi Gemini · vòng $cycle")
                 val raw = try {
                     withTimeout(60_000L) { GeminiClient.generate(apiKey, prompt, screenshot) }
+                } catch (error: Exception) {
+                    ResearchDebugLog.record("API_ERROR", "Gemini request thất bại",
+                        "elapsedMs=${SystemClock.elapsedRealtime() - apiStarted}\n${error.javaClass.simpleName}: ${error.message}")
+                    throw error
                 } finally {
                     screenshot.recycle()
                 }
+                ResearchDebugLog.record("API", "Đã nhận phản hồi Gemini",
+                    "elapsedMs=${SystemClock.elapsedRealtime() - apiStarted}\nresponseCharacters=${raw.length}\nresponsePreview=${raw.take(1_200)}")
+                val parseStarted = SystemClock.elapsedRealtime()
                 val response = parseJson(raw)
+                ResearchDebugLog.record("PARSE", "Đã phân tích JSON từ Gemini",
+                    "elapsedMs=${SystemClock.elapsedRealtime() - parseStarted}\nkeys=${response.keys().asSequence().toList().joinToString()}")
                 if (previousObservationId != null) {
                     val verification = response.optJSONObject("previousActionVerification") ?: JSONObject()
                     previousActionResult = JSONObject(previousActionResult.toString())
@@ -235,6 +276,8 @@ object AutonomousSkillResearchLoop {
 
                 val action = response.optJSONObject("nextAction") ?: JSONObject().put("type", "stop")
                 val actionType = action.optString("type", "stop")
+                ResearchDebugLog.record("AI_DECISION", "Gemini đã chọn hành động: $actionType",
+                    "analysis=${lastAnalysis.take(1_500)}\nnextAction=${action.toString()}\nresearchComplete=${response.optBoolean("researchComplete", false)}\nscreenKey=$screenKey")
                 val executedAction = JSONObject(action.toString())
                 val executedResult = JSONObject()
                 db.recordObservation(
@@ -261,7 +304,10 @@ object AutonomousSkillResearchLoop {
                             (metrics.heightPixels * y / 1000f).coerceIn(0f, metrics.heightPixels.toFloat()),
                             action.optLong("durationMs", 100L).coerceIn(50L, 1_500L)
                         )
+                        ResearchDebugLog.record("ACTION", "Đang gửi TAP tới Accessibility",
+                            "normalizedX=$x\nnormalizedY=$y\ndurationMs=${action.optLong("durationMs", 100L)}")
                         val ok = CoCAccessibilityService.performSingleStep(step)
+                        ResearchDebugLog.record("ACTION_RESULT", "Kết quả TAP: $ok")
                         executedResult.put("status", if (ok) "dispatched" else "rejected")
                         require(ok) { "Android từ chối thao tác tap." }
                         delay(1_200L)
@@ -287,7 +333,10 @@ object AutonomousSkillResearchLoop {
                             metrics.widthPixels * endX / 1000f, metrics.heightPixels * endY / 1000f,
                             action.optLong("durationMs", 350L).coerceIn(100L, 2_000L)
                         )
+                        ResearchDebugLog.record("ACTION", "Đang gửi SWIPE tới Accessibility",
+                            "from=$x,$y\nto=$endX,$endY\ndurationMs=${action.optLong("durationMs", 350L)}")
                         val ok = CoCAccessibilityService.performSingleStep(step)
+                        ResearchDebugLog.record("ACTION_RESULT", "Kết quả SWIPE: $ok")
                         executedResult.put("status", if (ok) "dispatched" else "rejected")
                         require(ok) { "Android từ chối thao tác swipe." }
                         delay(1_200L)
@@ -312,6 +361,8 @@ object AutonomousSkillResearchLoop {
                 previousActionResult = executedResult
                 previousObservationId = observationId
                 db.updateSession(sessionId, target?.id ?: latestManifest?.optString("id"), "RUNNING", cycle, lastAnalysis)
+                ResearchDebugLog.record("CYCLE_DONE", "Hoàn tất vòng $cycle · $actionType",
+                    "actionResult=${executedResult.toString()}\ncycleElapsedMs=${SystemClock.elapsedRealtime() - started}")
                 onStatus("Vòng $cycle · ${actionType.uppercase()} · đã lưu ảnh, layout, procedure và dữ liệu")
                 if (actionType == "stop" || actionType == "ask_user") {
                     val reason = if (actionType == "ask_user") action.optString("question") else action.optString("reason")
@@ -348,9 +399,12 @@ object AutonomousSkillResearchLoop {
                 else "Đã hết ngân sách 30 phút; bằng chứng và bản nháp hiện tại đã được lưu. Có thể khởi chạy phiên mới để AI tham chiếu dữ liệu cũ."
             )
         } catch (cancelled: CancellationException) {
+            ResearchDebugLog.record("CANCELLED", "Phiên nghiên cứu bị hủy", "cycle=$cycle")
             db.updateSession(sessionId, target?.id, "STOPPED", cycle, "Người dùng đã dừng phiên.")
             throw cancelled
         } catch (error: Exception) {
+            ResearchDebugLog.record("FATAL", "Phiên nghiên cứu gặp lỗi",
+                "cycle=$cycle\n${error.javaClass.name}: ${error.message}")
             db.updateSession(sessionId, target?.id ?: latestManifest?.optString("id"), "FAILED", cycle,
                 (error.message ?: "Lỗi nghiên cứu").take(1_000))
             throw error
