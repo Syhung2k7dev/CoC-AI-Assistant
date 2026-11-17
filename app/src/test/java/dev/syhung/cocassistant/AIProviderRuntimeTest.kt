@@ -111,7 +111,7 @@ class AIProviderRuntimeTest {
 
 
     @Test
-    fun overallRequestTimeoutIsClassifiedAsTimeout() = runBlocking {
+    fun overallRequestTimeoutIsClassifiedAsTimeout(): Unit = runBlocking {
         val adapter = AIProviderAdapter { awaitCancellation() }
         assertThrows(AIProviderException::class.java) {
             runBlocking {
@@ -138,6 +138,34 @@ class AIProviderRuntimeTest {
                 " "
             )
         }
+    }
+
+    @Test
+    fun overallTimeoutDoesNotRestartForEachAttempt() = runBlocking {
+        var calls = 0
+        val adapter = AIProviderAdapter {
+            calls++
+            delay(2_000)
+            "too late"
+        }
+        val error = assertThrows(AIProviderException::class.java) {
+            runBlocking {
+                AIProviderRuntime.generate(
+                    adapter = adapter,
+                    request = AIProviderRequest("hello"),
+                    retryPolicy = AIRetryPolicy(
+                        maxRetries = 4,
+                        initialDelayMillis = 0,
+                        maxDelayMillis = 0,
+                        jitterMillis = 0,
+                        maxRetryAfterMillis = 0
+                    ),
+                    requestTimeoutMillis = 1_000L
+                )
+            }
+        }
+        assertEquals(AIProviderFailure.TIMEOUT, error.failure)
+        assertEquals(1, calls)
     }
 
 }
