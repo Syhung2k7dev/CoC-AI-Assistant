@@ -135,6 +135,7 @@ object AutonomousSkillResearchLoop {
         var latestManifest: JSONObject? = null
         var latestCasl: JSONObject? = null
         var lastAnalysis = ""
+        var databaseQueryResults = JSONArray()
 
         try {
             while (cycle < MAX_CYCLES &&
@@ -150,16 +151,19 @@ object AutonomousSkillResearchLoop {
                     catch (_: Exception) { "" }
                 val screenAsset = withContext(Dispatchers.IO) {
                     VisionMemory.save(context, screenshot, phash).also { asset ->
-                        cadss.addRecord("research_media", JSONObject(asset.toString())
+                        val mediaRecord = JSONObject(asset.toString())
                             .put("sessionId", sessionId)
                             .put("observationId", observationId)
-                            .put("kind", "screenshot"))
+                            .put("kind", "screenshot")
+                        cadss.addRecord("research_media", mediaRecord)
+                        db.recordMedia(sessionId, observationId, mediaRecord, "screenshot")
                     }
                 }
                 val prompt = buildResearchPrompt(
                     goal, target, cycle, ocr, previousAction, previousActionResult,
-                    latestManifest, latestCasl, db, sessionId
+                    latestManifest, latestCasl, db, sessionId, databaseQueryResults
                 )
+                databaseQueryResults = JSONArray()
                 val raw = try {
                     withTimeout(60_000L) { GeminiClient.generate(apiKey, prompt, screenshot) }
                 } finally {
@@ -180,12 +184,19 @@ object AutonomousSkillResearchLoop {
                 val screenKey = response.optString("screenKey", "unknown_screen").take(100)
                 val cropAssets = saveRequestedCrops(
                     context, response.optJSONArray("cropRects"), screenAsset.optString("id"),
-                    sessionId, observationId, cadss
+                    sessionId, observationId, cadss, db
                 )
                 response.optJSONObject("manifest")?.let { latestManifest = JSONObject(it.toString()) }
                 response.optJSONObject("casl")?.let { latestCasl = JSONObject(it.toString()) }
-                response.optJSONObject("layout")?.let {
-                    db.upsertLayout(sessionId, observationId, it)
+                if (latestManifest != null && latestCasl != null) {
+                    db.saveSkillDocument(sessionId, latestManifest!!, latestCasl!!)
+                }
+                val layoutForAction = response.optJSONObject("layout")
+                layoutForAction?.let { db.upsertLayout(sessionId, observationId, it) }
+                response.optJSONArray("baseLayouts")?.let { items ->
+                    for (i in 0 until items.length()) items.optJSONObject(i)?.let {
+                        db.upsertBaseLayout(sessionId, observationId, it)
+                    }
                 }
                 response.optJSONArray("procedure")?.let {
                     db.replaceProcedure(sessionId, observationId, it)
@@ -200,11 +211,37 @@ object AutonomousSkillResearchLoop {
                         db.upsertCalculation(sessionId, observationId, it)
                     }
                 }
+                response.optJSONArray("databaseQueries")?.let { queries ->
+                    for (i in 0 until minOf(queries.length(), 10)) {
+                        val query = queries.optJSONObject(i) ?: continue
+                        val table = query.optString("table")
+                        val result = runCatching {
+                            db.queryTable(table, query.optInt("offset", 0), query.optInt("limit", 50))
+                        }.getOrElse { error -> JSONObject().put("table", table).put("error", error.message ?: "Query failed") }
+                        databaseQueryResults.put(result)
+                    }
+                }
+                response.optJSONArray("datasets")?.let { items ->
+                    for (i in 0 until items.length()) items.optJSONObject(i)?.let {
+                        db.upsertDataset(sessionId, it)
+                    }
+                }
+                response.optJSONArray("deleteDatasets")?.let { items ->
+                    for (i in 0 until items.length()) {
+                        val name = items.optString(i)
+                        if (name.matches(Regex("[a-zA-Z0-9_.-]{1,80}"))) db.deleteDataset(sessionId, name)
+                    }
+                }
 
                 val action = response.optJSONObject("nextAction") ?: JSONObject().put("type", "stop")
                 val actionType = action.optString("type", "stop")
                 val executedAction = JSONObject(action.toString())
                 val executedResult = JSONObject()
+                db.recordObservation(
+                    observationId, sessionId, cycle, screenKey,
+                    screenAsset.optString("original"), cropAssets,
+                    phash, ocr, lastAnalysis, executedAction, JSONObject().put("status", "planned")
+                )
                 when (actionType) {
                     "tap" -> {
                         require(CoCAccessibilityService.isGameForeground(GAME_PACKAGE)) {
@@ -215,6 +252,9 @@ object AutonomousSkillResearchLoop {
                         val x = action.optInt("x", -1)
                         val y = action.optInt("y", -1)
                         require(x in 0..1000 && y in 0..1000) { "Tọa độ tap phải được chuẩn hóa trong 0..1000." }
+                        require(isActionInsideComponent(action, layoutForAction, x, y)) {
+                            "Từ chối tap vì AI chưa gắn tọa độ vào một component an toàn đã nhận diện trên màn hình."
+                        }
                         val metrics = context.resources.displayMetrics
                         val step = AutomationStep.Tap(
                             (metrics.widthPixels * x / 1000f).coerceIn(0f, metrics.widthPixels.toFloat()),
@@ -237,6 +277,10 @@ object AutonomousSkillResearchLoop {
                         require(listOf(x, y, endX, endY).all { it in 0..1000 }) {
                             "Tọa độ swipe phải được chuẩn hóa trong 0..1000."
                         }
+                        require(isActionInsideComponent(action, layoutForAction, x, y) &&
+                            isActionInsideComponent(action, layoutForAction, endX, endY)) {
+                            "Từ chối swipe vì tọa độ không nằm trong component an toàn đã nhận diện."
+                        }
                         val metrics = context.resources.displayMetrics
                         val step = AutomationStep.Swipe(
                             metrics.widthPixels * x / 1000f, metrics.heightPixels * y / 1000f,
@@ -244,7 +288,7 @@ object AutonomousSkillResearchLoop {
                             action.optLong("durationMs", 350L).coerceIn(100L, 2_000L)
                         )
                         val ok = CoCAccessibilityService.performSingleStep(step)
-                        previousActionResult = JSONObject().put("status", if (ok) "dispatched" else "rejected")
+                        executedResult.put("status", if (ok) "dispatched" else "rejected")
                         require(ok) { "Android từ chối thao tác swipe." }
                         delay(1_200L)
                     }
@@ -258,18 +302,22 @@ object AutonomousSkillResearchLoop {
                         executedResult.put("status", "observed_without_gesture")
                     }
                     "done" -> executedResult.put("status", "research_complete_requested")
-                    "stop" -> error("AI yêu cầu dừng nghiên cứu: ${action.optString("reason", "không nêu lý do")}")
-                    "ask_user" -> error("Nghiên cứu cần thông tin bổ sung: ${action.optString("question", "chưa nêu câu hỏi")}")
+                    "stop" -> executedResult.put("status", "stopped").put("reason", action.optString("reason"))
+                    "ask_user" -> executedResult.put("status", "needs_user").put("question", action.optString("question"))
                     else -> error("AI trả về loại hành động không hợp lệ: $actionType")
                 }
 
-                db.recordObservation(
-                    observationId, sessionId, cycle, screenKey,
-                    screenAsset.optString("original"), cropAssets,
-                    phash, ocr, lastAnalysis, action, previousActionResult
-                )
+                db.updateObservationActionResult(observationId, executedResult)
+                previousAction = executedAction
+                previousActionResult = executedResult
+                previousObservationId = observationId
                 db.updateSession(sessionId, target?.id ?: latestManifest?.optString("id"), "RUNNING", cycle, lastAnalysis)
                 onStatus("Vòng $cycle · ${actionType.uppercase()} · đã lưu ảnh, layout, procedure và dữ liệu")
+                if (actionType == "stop" || actionType == "ask_user") {
+                    val reason = if (actionType == "ask_user") action.optString("question") else action.optString("reason")
+                    db.updateSession(sessionId, target?.id ?: latestManifest?.optString("id"), "STOPPED", cycle, reason)
+                    return SkillDraftOutcome.Failed(reason.ifBlank { "AI đã dừng phiên nghiên cứu." })
+                }
 
                 if (actionType == "done") {
                     if (previousObservationId != null && previousActionType in setOf("tap", "swipe")) {
@@ -296,8 +344,8 @@ object AutonomousSkillResearchLoop {
                 }
             }
             error(
-                if (cycle >= MAX_CYCLES) "Đã đạt giới hạn $MAX_CYCLES vòng quan sát; phiên được lưu để tiếp tục sau."
-                else "Đã hết ngân sách 30 phút; phiên được lưu để tiếp tục sau."
+                if (cycle >= MAX_CYCLES) "Đã đạt giới hạn $MAX_CYCLES vòng quan sát; bằng chứng và bản nháp hiện tại đã được lưu. Có thể khởi chạy phiên mới để AI tham chiếu dữ liệu cũ."
+                else "Đã hết ngân sách 30 phút; bằng chứng và bản nháp hiện tại đã được lưu. Có thể khởi chạy phiên mới để AI tham chiếu dữ liệu cũ."
             )
         } catch (cancelled: CancellationException) {
             db.updateSession(sessionId, target?.id, "STOPPED", cycle, "Người dùng đã dừng phiên.")
@@ -321,13 +369,10 @@ object AutonomousSkillResearchLoop {
         manifest: JSONObject?,
         casl: JSONObject?,
         db: SkillResearchDatabase,
-        sessionId: String
+        sessionId: String,
+        databaseQueryResults: JSONArray
     ): String {
-        val databaseSummary = db.exportJson().optJSONObject("tables")?.let { tables ->
-            "observations=${tables.optJSONArray("observations")?.length() ?: 0}, layouts=${tables.optJSONArray("layouts")?.length() ?: 0}, " +
-                "steps=${tables.optJSONArray("procedure_steps")?.length() ?: 0}, strategies=${tables.optJSONArray("strategies")?.length() ?: 0}, " +
-                "calculations=${tables.optJSONArray("calculations")?.length() ?: 0}"
-        }.orEmpty()
+        val databaseSnapshot = db.exportJson().toString().take(60_000)
         return """
             You are the autonomous CoC Skill Research Agent. Research goal: $goal
             Target Skill: ${target?.id ?: "(discover a new Skill)"}; current version: ${target?.version ?: 0}
@@ -336,7 +381,10 @@ object AutonomousSkillResearchLoop {
             Previous action result: $previousResult
             Current OCR evidence (may be empty; never invent text):
             $ocr
-            Research database so far: $databaseSummary
+            FULL PERSISTED RESEARCH DATABASE (truncated only if above 60k chars):
+            $databaseSnapshot
+            PAGED DATABASE QUERY RESULTS FROM THE PREVIOUS CYCLE:
+            $databaseQueryResults
             Current evolving manifest: ${manifest?.toString() ?: "not created"}
             Current evolving CASL: ${casl?.toString() ?: "not created"}
 
@@ -353,7 +401,7 @@ object AutonomousSkillResearchLoop {
               "screenKey":"stable_screen_identifier",
               "previousActionVerification":{"status":"success|failed|uncertain","evidence":"","reason":""},
               "nextAction":{"type":"observe|tap|swipe|wait|done|ask_user|stop",
-                "x":0,"y":0,"endX":0,"endY":0,"durationMs":500,"reason":"","question":""},
+                "x":0,"y":0,"endX":0,"endY":0,"targetComponentKey":"","durationMs":500,"reason":"","question":""},
               "researchComplete":false,
               "manifest":{"id":"","name":"","description":"","category":"","version":1,
                 "inputs":[],"outputs":[],"dependencies":[],"capabilities":[],"instructions":"",
@@ -363,23 +411,35 @@ object AutonomousSkillResearchLoop {
               "layout":{"screenKey":"stable_screen_identifier","screenName":"","confidence":0.0,
                 "components":[{"key":"","label":"","type":"","x":0,"y":0,"width":0,"height":0,
                   "anchor":"","properties":{}}]},
+              "baseLayouts":[{"key":"","name":"","baseType":"home_village|builder_base|war_base","townHallLevel":0,"confidence":0.0,"constraints":{},
+                "items":[{"key":"","type":"","level":0,"x":0,"y":0,"rotation":0,"width":1,"height":1,"confidence":0.0,"metadata":{}}]}],
               "cropRects":[{"x":0,"y":0,"width":1000,"height":1000,"label":""}],
               "procedure":[{"id":"","title":"","preconditions":{},"action":{},"postconditions":{},"status":"OBSERVED"}],
               "strategies":[{"key":"","kind":"attack|farming|upgrade|navigation|other","confidence":0.0,"content":{}}],
-              "calculations":[{"name":"","formula":"","inputs":{},"result":{}}]
+              "calculations":[{"name":"","formula":"","inputs":{},"result":{}}],
+              "datasets":[{"name":"","schema":{},"records":[]}],
+              "deleteDatasets":[],
+              "databaseQueries":[{"table":"observations","offset":0,"limit":50}]
             }
 
             Mandatory rules:
-            - First assess previousActionVerification from the newly attached screenshot. If previous action was tap/swipe, never omit this assessment; quote visible evidence or mark uncertain/failed.\n            - Choose exactly one nextAction each cycle. Coordinates use normalized 0..1000 screen space.
-            - Tap/swipe only visible in-game UI controls. Do not interact with Android system UI, external apps,
+            - First assess previousActionVerification from the newly attached screenshot. If previous action was tap/swipe, never omit this assessment; quote visible evidence or mark uncertain/failed.
+            - Choose exactly one nextAction each cycle. Coordinates use normalized 0..1000 screen space.
+            - Tap/swipe must name targetComponentKey from the current layout and all coordinates must lie inside that component bounding box.
+            - Tap/swipe only visible in-game UI controls. Do not interact with Android system UI,
               purchases, paid offers, account linking, clan chat, or destructive confirmation dialogs.
               If such a screen appears, choose observe or stop and explain.
+            - Inspect prior sessions for the same Skill ID or goal in the database snapshot and reuse their evidence; do not discard previous observations.
             - Never invent a coordinate, label, game state, formula, result, layout, or strategy. Mark unknowns.
             - A component coordinate is a normalized bounding box (x,y,width,height), not a guessed pixel location.
+            - Store CoC village/base layouts separately from screen UI layouts. Base-layout items use game-grid coordinates, building type, level, rotation, footprint, constraints and evidence confidence; do not confuse screen pixels with village grid cells.
             - cropRects are optional normalized rectangles; only request crops that contain useful visual detail.
             - Record every discovered screen layout, UI component, action, precondition, postcondition and result.
             - Procedure steps must describe a reproducible sequence with conditions and observable outcomes.
             - Store strategies and calculations as structured JSON data. Formula is descriptive math, never executable code.
+            - Create or update custom datasets whenever a domain needs its own structured records. Each dataset must have a stable name, JSON schema and records; use the database snapshot to merge rather than discard previous evidence.
+            - You may read, create, update and delete session-owned datasets. Use deleteDatasets only to remove obsolete or duplicate datasets. Return complete updates to layouts, procedure, strategies, calculations and datasets so the app can persist them transactionally.
+            - The initial database snapshot may be shortened. Use databaseQueries to page through any table (observations, layouts, layout_components, base_layouts, base_layout_items, procedure_steps, strategies, calculations, skill_documents, custom_datasets, media_assets, sessions). Each query returns up to 100 rows; request further offsets as needed. Results arrive in the next cycle.
             - CASL must be declarative JSON only, schemaVersion=1, kind=skill, id/version equal manifest.
               Only supported CASL operations: set, output, call, skill, if, repeat, wait, assert, log, return.
               Calls must use only this API allow-list: ${WorkflowEngine.AVAILABLE_API_NAMES.joinToString(", ")}.
@@ -392,6 +452,27 @@ object AutonomousSkillResearchLoop {
               the requested Skill. Otherwise continue with observe/tap/swipe/wait.
             - Never mark the Skill VERIFIED. It will be stored as RESEARCHED and must pass separate tests.
         """.trimIndent()
+    }
+
+    private fun isActionInsideComponent(action: JSONObject, layout: JSONObject?, x: Int, y: Int): Boolean {
+        val key = action.optString("targetComponentKey")
+        if (key.isBlank()) return false
+        val components = layout?.optJSONArray("components") ?: return false
+        val component = (0 until components.length()).mapNotNull { components.optJSONObject(it) }
+            .firstOrNull { it.optString("key") == key } ?: return false
+        val riskText = (component.optString("type") + " " + component.optString("label") + " " +
+            (component.optJSONObject("properties") ?: JSONObject()).toString()).lowercase()
+        val blocked = listOf("purchase", "paid", "offer", "gem_pack", "real_money", "checkout",
+            "buy", "payment", "gem", "spend", "confirm", "clan_chat", "chat", "account_link", "delete", "remove", "reset",
+            "destructive", "external_app")
+        if (blocked.any(riskText::contains)) return false
+        val left = component.optDouble("x", -1.0)
+        val top = component.optDouble("y", -1.0)
+        val width = component.optDouble("width", -1.0)
+        val height = component.optDouble("height", -1.0)
+        if (left < 0 || top < 0 || width <= 0 || height <= 0 ||
+            left + width > 1000.0 || top + height > 1000.0) return false
+        return x.toDouble() in left..(left + width) && y.toDouble() in top..(top + height)
     }
 
     private fun buildResearchedSkill(
@@ -430,7 +511,8 @@ object AutonomousSkillResearchLoop {
         sourceAssetId: String,
         sessionId: String,
         observationId: String,
-        cadss: CadssStore
+        cadss: CadssStore,
+        db: SkillResearchDatabase
     ): JSONArray {
         val saved = JSONArray()
         if (rectangles == null) return saved
@@ -453,10 +535,12 @@ object AutonomousSkillResearchLoop {
                 try {
                     val hash = VisionProcessor.perceptualHash(crop)
                     val asset = withContext(Dispatchers.IO) { VisionMemory.save(context, crop, hash) }
-                    cadss.addRecord("research_media", JSONObject(asset.toString())
+                    val mediaRecord = JSONObject(asset.toString())
                         .put("sessionId", sessionId).put("observationId", observationId)
-                        .put("kind", "crop").put("label", rect.optString("label")))
-                    saved.put(JSONObject(asset.toString()).put("label", rect.optString("label")))
+                        .put("kind", "crop").put("label", rect.optString("label"))
+                    cadss.addRecord("research_media", mediaRecord)
+                    db.recordMedia(sessionId, observationId, mediaRecord, "crop")
+                    saved.put(mediaRecord)
                 } finally { if (crop !== bitmap && !crop.isRecycled) crop.recycle() }
             }
         } finally { bitmap.recycle() }
