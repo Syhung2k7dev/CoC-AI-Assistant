@@ -13,8 +13,9 @@ object LocalOcrProcessor {
             .addOnSuccessListener { callback(it.text) }
             .addOnFailureListener { callback(null) }
             .addOnCompleteListener {
+                // Do not recycle the caller-owned bitmap here. Research Agent sends
+                // the same screenshot to Gemini after OCR has completed.
                 recognizer.close()
-                bitmap.recycle()
             }
     }
 }
