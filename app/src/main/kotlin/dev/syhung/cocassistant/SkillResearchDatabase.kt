@@ -207,7 +207,7 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         require(document.optInt("schemaVersion") in 1..DATABASE_VERSION)
         val tables = document.optJSONObject("tables") ?: error("Thiếu tables.")
         val db = writableDatabase
-        val names = listOf("sessions", "observations", "layouts", "layout_components", "procedure_steps", "strategies", "calculations", "skill_documents")
+        val names = listOf("sessions", "observations", "layouts", "layout_components", "procedure_steps", "strategies", "calculations", "skill_documents", "custom_datasets", "media_assets")
         db.beginTransaction()
         try {
             names.forEach { table ->
