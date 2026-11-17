@@ -207,6 +207,12 @@ object AutonomousSkillResearchLoop {
                         db.upsertDataset(sessionId, it)
                     }
                 }
+                response.optJSONArray("deleteDatasets")?.let { items ->
+                    for (i in 0 until items.length()) {
+                        val name = items.optString(i)
+                        if (name.matches(Regex("[a-zA-Z0-9_.-]{1,80}"))) db.deleteDataset(sessionId, name)
+                    }
+                }
 
                 val action = response.optJSONObject("nextAction") ?: JSONObject().put("type", "stop")
                 val actionType = action.optString("type", "stop")
@@ -376,7 +382,8 @@ object AutonomousSkillResearchLoop {
               "procedure":[{"id":"","title":"","preconditions":{},"action":{},"postconditions":{},"status":"OBSERVED"}],
               "strategies":[{"key":"","kind":"attack|farming|upgrade|navigation|other","confidence":0.0,"content":{}}],
               "calculations":[{"name":"","formula":"","inputs":{},"result":{}}],
-              "datasets":[{"name":"","schema":{},"records":[]}]
+              "datasets":[{"name":"","schema":{},"records":[]}],
+              "deleteDatasets":[]
             }
 
             Mandatory rules:
@@ -392,7 +399,7 @@ object AutonomousSkillResearchLoop {
             - Procedure steps must describe a reproducible sequence with conditions and observable outcomes.
             - Store strategies and calculations as structured JSON data. Formula is descriptive math, never executable code.
             - Create or update custom datasets whenever a domain needs its own structured records. Each dataset must have a stable name, JSON schema and records; use the database snapshot to merge rather than discard previous evidence.
-            - You may read and revise the entire research database snapshot in every cycle. Return complete updates to layouts, procedure, strategies, calculations and datasets so the app can persist them transactionally.
+            - You may read, create, update and delete session-owned datasets. Use deleteDatasets only to remove obsolete or duplicate datasets. Return complete updates to layouts, procedure, strategies, calculations and datasets so the app can persist them transactionally.
             - CASL must be declarative JSON only, schemaVersion=1, kind=skill, id/version equal manifest.
               Only supported CASL operations: set, output, call, skill, if, repeat, wait, assert, log, return.
               Calls must use only this API allow-list: ${WorkflowEngine.AVAILABLE_API_NAMES.joinToString(", ")}.
