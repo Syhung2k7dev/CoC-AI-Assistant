@@ -111,6 +111,8 @@ class VisionLearningManager(context: Context) {
         VisionMemory.deleteAssets(appContext, candidate)
         val rejected = JSONObject(candidate.toString())
             .put("status", STATUS_REJECTED)
+            .put("original", "")
+            .put("crop", "")
             .put("rejectionReason", reason.take(240))
             .put("rejectedAt", System.currentTimeMillis())
         cadss.putRecord(CANDIDATES, "id", candidateId, rejected)
