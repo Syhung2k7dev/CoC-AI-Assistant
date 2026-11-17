@@ -216,6 +216,62 @@ fun CentralAgentStudio(
                     Spacer(Modifier.height(4.dp))
                     Text(if (busy) "Đang xử lý…" else "Phân tích CoC")
                 }
+                Text(
+                    "Chạy Agent là xác nhận cho phép thực hiện tối đa 5 vòng. Agent chỉ gọi Skill VERIFIED, chụp lại màn hình sau mỗi Skill và tự dừng khi không xác minh được.",
+                    color = AgentMuted, fontSize = 10.sp
+                )
+                Button(
+                    onClick = {
+                        if (goal.isBlank()) {
+                            status = "Hãy nhập mục tiêu trước khi chạy Agent."
+                            return@Button
+                        }
+                        if (apiKey.isBlank()) {
+                            status = "Chưa có Gemini API Key. Hãy nhập khóa trong Cài đặt."
+                            messages.add(AgentChatMessage("agent", status))
+                            return@Button
+                        }
+                        if (!CoCAccessibilityService.isConnected()) {
+                            status = "Chưa kết nối Trợ năng. Hãy bật dịch vụ trong Cài đặt Android."
+                            messages.add(AgentChatMessage("agent", status))
+                            return@Button
+                        }
+                        busy = true
+                        messages.add(AgentChatMessage("user", "Chạy Agent: $goal"))
+                        status = "Đang khởi động vòng lặp Agent…"
+                        scope.launch {
+                            try {
+                                val outcome = CentralAgentLoop.run(
+                                    context = context,
+                                    apiKey = apiKey,
+                                    goal = goal,
+                                    registry = skillRegistry,
+                                    shareScreenshot = shareScreenshot,
+                                    onStatus = { stage ->
+                                        status = stage
+                                        onStatus(stage)
+                                    }
+                                )
+                                messages.add(AgentChatMessage("agent", outcome))
+                                status = outcome.lineSequence().firstOrNull().orEmpty().take(180)
+                                onStatus(status)
+                            } catch (error: Exception) {
+                                status = "Agent đã dừng an toàn: ${error.message ?: "lỗi không xác định"}"
+                                messages.add(AgentChatMessage("agent", status))
+                                onStatus(status)
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    },
+                    enabled = !busy && goal.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF167C78))
+                ) {
+                    androidx.compose.material3.Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                    Spacer(Modifier.padding(horizontal = 3.dp))
+                    Text(if (busy) "Agent đang chạy…" else "Chạy Agent tự động · tối đa 5 vòng")
+                }
                 OutlinedButton(
                     onClick = {
                         if (goal.isBlank() || apiKey.isBlank()) {
