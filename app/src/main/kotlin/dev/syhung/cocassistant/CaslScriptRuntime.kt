@@ -70,6 +70,10 @@ class CaslScriptRuntime(
             .put("inputs", JSONObject(inputs.toString()))
             .put("vars", JSONObject())
             .put("outputs", JSONObject())
+        if (program.optString("kind") == "skill") {
+            context.put("skillId", program.optString("id"))
+                .put("skillVersion", program.optInt("version"))
+        }
         val returned = runProgram(program, context, 0)
         CaslExecutionResult(
             outputs = JSONObject(context.getJSONObject("outputs").toString()),
