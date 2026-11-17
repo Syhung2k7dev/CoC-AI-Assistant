@@ -6,9 +6,11 @@ import android.graphics.Bitmap
 import android.os.SystemClock
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
 /**
@@ -81,7 +83,7 @@ object CentralAgentLoop {
                 .firstOrNull { it.isNotBlank() }
                 ?.take(100)
                 .orEmpty()
-            val visionObservation = runCatching {
+            val visionObservation = withContext(Dispatchers.IO) { runCatching {
                 visionLearning.observeForAgent(
                     bitmap = screenshot,
                     suggestedLabel = suggestedLabel,
@@ -90,7 +92,7 @@ object CentralAgentLoop {
                         .put("cycle", cycle)
                         .put("ocrLength", recognizedText.length)
                 )
-            }.getOrNull()
+            }.getOrNull() }
             val visionMemorySummary = when (val observation = visionObservation) {
                 is VisionObservationResult.Known ->
                     "KNOWN_TEMPLATE: ${observation.template.optString("label")}; " +
