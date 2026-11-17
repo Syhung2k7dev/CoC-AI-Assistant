@@ -26,6 +26,8 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         db.execSQL("CREATE TABLE strategies (strategy_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, strategy_key TEXT NOT NULL, kind TEXT NOT NULL, content_json TEXT NOT NULL, confidence REAL NOT NULL, evidence_observation_id TEXT, updated_at INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE calculations (calculation_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, name TEXT NOT NULL, formula TEXT NOT NULL, inputs_json TEXT NOT NULL, result_json TEXT NOT NULL, evidence_observation_id TEXT, updated_at INTEGER NOT NULL)")
         db.execSQL("CREATE TABLE skill_documents (session_id TEXT PRIMARY KEY, manifest_json TEXT NOT NULL, casl_json TEXT NOT NULL, updated_at INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE custom_datasets (dataset_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, dataset_name TEXT NOT NULL, schema_json TEXT NOT NULL, records_json TEXT NOT NULL, version INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(session_id, dataset_name))")
+        db.execSQL("CREATE TABLE media_assets (asset_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, observation_id TEXT NOT NULL, kind TEXT NOT NULL, original_path TEXT NOT NULL, crop_path TEXT NOT NULL, metadata_json TEXT NOT NULL, created_at INTEGER NOT NULL)")
         db.execSQL("PRAGMA user_version=$DATABASE_VERSION")
     }
 
@@ -169,11 +171,11 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
         )
     }
 
-    /** Complete, versioned relational export for inclusion in the CADSS ZIP backup. */
+    @Synchronized\n    fun upsertDataset(sessionId: String, dataset: JSONObject) {\n        val name = dataset.optString("name")\n        if (name.isBlank() || !name.matches(Regex("[a-zA-Z0-9_.-]{1,80}"))) return\n        val records = dataset.optJSONArray("records") ?: JSONArray()\n        require(records.toString().length <= 500_000) { "Dataset quá lớn." }\n        val existingVersion = writableDatabase.rawQuery(\n            "SELECT COALESCE(MAX(version),0) FROM custom_datasets WHERE session_id=? AND dataset_name=?",\n            arrayOf(sessionId, name)\n        ).use { if (it.moveToFirst()) it.getInt(0) else 0 }\n        writableDatabase.execSQL(\n            "INSERT OR REPLACE INTO custom_datasets VALUES(?,?,?,?,?,?,?)",\n            arrayOf("$sessionId:$name", sessionId, name, (dataset.optJSONObject("schema") ?: JSONObject()).toString(),\n                records.toString(), existingVersion + 1, System.currentTimeMillis())\n        )\n    }\n\n    @Synchronized\n    fun recordMedia(sessionId: String, observationId: String, asset: JSONObject, kind: String) {\n        writableDatabase.execSQL(\n            "INSERT OR REPLACE INTO media_assets VALUES(?,?,?,?,?,?,?,?)",\n            arrayOf(asset.optString("id"), sessionId, observationId, kind, asset.optString("original"),\n                asset.optString("crop"), asset.toString(), System.currentTimeMillis())\n        )\n    }\n\n    /** Complete, versioned relational export for inclusion in the CADSS ZIP backup. */
     @Synchronized
     fun exportJson(): JSONObject {
         val db = readableDatabase
-        val tables = listOf("sessions", "observations", "layouts", "layout_components", "procedure_steps", "strategies", "calculations", "skill_documents")
+        val tables = listOf("sessions", "observations", "layouts", "layout_components", "procedure_steps", "strategies", "calculations", "skill_documents", "custom_datasets", "media_assets")
         val exported = JSONObject()
         tables.forEach { table ->
             val rows = JSONArray()
@@ -221,7 +223,7 @@ class SkillResearchDatabase(context: Context) : SQLiteOpenHelper(
                         "procedure_steps" -> listOf("step_id","session_id","step_index","title","preconditions_json","action_json","postconditions_json","evidence_observation_id","status","updated_at")
                         "strategies" -> listOf("strategy_id","session_id","strategy_key","kind","content_json","confidence","evidence_observation_id","updated_at")
                         "calculations" -> listOf("calculation_id","session_id","name","formula","inputs_json","result_json","evidence_observation_id","updated_at")
-                        else -> listOf("session_id","manifest_json","casl_json","updated_at")
+                        "skill_documents" -> listOf("session_id","manifest_json","casl_json","updated_at")\n                        "custom_datasets" -> listOf("dataset_id","session_id","dataset_name","schema_json","records_json","version","updated_at")\n                        else -> listOf("asset_id","session_id","observation_id","kind","original_path","crop_path","metadata_json","created_at")
                     }
                     val values = columns.map { column ->
                         if (!row.has(column) || row.isNull(column)) null else row.opt(column)
