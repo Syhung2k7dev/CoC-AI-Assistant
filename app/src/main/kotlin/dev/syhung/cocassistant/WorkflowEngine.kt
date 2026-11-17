@@ -308,6 +308,8 @@ class WorkflowTestRunner(
                     mismatch = "Giá trị return không khớp."
                 }
                 results.add(WorkflowTestCaseResult(name, mismatch == null, mismatch ?: "Đạt"))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 results.add(WorkflowTestCaseResult(name, false, (error.message ?: "Test thất bại").take(240)))
             }
