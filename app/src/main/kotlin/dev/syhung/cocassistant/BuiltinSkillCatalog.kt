@@ -66,7 +66,7 @@ object BuiltinSkillCatalog {
     fun all(): List<AgentSkill> = definitions.map { item ->
         AgentSkill(
             id = item.id, name = item.name, description = item.description,
-            category = item.category, version = 1, status = SkillLifecycle.DRAFT,
+            category = item.category, level = levelFor(item.id), version = 1, status = SkillLifecycle.DRAFT,
             inputs = item.inputs, outputs = item.outputs, dependencies = item.dependencies,
             capabilities = item.capabilities, source = "builtin_catalog", confidence = 0f
         )
@@ -74,7 +74,30 @@ object BuiltinSkillCatalog {
 
     fun install(registry: AgentSkillRegistry): Int {
         var added = 0
-        all().forEach { if (registry.find(it.id) == null && registry.saveDraft(it)) added++ }
+        all().forEach { skill ->
+            val existing = registry.find(skill.id)
+            if (existing == null) {
+                if (registry.saveDraft(skill)) added++
+            } else if (existing.source == "builtin_catalog" && existing.level != skill.level) {
+                registry.updateBuiltinLevel(skill.id, skill.level)
+            }
+        }
         return added
+    }
+
+    private fun levelFor(id: String): SkillLevel = when (id) {
+        "screen.observe", "screen.capture", "vision.crop", "vision.template",
+        "action.tap", "action.swipe", "action.wait_state", "action.verify",
+        "memory.read", "memory.write", "memory.append", "calculator.evaluate",
+        "time.wait", "workflow.checkpoint", "scheduler.schedule", "scheduler.cancel" ->
+            SkillLevel.L0_PRIMITIVE
+
+        "vision.state", "base.scout", "skill.compose", "skill.generate", "skill.test",
+        "skill.improve", "farm.plan" -> SkillLevel.L2_COMPOSITE
+
+        "attack.plan", "agent.goal", "agent.workflow", "agent.scheduler" ->
+            SkillLevel.L3_ORCHESTRATOR
+
+        else -> SkillLevel.L1_ATOMIC
     }
 }
