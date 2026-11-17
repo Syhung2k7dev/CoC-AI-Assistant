@@ -1,6 +1,5 @@
 package dev.syhung.cocassistant
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,7 +30,6 @@ import kotlinx.coroutines.launch
 fun SkillLibraryPanel(
     registry: AgentSkillRegistry,
     apiKey: String,
-    referenceImage: Bitmap?
 ) {
     val skillsState = remember { mutableStateOf(registry.all()) }
     val goalState = remember { mutableStateOf("Nghiên cứu và đề xuất một Skill mới dựa trên mục tiêu này.") }
@@ -70,8 +68,7 @@ fun SkillLibraryPanel(
                 )
                 Text(
                     if (apiKey.isBlank()) "Hãy nhập Gemini API Key trong Cài đặt trước khi nghiên cứu."
-                    else if (referenceImage != null) "Ảnh tham chiếu đã chọn sẽ được gửi cùng yêu cầu."
-                    else "Có thể chọn ảnh tham chiếu ở trang Thị giác trước khi nghiên cứu.",
+                    else "Agent tự thu thập bằng chứng màn hình khi chạy; nghiên cứu Skill không nhận ảnh tải lên từ người dùng.",
                     color = Color(0xFF9AA8C0), fontSize = 10.sp
                 )
                 Button(
@@ -83,7 +80,7 @@ fun SkillLibraryPanel(
                             statusState.value = "Gemini đang nghiên cứu và tạo bản nháp..."
                             scope.launch {
                                 when (val result = GeminiSkillAuthoring.createDraft(
-                                    apiKey, goalState.value, registry, referenceImage, WorkflowEngine.AVAILABLE_API_NAMES
+                                    apiKey, goalState.value, registry, WorkflowEngine.AVAILABLE_API_NAMES
                                 )) {
                                     is SkillDraftOutcome.Created -> {
                                         skillsState.value = registry.all()
