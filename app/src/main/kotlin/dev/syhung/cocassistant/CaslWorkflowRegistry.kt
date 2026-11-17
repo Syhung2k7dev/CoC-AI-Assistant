@@ -80,8 +80,7 @@ class CaslWorkflowRegistry(context: Context) {
         if (index < 0 || current[index].optString("lifecycle") != WorkflowLifecycle.TESTING.name) return false
         val requiredSkills = collectSkillVersions(current[index].optJSONArray("steps") ?: JSONArray())
         if (requiredSkills.any { (skillId, skillVersion) ->
-                val skill = skillRegistry.find(skillId, skillVersion)
-                skill == null || skill.status != SkillLifecycle.VERIFIED || skill.scriptJson.isBlank()
+                skillRegistry.findVerifiedScript(skillId, skillVersion) == null
             }) return false
         current[index] = JSONObject(current[index].toString())
             .put("lifecycle", WorkflowLifecycle.VERIFIED.name)
