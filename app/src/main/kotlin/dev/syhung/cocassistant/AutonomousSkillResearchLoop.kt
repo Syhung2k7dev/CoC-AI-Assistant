@@ -150,12 +150,12 @@ object AutonomousSkillResearchLoop {
                     catch (_: Exception) { "" }
                 val screenAsset = withContext(Dispatchers.IO) {
                     VisionMemory.save(context, screenshot, phash).also { asset ->
-                        cadss.addRecord("research_media", JSONObject(asset.toString())
+                        val mediaRecord = JSONObject(asset.toString())
                             .put("sessionId", sessionId)
                             .put("observationId", observationId)
-                            .put("kind", "screenshot")).also { asset ->
-                            db.recordMedia(sessionId, observationId, asset, "screenshot")
-                        }
+                            .put("kind", "screenshot")
+                        cadss.addRecord("research_media", mediaRecord)
+                        db.recordMedia(sessionId, observationId, mediaRecord, "screenshot")
                     }
                 }
                 val prompt = buildResearchPrompt(
@@ -461,12 +461,12 @@ object AutonomousSkillResearchLoop {
                 try {
                     val hash = VisionProcessor.perceptualHash(crop)
                     val asset = withContext(Dispatchers.IO) { VisionMemory.save(context, crop, hash) }
-                    cadss.addRecord("research_media", JSONObject(asset.toString())
+                    val mediaRecord = JSONObject(asset.toString())
                         .put("sessionId", sessionId).put("observationId", observationId)
-                        .put("kind", "crop").put("label", rect.optString("label"))).also { media ->
-                        db.recordMedia(sessionId, observationId, media, "crop")
-                    }
-                    saved.put(JSONObject(asset.toString()).put("label", rect.optString("label")))
+                        .put("kind", "crop").put("label", rect.optString("label"))
+                    cadss.addRecord("research_media", mediaRecord)
+                    db.recordMedia(sessionId, observationId, mediaRecord, "crop")
+                    saved.put(mediaRecord)
                 } finally { if (crop !== bitmap && !crop.isRecycled) crop.recycle() }
             }
         } finally { bitmap.recycle() }
