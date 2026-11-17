@@ -7,7 +7,7 @@ AELM is the lifecycle coordinator for AI-authored CASL Workflow and Skill artifa
 1. **Create** – Gemini proposes a new Workflow or Skill as untrusted JSON. The authoring layer validates the CASL schema and stores it as Draft.
 2. **Revise** – a revision creates a new immutable version; the previous version is not overwritten. A revised Skill preserves its ID and increments the version by one.
 3. **Test** – AELM executes Draft scripts against a restricted in-process sandbox. The sandbox provides in-memory `memory.read`, `memory.write`, `memory.append`, deterministic `system.time`, mock `vision.match` and Skill-scoped `vision.feedback`, and mock `action.tap`, `action.swipe`, and `action.wait` APIs. Vision mocks return a fixed sandbox template and never update real Vision Memory. Device-action mocks require a Skill ID/version context and reject direct Workflow calls. None of these mocks invoke Accessibility, WorkManager, or real device actions.
-4. **Release** – release is rejected unless every test case passes and a receipt matches the exact artifact type, ID, version, and SHA-256 digest of the tested program. The registry then performs the TESTING → VERIFIED transition.
+4. **Release** – release is rejected unless every test case passes and a receipt matches the exact artifact type, ID, version, and SHA-256 digest of the tested program. The registry then performs the TESTING → VERIFIED transition. Research status alone never grants execution permission.
 
 ## Test contract
 
@@ -16,7 +16,7 @@ AELM is the lifecycle coordinator for AI-authored CASL Workflow and Skill artifa
 - Expected values are compared recursively; array ordering is significant.
 - Workflow tests can call only sandbox APIs and already-VERIFIED Skills.
 - Skill tests can call only sandbox APIs and already-VERIFIED, version-compatible dependencies.
-- A failed test creates no release receipt and leaves the artifact in Draft.
+- A failed test creates no release receipt and leaves the artifact in its unverified state. Skill artifacts may enter testing from Draft or Researched; a researched Skill is not executable until the full test and release process succeeds.
 - A receipt is valid only while its SHA-256 matches the exact tested artifact.
 
 ## CADSS integration

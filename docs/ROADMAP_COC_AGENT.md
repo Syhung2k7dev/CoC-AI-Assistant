@@ -26,6 +26,18 @@ CoC-AI-Assistant là AI Agent hỗ trợ tự động hóa giao diện Clash of 
 
 ## Trạng thái triển khai
 
+### Đã bổ sung trên nhánh Central Agent Studio
+- Giao diện Trung tâm AI tiếng Việt với hội thoại và nhập mục tiêu.
+- Từ nút Phân tích CoC, ứng dụng mở trò chơi, chụp màn hình qua Accessibility và chạy OCR cục bộ.
+- Ảnh không được gửi lên Gemini mặc định; người dùng phải bật lựa chọn chia sẻ.
+- System Prompt có màn hình xem/sửa và bước xác nhận riêng trước khi lưu.
+- Skill catalog có trạng thái Chưa nghiên cứu/Đang nghiên cứu/Đã nghiên cứu và nút nghiên cứu từng Skill.
+- Nghiên cứu Skill tạo phiên bản mới, yêu cầu manifest và CASL script khớp ID/version; nghiên cứu không đồng nghĩa với kiểm thử hoặc VERIFIED.
+- Vòng lặp Agent giới hạn: observe → Gemini chọn Skill VERIFIED theo ID/version → kiểm tra script → chạy CASL qua ActionExecutor → capture/OCR lại → yêu cầu Gemini xác minh bằng chứng trước khi tiếp tục.
+- Giới hạn phiên ở tối đa 5 lần chạy Skill, có lượt quan sát xác minh cuối, chặn lặp Skill và có nút Dừng Agent.
+- Gemini chỉ được chọn Skill trong allow-list; không thể tự sinh tọa độ hay lệnh thao tác trực tiếp.
+- Tên Skill và nhóm danh mục được Việt hóa trong thư viện.
+
 ### Đã có trong nhánh runtime
 - Accessibility Service được khai báo trong Manifest và cấu hình XML.
 - Thực thi tap/swipe/wait có countdown 5 giây, tối đa 50 bước, 20 lần lặp.
@@ -35,10 +47,11 @@ CoC-AI-Assistant là AI Agent hỗ trợ tự động hóa giao diện Clash of 
 
 ### Còn cần triển khai
 - Workflow editor và JSON codec phiên bản hóa đầy đủ.
-- OCR cục bộ và điều kiện chờ văn bản.
+- Điều kiện chờ văn bản và bộ nhận diện trạng thái UI có kiểm chứng (OCR cục bộ cơ bản đã được nối vào Trung tâm AI).
 - So khớp template đa tỉ lệ và điều kiện IF/ELSE cho ảnh.
 - Kết nối ảnh chụp màn hình với Vision Memory/CADSS.
-- Agent planner/executor loop có xác minh trạng thái sau từng hành động.
+- Bộ xác minh trạng thái UI tất định (hiện vòng lặp dùng OCR/ảnh và Gemini để đánh giá bằng chứng, nên vẫn cần kiểm thử và bộ nhận diện chuyên biệt cho từng màn hình).
+- Quan sát thị giác đầy đủ cho các thành phần không có chữ, vùng động và trạng thái game phức tạp.
 - Gemini workflow draft có schema validation và review UI.
 - Floating dashboard toàn hệ thống và notification action.
 - Scheduler/Deep Sleep thực sự, khôi phục lịch sau reboot.

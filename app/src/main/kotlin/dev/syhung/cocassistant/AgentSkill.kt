@@ -9,7 +9,7 @@ enum class SkillActionCapability {
 }
 
 enum class SkillLifecycle {
-    DRAFT, TESTING, VERIFIED, EXPERIMENTAL, DISABLED
+    RESEARCH_REQUIRED, RESEARCHING, RESEARCHED, DRAFT, TESTING, VERIFIED, EXPERIMENTAL, DISABLED
 }
 
 /** A Skill is validated data and a workflow contract, never executable source code. */
@@ -164,14 +164,49 @@ class AgentSkillRegistry(context: Context) {
     }
 
     @Synchronized
+    fun markCatalogForResearch(catalogSkill: AgentSkill): Boolean {
+        val current = all().toMutableList()
+        val index = current.indexOfLast { it.id == catalogSkill.id && it.source == "builtin_catalog" }
+        if (index < 0) return false
+        val old = current[index]
+        val nextStatus = if (old.status == SkillLifecycle.DRAFT && old.scriptJson.isBlank()) {
+            SkillLifecycle.RESEARCH_REQUIRED
+        } else old.status
+        current[index] = old.copy(
+            name = catalogSkill.name,
+            description = catalogSkill.description,
+            category = catalogSkill.category,
+            status = nextStatus,
+            updatedAt = System.currentTimeMillis()
+        )
+        persist(current)
+        return true
+    }
+
+    @Synchronized
+    fun saveCatalogSkill(skill: AgentSkill): Boolean {
+        if (!skill.validate() || skill.source != "builtin_catalog" || skill.scriptJson.isNotBlank()) return false
+        return saveNewVersion(skill.copy(status = SkillLifecycle.RESEARCH_REQUIRED))
+    }
+
+    @Synchronized
     fun saveDraft(skill: AgentSkill): Boolean {
         if (!skill.validate()) return false
+        return saveNewVersion(skill.copy(status = SkillLifecycle.DRAFT))
+    }
+
+    @Synchronized
+    fun saveResearched(skill: AgentSkill): Boolean {
+        if (!skill.validate() || skill.scriptJson.isBlank() || skill.source != "gemini_skill_research") return false
+        return saveNewVersion(skill.copy(status = SkillLifecycle.RESEARCHED))
+    }
+
+    private fun saveNewVersion(skill: AgentSkill): Boolean {
         val current = all().toMutableList()
         if (current.any { it.id == skill.id && it.version == skill.version }) return false
         val highestVersion = current.filter { it.id == skill.id }.maxOfOrNull { it.version } ?: 0
         if (skill.version <= highestVersion) return false
-        val draft = skill.copy(status = SkillLifecycle.DRAFT, updatedAt = System.currentTimeMillis())
-        current.add(draft)
+        current.add(skill.copy(updatedAt = System.currentTimeMillis()))
         persist(current)
         return true
     }
@@ -183,7 +218,11 @@ class AgentSkillRegistry(context: Context) {
         if (index < 0) return false
         val old = current[index]
         val allowed = when (next) {
-            SkillLifecycle.TESTING -> old.status == SkillLifecycle.DRAFT || old.status == SkillLifecycle.EXPERIMENTAL
+            SkillLifecycle.RESEARCH_REQUIRED -> old.status == SkillLifecycle.RESEARCHING
+            SkillLifecycle.RESEARCHING -> old.status == SkillLifecycle.RESEARCH_REQUIRED
+            SkillLifecycle.RESEARCHED -> old.status == SkillLifecycle.RESEARCHING
+            SkillLifecycle.TESTING -> old.status == SkillLifecycle.DRAFT ||
+                old.status == SkillLifecycle.RESEARCHED || old.status == SkillLifecycle.EXPERIMENTAL
             SkillLifecycle.VERIFIED -> false
             SkillLifecycle.EXPERIMENTAL -> old.status == SkillLifecycle.TESTING || old.status == SkillLifecycle.VERIFIED
             SkillLifecycle.DISABLED -> true
