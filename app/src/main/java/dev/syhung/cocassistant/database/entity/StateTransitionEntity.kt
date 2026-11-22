@@ -3,8 +3,7 @@ package dev.syhung.cocassistant.database.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = \
-state_transitions\)
+@Entity(tableName = "state_transitions")
 data class StateTransitionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val fromState: String,
