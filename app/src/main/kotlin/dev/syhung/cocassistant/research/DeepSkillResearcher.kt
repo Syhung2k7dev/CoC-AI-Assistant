@@ -6,6 +6,7 @@ import android.util.Log
 import dev.syhung.cocassistant.GeminiClient
 import dev.syhung.cocassistant.ActionExecutor
 import org.json.JSONObject
+import org.json.JSONArray
 
 class DeepSkillResearcher(private val context: Context, private val apiKey: String) {
     
@@ -26,7 +27,7 @@ class DeepSkillResearcher(private val context: Context, private val apiKey: Stri
             Nếu không cần làm gì, trả về [] (rỗng).
         """.trimIndent()
         
-        val response = GeminiClient.analyze(context, apiKey, prompt, bitmap)
+        val response = GeminiClient.generate(apiKey, prompt, bitmap)
         return try {
             val json = org.json.JSONTokener(response).nextValue()
             if (json is JSONArray && json.length() > 0) json else null
