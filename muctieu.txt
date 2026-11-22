@@ -1,0 +1,175 @@
+# ĐẶC TẢ KỸ THUẬT TỔNG THỂ & MỤC TIÊU VIẾT TOÀN BỘ MÃ NGUỒN CHO CLINE
+## DỰ ÁN: CoC-AI-Assistant (`Syhung2k7dev/CoC-AI-Assistant`) — THƯ MỤC LÀM VIỆC: `C:\duan`
+
+---
+
+## 0. CHỈ THỊ VẬN HÀNH TỐI CAO DÀNH RIÊNG CHO CLINE (BẮT BUỘC TUÂN THỦ)
+
+### 0.1. Tập trung 100% vào VIẾT CHO XONG TOÀN BỘ MÃ NGUỒN APP
+* **KHÔNG biên dịch ra file APK** (không chạy `./gradlew assembleDebug` hay bất kỳ lệnh build Gradle nào).
+* **KHÔNG chạy unit test hay instrumentation test** (không chạy `./gradlew testDebugUnitTest` hay lệnh test nào).
+* **KHÔNG kết nối, cài đặt hay kiểm thử trên máy ảo Android Studio, LDPlayer 9 hay ADB** (không gọi `adb`, `screencap`, `logcat`, `am start`, `install`).
+* Toàn bộ nỗ lực của phiên này chỉ tập trung vào việc **thiết kế, dọn dẹp code thừa và viết hoàn chỉnh 100% mã nguồn sạch sẽ, đầy đủ logic, không để hàm rỗng / stub / `TODO` dang dở** cho toàn bộ ứng dụng `CoC-AI-Assistant` tại `C:\duan`[cite: 1].
+
+### 0.2. CẤM LẠM DỤNG `execute_command` TRÊN TERMINAL
+* **Tuyệt đối không lạm dụng `execute_command` trên terminal.**
+* Không dùng terminal để tìm file, đọc file, liệt kê thư mục, kiểm tra git, chạy gradle hay thử lệnh linh tinh.
+* Hãy sử dụng trực tiếp các công cụ thao tác file của Cline (`list_files`, `read_file`, `write_to_file`, `replace_in_file`, `search_files`...) để đọc cấu trúc hiện có và viết/sửa/xóa file mã nguồn nhanh gọn, liền mạch.
+* Chỉ dùng `execute_command` nếu thực sự bắt buộc phải xóa một thư mục file rác hàng loạt mà công cụ file không làm được (và tối đa 1 lệnh duy nhất); ngoài ra **không gọi terminal**.
+
+### 0.3. Tiêu chuẩn chất lượng code phải viết xong trong lượt này
+* Mọi class, interface, DAO, Entity, Repository, ViewModel, Service, Engine, UseCase và màn hình Compose UI đều phải được **viết triển khai thật sự, đầy đủ logic, đúng import, đúng kiểu dữ liệu và khớp nhau giữa các tầng**, sẵn sàng để sau này chỉ cần mở lên build/test là chạy.
+* Tuyệt đối không viết code giả (mock/dummy), không bỏ dở giữa chừng, không để `TODO("Not implemented")`.
+
+---
+
+## 1. Bối cảnh dự án, nền tảng kỹ thuật & bài học từ lịch sử phát triển
+
+### 1.1. Thông tin dự án & cấu hình
+* **Thư mục dự án:** `C:\duan` (GitHub: `Syhung2k7dev/CoC-AI-Assistant`)[cite: 1].
+* **Tech Stack:** Android (Min SDK 23, Target SDK 35 - Android 15), Java 21 / Java 17 target, Gradle 8.9 (`build.gradle.kts`), Kotlin 2.0.21, Coroutines & Flow, Jetpack Compose + Material 3, Room Database (SQLite), WorkManager, Google Gemini API, ML Kit OCR, OpenCV / Perceptual Hash (pHash), Android `AccessibilityService`, `Foreground Service`, Overlay `SYSTEM_ALERT_WINDOW`, và adapter hỗ trợ `Shizuku`[cite: 1].
+* **Tài liệu & thành phần hiện có:** Tham khảo nhanh cấu trúc `app/build.gradle.kts`, `AndroidManifest.xml`, `docs/` và các file mã nguồn trong `app/src/main/` để kế thừa các thành phần nền tảng tốt như **CASL** (CoC Automation Script Language), **HVCS** (Hybrid Visual Coordinate System), **AELM** (Agent Evolution Lifecycle Manager), **CADSS** (backup/restore `.zip`) cũng như các module như `HumanizedGestureBuilder.kt`, `VisualDriftDetector.kt`, `CentralAgentLoop.kt`, `ActionExecutor.kt` (nếu có trong `C:\duan`)[cite: 1].
+
+### 1.2. Các đặc thù kỹ thuật của Clash of Clans & Android phải giải quyết ngay trong code
+1. **Clash of Clans vẽ bằng OpenGL / Vulkan (`SurfaceView`):**
+   * Giao diện game là canvas đồ họa 3D động (mây bay, quân di chuyển, hiệu ứng xoay), **không có cây UI XML của game**[cite: 1].
+   * `AccessibilityNodeInfo` / `uiautomator` không đọc được nút bên trong game[cite: 1], nên toàn bộ nhận diện trong game phải dựa vào **Thị giác 2 tầng (Vision cục bộ OCR/OpenCV/ROI/pHash + Gemini)**[cite: 1]. Tuy nhiên vẫn thiết kế hỗ trợ xử lý vòng ngoài (pop-up hệ thống Android / điều hướng cài đặt)[cite: 1].
+2. **Màn hình ngang (`Landscape`), `WindowInsets`, `DisplayCutout` & ABI:**
+   * CoC chạy ngang (`Landscape`)[cite: 1]. Quy đổi tọa độ chuẩn hóa `0..1000` (`HVCS`) sang pixel thực tế bắt buộc tính đến chiều rộng/cao màn hình xoay ngang, `WindowInsets` và `DisplayCutout` (tai thỏ/đục lỗ) để không lệch điểm chạm[cite: 1].
+   * Trong `app/build.gradle.kts`, đảm bảo cấu hình ABI hỗ trợ cả `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` để cài được trên cả điện thoại thật lẫn giả lập PC (như LDPlayer 9)[cite: 1].
+3. **Hai năng lực cốt lõi của ứng dụng:**
+   * **CoC chạy tự động được:** nhận diện cảnh, đóng pop-up, điều hướng giữa các làng/màn hình, thao tác tự nhiên chống dấu hiệu bot tĩnh, chạy ngầm ổn định, bong bóng nổi điều khiển trực tiếp, ngủ thông minh theo timer[cite: 1].
+   * **Thực hiện theo yêu cầu người dùng qua Agent trên app:** hiểu yêu cầu ngôn ngữ tự nhiên, phân rã nhiệm vụ, phối hợp ngữ cảnh đa tầng & cục bộ, kiểm chứng kết quả sau hành động, và **tự nghiên cứu chuyên sâu (Grounded Deep Research)** khi gặp tình huống/sự kiện/màn hình chưa biết làm[cite: 1].
+
+---
+
+## 2. Dọn dẹp tính năng thừa & Tái cấu trúc giao diện (UI/UX) chuẩn logic
+
+### 2.1. Bắt buộc xóa bỏ hoàn toàn
+* Xóa phần **ghi chú cá nhân** trong tab AI[cite: 1].
+* Xóa toàn bộ **tab Quy trình** (Workflow Studio / quy tắc IF-ELSE cũ)[cite: 1].
+* Xóa toàn bộ **tab Lịch** (lập lịch tác vụ cũ)[cite: 1].
+* Loại bỏ hoàn toàn thiết kế cũ coi Skill là kịch bản tĩnh chỉ chạy từ sảnh chính hoặc tách rời ngữ cảnh[cite: 1].
+
+### 2.2. Thiết kế lại toàn bộ UI/UX (Jetpack Compose + Material 3)
+* Sắp xếp bố cục rõ ràng, phân cấp trực quan, hợp lý về luồng thao tác, loại bỏ sự rườm rà và các thành phần thừa[cite: 1].
+* Tổ chức ứng dụng thành **3 tab chính** mạch lạc:
+  1. **Tab Agent (Trung tâm Điều khiển & Theo dõi):**
+     * Ô nhập yêu cầu / mục tiêu bằng ngôn ngữ tự nhiên cho Agent (ví dụ: thu hoạch tài nguyên, dọn chướng ngại vật ở cả Làng chính lẫn Làng đêm, nâng cấp công trình, đi farm lọc tài nguyên...)[cite: 1].
+     * Bộ nút điều khiển **Chạy / Tạm dừng / Dừng khẩn cấp**[cite: 1].
+     * Công tắc bật/tắt **Bong bóng nổi (Floating HUD)** ngay trên màn hình[cite: 1].
+     * Bảng trạng thái thời gian thực: cảnh hiện tại (`Scene`), tiến độ sub-task, **luồng suy nghĩ (`Thought Stream`)** giải thích ngắn gọn Agent đang làm gì & tại sao, và kết quả thực thi gần nhất[cite: 1].
+  2. **Tab Kỹ năng (Skills & Deep Research):**
+     * Danh mục các kỹ năng đã tái cấu trúc (kỹ năng nền tảng, kỹ năng tự học qua **Grounded Deep Research**, kỹ năng đã tự chữa lành qua **Self-Healing**)[cite: 1].
+     * Hiển thị rõ: cảnh áp dụng, điều kiện tiên quyết, phiên bản bất biến, trạng thái xác minh (`VERIFIED`, `DRAFT`, `DEGRADED`...), tỷ lệ thành công, nút chạy thử/kích hoạt và nút yêu cầu Agent nghiên cứu kỹ năng mới[cite: 1].
+  3. **Tab Cài đặt & Hệ thống:**
+     * Thẻ trạng thái thật của **`AccessibilityService`** (đồng bộ vòng đời dịch vụ + trạng thái bật trong hệ thống Android, khắc phục triệt để lỗi báo *"dịch vụ không hoạt động"* khi đã bật) + nút mở nhanh màn hình Cài đặt Trợ năng[cite: 1].
+     * Thẻ quyền **Bong bóng nổi (`SYSTEM_ALERT_WINDOW`)** + nút cấp quyền, trạng thái **`Foreground Service`** và tùy chọn/trạng thái hỗ trợ **`Shizuku`**[cite: 1].
+     * Cấu hình **Gemini API Key** & chọn mô hình AI (có kiểm tra định dạng/kết nối), trình chỉnh sửa **Nguyên tắc & Định hướng hệ thống (`System Context`)**, cấu hình **Ranh giới an toàn**, và quản lý dữ liệu Room DB / xuất-nhập gói sao lưu `.zip`[cite: 1].
+
+---
+
+## 3. Cơ chế lưu trữ thông tin, truy xuất & ngữ cảnh phân tầng (Context & Memory Engine)
+
+Phải viết đầy đủ tầng **Room Database** (Entities, DAOs, TypeConverters, AppDatabase, Repositories) kết hợp **App Internal File Storage** và **Context Manager** theo đúng thiết kế sau:
+
+### 3.1. Mô hình lưu trữ vật lý 2 tầng
+1. **Room Database (SQLite)** — thay thế lưu chuỗi JSON khổng lồ trong `SharedPreferences` (chỉ dùng `SharedPreferences`/DataStore cho cờ bật/tắt siêu nhẹ)[cite: 1]:
+   * `SystemDirectiveEntity`: nguyên tắc hệ thống, chiến lược ưu tiên, ranh giới an toàn, cấu hình hành vi Agent[cite: 1].
+   * `AgentSessionEntity` & `SessionStepEntity`: phiên chạy mục tiêu, danh sách sub-task, thứ tự bước, trạng thái từng bước (`PENDING`, `RUNNING`, `DONE`, `FAILED`, `SKIPPED`), lý do quyết định, nhật ký `Thought Stream`[cite: 1].
+   * `WorldVillageStateEntity`: trạng thái từng cảnh làng (`HOME_VILLAGE`, `BUILDER_BASE`, `CLAN_CAPITAL`), cấp Nhà chính (`Town Hall`), tài nguyên (Vàng, Dầu, Dark Elixir, Gem), số thợ xây rảnh/bận, thời gian hoàn thành nâng cấp/quân lính/bảo trì, timestamp cập nhật (`TTL`)[cite: 1].
+   * `WorldLayoutAnchorEntity`: các điểm neo, vùng ROI, công trình/nút bấm đã nhận diện và tọa độ chuẩn hóa `HVCS` theo từng cảnh[cite: 1].
+   * `LearnedSkillEntity` & `SkillVersionEntity`: kho kỹ năng (cả kỹ năng chuẩn lẫn kỹ năng sinh ra từ Deep Research), cảnh áp dụng, điều kiện tiên quyết, kịch bản `CASL`, điều kiện kiểm chứng `Post-condition`, trạng thái vòng đời, phiên bản bất biến (`version + 1`, hỗ trợ rollback), chữ ký SHA-256, thống kê thành công/thất bại và số lần tự sửa[cite: 1].
+   * `ScheduleTaskEntity` & `AccountProfileEntity`: lịch đánh thức/ngủ thông minh (`Smart Sleep` qua `WorkManager`) và danh sách hồ sơ tài khoản để chuyển đổi qua **Supercell ID**[cite: 1].
+   * `ExecutionLogEntity` & `ResearchRecordEntity`: lịch sử thao tác, bằng chứng đối chứng, nguồn tri thức nghiên cứu và nguyên nhân lỗi[cite: 1].
+2. **App Internal File Storage (`filesDir/vision_artifacts/` & `filesDir/backups/`):**
+   * Lưu file ảnh crop icon/template, ảnh đối chứng trước-sau khi nghiên cứu/tự sửa kỹ năng, và file sao lưu `.zip`[cite: 1].
+   * Trong Room DB chỉ lưu đường dẫn file (`filePath`), kích thước, metadata và mã băm SHA-256; **không lưu bitmap/base64 khổng lồ vào DB hay `SharedPreferences`**[cite: 1].
+
+### 3.2. Hệ thống ngữ cảnh 4 tầng & Ngữ cảnh cục bộ (Scoped Local Context)
+* **Tầng 1 — `SystemContext` (Bối cảnh hệ thống & nguyên tắc tối cao):** Chứa định hướng vận hành, quy tắc kiểm chứng và ranh giới an toàn tuyệt đối[cite: 1]. Đọc khi khởi tạo phiên hoặc khi người dùng cập nhật, tiêm vào đầu mọi lời gọi suy luận/lập kế hoạch[cite: 1].
+* **Tầng 2 — `SessionContext` (Bối cảnh phiên & điều phối mục tiêu):** Chứa mục tiêu gốc, danh sách sub-task, bước hiện tại, cảnh hiện tại, trạng thái vòng lặp và luồng suy nghĩ (`Thought Stream`)[cite: 1]. Có cơ chế **nén/tóm tắt các bước cũ** đã hoàn tất và chỉ giữ chi tiết đầy đủ cho bước hiện tại + N bước gần nhất (ví dụ 3–5 bước) để chống phình ngữ cảnh khi chạy dài[cite: 1].
+* **Tầng 3 — `WorldStateContext` (Bối cảnh thế giới & lịch trình):** Truy vấn từ Room DB theo khóa cảnh (`sceneId`) và kiểm tra độ tươi dữ liệu (`TTL`)[cite: 1]. Nếu dữ liệu mới đọc và chưa có thao tác làm đổi màn hình thì tái sử dụng ngay; nếu quá `TTL` hoặc vừa thao tác làm biến đổi màn hình thì đánh dấu cần đọc lại qua Vision/OCR[cite: 1].
+* **Tầng 4 — `SkillLocalContext` & `ResearchLocalContext` (Ngữ cảnh cục bộ của từng Skill / phiên Deep Research):**
+  * Cấp phát riêng khi một `Skill` hoặc một phiên `Deep Research` / `Self-Healing` bắt đầu chạy[cite: 1].
+  * Lưu biến tạm cục bộ, kết quả OCR/OpenCV/ROI của khung hình hiện tại, tọa độ mục tiêu đang xử lý, bộ đếm số lần thử của riêng tác vụ đó, danh sách điểm đã thử trong phiên[cite: 1].
+  * **Tự động giải phóng/xóa sạch biến tạm khi kết thúc** để không rò rỉ trạng thái bẩn sang kỹ năng khác; chỉ ghi ngược lên Room DB những tri thức, điểm neo hoặc kịch bản mới đã được kiểm chứng[cite: 1].
+
+---
+
+## 4. Kiến trúc điều phối Agent, Nhận diện cảnh, Thị giác 2 tầng & Tự chữa lành
+
+### 4.1. Central Agent Loop (`Observe → Route → Act / Research → Verify`)
+* **Phân rã mục tiêu:** Nhận yêu cầu từ người dùng, kết hợp `SystemContext` + `WorldStateContext` + `LearnedSkills` để chia thành chuỗi sub-task có thứ tự và điều kiện đạt[cite: 1].
+* **Observe:** Kiểm tra cờ dừng/tạm dừng; chụp màn hình; chuẩn hóa vùng hiển thị (`Landscape`, `WindowInsets`, `DisplayCutout`); chạy **Tầng Vision cục bộ** trước[cite: 1].
+* **Route (`SceneDetector` + `NavigationEngine`):**
+  * Phân loại cảnh hiện tại: `HOME_VILLAGE`, `BUILDER_BASE`, `CLAN_CAPITAL`, `ATTACK_PREVIEW`, `BATTLE`, `UPGRADE_OR_TRAIN`, `SETTINGS_OR_SHOP`, `POPUP_BLOCKING`, `MAINTENANCE_OR_UPDATE`, `UNKNOWN`[cite: 1].
+  * Nếu có **pop-up che màn hình** → ưu tiên đóng pop-up hợp lệ trước[cite: 1].
+  * Nếu **sai cảnh** so với bước hiện tại (ví dụ đang ở Làng chính nhưng cần làm việc ở Làng đêm) → gọi `NavigationEngine` chuyển cảnh trước (không giả định mọi thứ bắt đầu từ màn hình chính)[cite: 1].
+* **Act hoặc Deep Research:**
+  * Có `Skill` phù hợp & thỏa `Pre-condition` → chạy `Skill` với `SkillLocalContext`; nếu gặp nhánh rẽ bất thường có thể hỏi bộ não trung tâm[cite: 1].
+  * Chưa có `Skill` hoặc gặp màn hình/sự kiện/thao tác chưa biết làm → kích hoạt **Grounded Deep Research**[cite: 1].
+* **Verify & Commit:** Quan sát lại màn hình sau hành động để đối chiếu `Post-condition`; ghi nhận vào `SessionContext` & `WorldStateContext` (Room DB), cập nhật `Thought Stream`[cite: 1].
+
+### 4.2. Thị giác 2 tầng (2-Tier Vision) & Tính năng chiến thuật CoC
+* **Tầng 1 — Thị giác cục bộ (ưu tiên chạy trước, 0 token):**
+  * Dùng **ML Kit OCR**, **OpenCV** (Template Matching, phân tích màu RGB/HSV, độ sáng, mật độ cạnh, pHash) và **vùng quan tâm (ROI)** (4 góc giao diện CoC chứa thông tin người chơi, tài nguyên, nút tấn công, cửa hàng/cài đặt)[cite: 1].
+  * Xử lý nhanh: nhận diện cảnh, phát hiện pop-up, đọc số vàng/dầu/cúp/thời gian, dò nút cố định, phát hiện chấm đỏ sự kiện mới (màu HSV), nhận diện viền đỏ vùng cấm thả quân (`Drop Zone`) và lọc tài nguyên trận đánh (`Loot Filter`) khi làm tác vụ farm/tấn công[cite: 1].
+* **Tầng 2 — Suy luận AI (Gemini):**
+  * Chỉ gọi khi cần phân rã mục tiêu phức tạp, quyết định chiến lược nhiều nhánh, tư vấn nâng cấp/meta, phân tích bố cục căn cứ, hoặc chạy **Grounded Deep Research** / **Self-Healing**[cite: 1].
+
+### 4.3. Kỹ năng 3 lớp hợp đồng, Event/Drift Detector & Self-Healing
+* **Kỹ năng linh hoạt (kế thừa CASL & HVCS):** Hỗ trợ đầy đủ cú pháp AST của `CASL` (`set`, `output`, `call`, `skill`, `if`/`then`/`else`, `repeat`, `wait`, `assert`, `log`, `return` + allow-list API), ưu tiên **chờ phản hồi thị giác (`Wait-Until`)** thay vì `wait(...)` cứng[cite: 1].
+* **3 lớp hợp đồng của Skill:**
+  1. `Pre-condition`: đúng cảnh và không bị pop-up che[cite: 1].
+  2. `Execution` đa nấc: thử tọa độ neo/cache → OpenCV/OCR tìm lại nếu lệch → gọi AI/nghiên cứu nếu bế tắc[cite: 1].
+  3. `Post-condition`: kiểm chứng thay đổi thực tế trên màn hình sau thao tác (tài nguyên giảm/tăng, thợ xây thay đổi, giao diện mới mở ra)[cite: 1].
+* **Event & Drift Detector:**
+  * Phát hiện màn hình bảo trì/cập nhật game (đọc thời gian chờ và kích hoạt `Smart Sleep` hẹn giờ mở lại)[cite: 1].
+  * Phát hiện độ lệch giao diện (`VisualDriftDetector`) khi điểm khớp template giảm (ví dụ đổi theme mùa tuyết/Halloween/Tết hoặc game dời vị trí nút)[cite: 1].
+  * Phát hiện chấm đỏ / icon sự kiện mới (HSV)[cite: 1].
+* **Self-Healing & Auto-Rebuild:**
+  * Khi một Skill lỗi lặp lại (ví dụ 2 lần liên tiếp) hoặc lệch giao diện: tạm khóa an toàn → gửi ảnh trước/sau cho AI đối chiếu vị trí/luồng mới → cập nhật template/ROI/kịch bản `CASL` thành **phiên bản mới bất biến (`version + 1`)** → kiểm chứng. Giới hạn tối đa **3 lần tự sửa** cho một lỗi trước khi báo người dùng[cite: 1].
+
+---
+
+## 5. Grounded Deep Research (Nghiên cứu chuyên sâu kết nối tri thức)
+
+Khi gặp tác vụ/màn hình/sự kiện chưa có cách làm:
+1. **Trích xuất từ khóa tại chỗ:** OCR đọc tiêu đề sự kiện, tên màn hình, nhãn nút hiển thị[cite: 1].
+2. **Tìm kiếm tri thức kết nối Web (Google Search Grounding với Gemini):** Kích hoạt công cụ tìm kiếm Web trong API Gemini để tra cứu luật chơi, cách mở/nhận thưởng, vị trí tính năng từ cộng đồng & nguồn thông tin CoC (CoC Wiki, Reddit, Clash Ninja, Supercell...) thay vì mò mẫm mù quáng[cite: 1].
+3. **Đối chiếu tri thức với ảnh chụp màn hình thực tế:** Ánh xạ hướng dẫn tìm được vào đúng vùng/nút trên màn hình game[cite: 1].
+4. **Thăm dò & thực thi có kiểm soát:** Giới hạn tối đa **6–8 bước/phiên nghiên cứu**, tuân thủ nghiêm ngặt ranh giới an toàn, dừng ngay nếu màn hình không đổi hoặc gặp rủi ro[cite: 1].
+5. **Đúc kết & lưu trữ:** Xác minh kết quả thành công và đóng gói thành `Skill` mới (`CASL` + điểm neo `HVCS` + ảnh mẫu) vào Room DB[cite: 1].
+
+---
+
+## 6. Tầng thao tác Android, Sửa lỗi AccessibilityService, Chạy ngầm, Bong bóng nổi & Smart Sleep
+
+### 6.1. Sửa dứt điểm lỗi `AccessibilityService` bị báo "dịch vụ không hoạt động"
+* Chuẩn hóa khai báo `<service>` trong `AndroidManifest.xml` (`android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"`, `android:exported="true"`, `intent-filter` `android.accessibilityservice.AccessibilityService`, `meta-data` trỏ tới `res/xml/accessibility_service_config.xml` hợp lệ)[cite: 1].
+* Đồng bộ chặt chẽ trạng thái giữa **vòng đời dịch vụ** (`onServiceConnected`, `onInterrupt`, `onDestroy`, `StateFlow` trạng thái) và **kiểm tra hệ thống thực tế** (`Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` + `AccessibilityManager.getEnabledAccessibilityServiceList`) để UI luôn hiển thị đúng trạng thái hoạt động thật sự, không báo sai *"dịch vụ không hoạt động"*[cite: 1].
+
+### 6.2. Thao tác tự nhiên (Humanization), `Shizuku`, `Foreground Service`, `Floating HUD` & `Smart Sleep`
+* **Humanized Gesture Execution (`HumanizedGestureBuilder`):** Quy đổi tọa độ `0..1000` theo màn hình ngang + `WindowInsets`/`DisplayCutout`; áp dụng **nhiễu tọa độ Gaussian (`±5–7px`)**, **đường vuốt cong Bézier** có gia tốc tự nhiên, **thời gian giữ chạm (`80–160ms`)** và nhịp nghỉ biến thiên tự nhiên[cite: 1].
+* **Shizuku Adapter:** Tích hợp lớp trừu tượng thực thi hỗ trợ cả `AccessibilityService` mặc định lẫn `Shizuku` khi thiết bị có cài và cấp quyền Shizuku[cite: 1].
+* **Foreground Service:** Dịch vụ chạy nền ưu tiên cao kèm notification trạng thái rõ ràng để tránh bị hệ điều hành kill khi chạy song song với game nặng[cite: 1].
+* **Bong bóng nổi (`FloatingBubbleService`):** Xin quyền `SYSTEM_ALERT_WINDOW`, hiển thị bong bóng nổi khi bật để mở/thu gọn bảng điều khiển mini trên game: **Chạy / Tạm dừng / Dừng khẩn cấp 1 chạm**, xem cảnh hiện tại + `Thought Stream`, chuyển chế độ chỉ quan sát vs tự động[cite: 1].
+* **Smart Sleep & Multi-Account:** Đọc timer thợ xây/quân lính/bảo trì lưu vào DB và hẹn giờ thức dậy bằng `WorkManager` (tắt/nghỉ khi rảnh để tránh nóng máy/hao pin), kèm kỹ năng chuyển đổi đa tài khoản qua **Supercell ID**[cite: 1].
+
+---
+
+## 7. Ranh giới an toàn tuyệt đối (Safety Guardrails)
+
+Trong mọi luồng chạy tự động, `Deep Research` và `Self-Healing`, mã nguồn phải cài đặt bộ lọc/chặn cứng:
+1. **Cấm tuyệt đối tiêu Gem xanh** ngoài ý muốn[cite: 1].
+2. **Cấm tuyệt đối mua hàng / nạp tiền thật** (gói nạp, ưu đãi trả phí trong cửa hàng/sự kiện)[cite: 1].
+3. **Cấm tuyệt đối thao tác phá hủy/nhạy cảm:** rời Clan, xóa tài khoản, xóa dữ liệu quan trọng, đổi cài đặt nguy hiểm[cite: 1].
+4. **Giới hạn số bước thăm dò tối đa** (6–8 bước/phiên nghiên cứu) và cơ chế dừng khẩn cấp tức thì[cite: 1].
+
+---
+
+## 8. Nhắc lại quy tắc thực thi cho lượt này của Cline
+1. **KHÔNG chạy `./gradlew assembleDebug`, KHÔNG chạy `./gradlew testDebugUnitTest`, KHÔNG chạy `adb` hay mở máy ảo.**[cite: 1]
+2. **KHÔNG lạm dụng `execute_command` trên terminal** — chỉ dùng công cụ file của Cline để đọc, dọn bỏ code thừa và viết hoàn chỉnh 100% mã nguồn app.
+3. Khi viết xong toàn bộ mã nguồn của tất cả các tầng (Room DB + Context Engine + Central Agent + 2-Tier Vision + Scene/Navigation + Adaptive Skills/CASL/HVCS + Event/Drift Detector & Self-Healing + Grounded Deep Research + AccessibilityService/Shizuku/ForegroundService/FloatingHUD/SmartSleep + UI Jetpack Compose 3 tab), hãy tóm tắt ngắn gọn danh sách các package/file đã tạo hoặc tái cấu trúc.

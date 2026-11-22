@@ -1,0 +1,18 @@
+# DANH SÁCH TIẾN ĐỘ DỰ ÁN CoC-AI-Assistant
+## Thư mục làm việc: `C:\duan`
+
+---
+
+## 1. ĐÃ HOÀN THÀNH (Architecture & Integration Phase)
+| Hạng Mục | Trạng Thái | Ghi Chú |
+|----------|------------|---------|
+| Core Engine Service Locator | ✅ Hoàn tất | Đã hợp nhất các engine vào CoreEngine, kết nối logic liên tầng. |
+| Unified Action Registry | ✅ Hoàn tất | Hợp nhất Database + Overlay vào kiến trúc thống nhất (Anchor-based). |
+| Vision Anchor Engine | ✅ Hoàn tất | Tích hợp OpenCV template matching để định vị nút bấm. |
+| Runtime Safety | ✅ Hoàn tất | Đã fix các lỗi logic runtime, thêm Memory Leak handling (recycle bitmap). |
+| Database Migration | ✅ Hoàn tất | Đã nâng cấp schema lên Version 6 (hỗ trợ Anchor + Offset). |
+| Snapshot-based Overlay | ✅ Hoàn tất | Chuyển Overlay về chế độ Snapshot tĩnh, loại bỏ jitter/real-time lag. |
+| Action History | ✅ Hoàn tất | Tự động dọn dẹp lịch sử (giới hạn 20 bản ghi). |
+
+Dự án hiện có cấu trúc code kết nối chặt chẽ, an toàn, không rời rạc, hỗ trợ đầy đủ khả năng tự học của AI và sự kiểm soát của con người.
+

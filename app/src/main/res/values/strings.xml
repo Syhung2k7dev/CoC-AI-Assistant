@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_name">CoC Agent – Quyền Trợ năng</string>
+    <string name="accessibility_service_description">Cho phép CoC Agent thực hiện các thao tác chạm và vuốt khi người dùng chủ động yêu cầu.</string>
+</resources>

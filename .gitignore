@@ -1,0 +1,31 @@
+# Gradle files
+.gradle/
+.kotlin/
+build/
+app/build/
+**/build/
+
+# IDE files
+.idea/
+.settings/
+.classpath
+.project
+*.iml
+*.iws
+local.properties
+
+# Other
+.DS_Store
+.class
+*.ap_
+*.dex
+*.class
+
+# Allow APK in release folder
+*.apk
+!release/*.apk
+
+
+*.apk
+build/
+.gradle/
