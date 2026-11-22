@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.syhung.cocassistant.models.Skill
@@ -27,6 +28,7 @@ import dev.syhung.cocassistant.database.dao.ManualActionDao
 /**
  * Room Database cho CoC-AI-Assistant
  */
+@TypeConverters(Converters::class)
 @Database(
     entities = [
         Skill::class,
