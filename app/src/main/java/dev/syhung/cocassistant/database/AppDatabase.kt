@@ -42,7 +42,7 @@ import dev.syhung.cocassistant.database.dao.ManualActionDao
         ManualScriptEntity::class,
         ManualActionEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -62,13 +62,14 @@ abstract class AppDatabase : RoomDatabase() {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "coc_assistant_db"
+                    "coc_assistant_legacy_db"
                 ).addMigrations(
                     MIGRATION_1_2,
                     MIGRATION_2_3,
                     MIGRATION_3_4,
                     MIGRATION_4_5,
-                    MIGRATION_5_6
+                    MIGRATION_5_6,
+                    MIGRATION_6_7
                 ).build().also { INSTANCE = it }
             }
         }
@@ -104,6 +105,14 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE manual_actions ADD COLUMN anchorId TEXT")
                 db.execSQL("ALTER TABLE manual_actions ADD COLUMN offsetX REAL NOT NULL DEFAULT 0.0")
                 db.execSQL("ALTER TABLE manual_actions ADD COLUMN offsetY REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE manual_actions ADD COLUMN duration INTEGER NOT NULL DEFAULT 100")
+                db.execSQL("ALTER TABLE manual_actions ADD COLUMN delay INTEGER NOT NULL DEFAULT 500")
+                db.execSQL("ALTER TABLE manual_actions ADD COLUMN repeatCount INTEGER NOT NULL DEFAULT 1")
             }
         }
     }
