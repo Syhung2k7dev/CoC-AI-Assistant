@@ -40,6 +40,6 @@ object ActionExecutor {
         }
 
         // 3. Thực hiện click
-        return CoCAccessibilityService.performClick(finalPoint.x, finalPoint.y)
+        return CoCAccessibilityService.performSingleStep(AutomationStep.Tap(finalPoint.x.toFloat(), finalPoint.y.toFloat()))
     }
 }
