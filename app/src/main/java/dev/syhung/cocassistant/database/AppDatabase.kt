@@ -24,6 +24,9 @@ import dev.syhung.cocassistant.database.dao.TemplateDao
 import dev.syhung.cocassistant.database.dao.RecoveryPatternDao
 import dev.syhung.cocassistant.database.dao.ManualScriptDao
 import dev.syhung.cocassistant.database.dao.ManualActionDao
+import dev.syhung.cocassistant.repositories.WorldStateRepository
+import dev.syhung.cocassistant.repositories.AnchorRepository
+import dev.syhung.cocassistant.repositories.ResearchRecordRepository
 
 /**
  * Room Database cho CoC-AI-Assistant
@@ -54,10 +57,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recoveryPatternDao(): RecoveryPatternDao
     abstract fun manualScriptDao(): ManualScriptDao
     abstract fun manualActionDao(): ManualActionDao
+    abstract fun worldStateRepository(): WorldStateRepository
+    abstract fun anchorRepository(): AnchorRepository
+    abstract fun researchRecordRepository(): ResearchRecordRepository
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
+
+        fun getInstance(context: Context): AppDatabase = getDatabase(context)
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
