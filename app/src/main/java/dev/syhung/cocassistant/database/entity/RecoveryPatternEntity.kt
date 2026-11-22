@@ -3,11 +3,6 @@ package dev.syhung.cocassistant.database.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-package dev.syhung.cocassistant.database.entity
-
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-
 @Entity(tableName = "recovery_patterns")
 data class RecoveryPatternEntity(
     @PrimaryKey val sceneName: String,
