@@ -8,19 +8,9 @@ import java.util.Queue
 
 /**
  * A navigation engine that uses historical state transitions to find a path between scenes.
- */
-package dev.syhung.cocassistant.navigation
+ */class GraphNavigationEngine(
 
-import dev.syhung.cocassistant.database.dao.StateTransitionDao
-import dev.syhung.cocassistant.database.entity.StateTransitionEntity
-import dev.syhung.cocassistant.detector.Scene
-import java.util.LinkedList
-import java.util.Queue
 
-/**
- * A navigation engine that uses historical state transitions to find a path between scenes.
- */
-class GraphNavigationEngine(
     private val transitionDao: StateTransitionDao,
     private val currentSceneProvider: () -> String,
     private val actionExecutor: suspend (String, String, String?) -> Boolean // skillId, actionType, args
