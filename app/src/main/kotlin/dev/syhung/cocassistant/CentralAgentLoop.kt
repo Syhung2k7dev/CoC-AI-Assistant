@@ -13,7 +13,6 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
-import dev.syhung.cocassistant.database.AppDatabase
 import dev.syhung.cocassistant.NavigationRouter
 import dev.syhung.cocassistant.WorldStateManager
 
@@ -73,19 +72,12 @@ object CentralAgentLoop {
         SystemStatusRegistry.isGeminiReady = apiKey.isNotBlank()
         
         // Sử dụng Orchestrator thay vì Researcher cũ
-        val recoveryOrchestrator = dev.syhung.cocassistant.recovery.RecoveryOrchestrator(
-            context, 
-            apiKey, 
-            AppDatabase.getDatabase(context).stateTransitionDao()
-        )
+        val recoveryOrchestrator = dev.syhung.cocassistant.recovery.RecoveryOrchestrator(context, apiKey)
 
         
         val wsScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
         val worldState = WorldStateManager(context, wsScope)
         
-        // Update the provider
-        currentSceneProvider = { currentScene.name }
-
         val sessionStartedAt = SystemClock.elapsedRealtime()
         var cycle = 0
         var previousAction = "Chưa có hành động nào."
@@ -93,6 +85,7 @@ object CentralAgentLoop {
         var previousEvidence = ""
         var totalSkillRuns = 0
         var currentScene = GameScene.UNKNOWN
+        currentSceneProvider = { currentScene.name }
         val executionNotes = mutableListOf<String>()
 
         while (true) {
@@ -495,36 +488,5 @@ object CentralAgentLoop {
                 .put("distance", match.second)
         }
         return registry
-        registry.register("navigation.go_to") { args, _ ->
-            val targetSceneName = args.optString("scene")
-            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
-                try {
-                    val targetScene = Scene.valueOf(targetSceneName)
-                    val engine = GraphNavigationEngine(
-                        transitionDao = AppDatabase.getDatabase(context).stateTransitionDao(),
-                        currentSceneProvider = { currentSceneProvider() },
-                        actionExecutor = { skillId, actionType, args ->
-                            val parts = actionType.split(":")
-                            val capability = SkillActionCapability.valueOf(parts[0])
-                            val argsJson = if (!args.isNullOrBlank()) JSONObject(args) else JSONObject()
-                            val request = SkillActionRequest(
-                                skillId = skillId,
-                                capability = capability,
-                                normalizedX = argsJson.optInt("x", -1),
-                                normalizedY = argsJson.optInt("y", -1),
-                                durationMs = argsJson.optLong("durationMs", -1L)
-                            )
-                            val result = ActionExecutor.executeAwait(context, registry, request, fromState = currentSceneProvider(), userApproved = true)
-                            result is ActionDispatchResult.Accepted
-                        }
-                    )
-                    engine.navigateTo(targetScene)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            JSONObject().put("status", "started")
-        }
-
     }
 }
