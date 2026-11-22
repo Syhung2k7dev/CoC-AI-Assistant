@@ -1,6 +1,7 @@
 package dev.syhung.cocassistant
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -55,7 +56,6 @@ private fun CoCAssistantApp() {
     var apiKey by remember { mutableStateOf("YOUR_API_KEY_HERE") }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Sẵn sàng") }
-    // Removed: showQuickPanel
 
 
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -92,7 +92,7 @@ private fun CoCAssistantApp() {
         Scaffold(
             containerColor = Bg,
             floatingActionButton = {
-                FloatingActionButton(onClick = { showQuickPanel = true }, containerColor = Accent, contentColor = White) {
+                FloatingActionButton(onClick = { selectedTab = 2; status = "Mở bảng cài đặt và công cụ" }, containerColor = Accent, contentColor = White) {
                     Icon(Icons.Default.Dashboard, contentDescription = "Bảng điều khiển nhanh")
                 }
             },
