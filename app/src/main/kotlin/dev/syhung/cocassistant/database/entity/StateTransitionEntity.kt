@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 data class StateTransitionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val fromState: String,
-    val actionType: String, // TAP, SWIPE, etc.
+    val actionType: String,
     val toState: String,
     val isSuccess: Boolean,
     val skillId: String? = null,
