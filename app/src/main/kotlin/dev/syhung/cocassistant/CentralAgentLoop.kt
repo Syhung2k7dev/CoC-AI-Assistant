@@ -154,7 +154,7 @@ object CentralAgentLoop {
                     }
                     is dev.syhung.cocassistant.recovery.RecoveryResult.Critical -> {
                         onStatus("Phục hồi thất bại (Critical). Kích hoạt tự học (Research Loop)...")
-                        AutonomousSkillResearchLoop.initiate(context, registry)
+                        AutonomousSkillResearchLoop.researchNewGoal(context, apiKey, goal, registry, onStatus)
                     }
                 }
             }
