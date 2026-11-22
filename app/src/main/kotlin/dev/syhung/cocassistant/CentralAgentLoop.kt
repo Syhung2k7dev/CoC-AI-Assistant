@@ -72,7 +72,6 @@ object CentralAgentLoop {
         SystemStatusRegistry.isGeminiReady = apiKey.isNotBlank()
         
         // Sử dụng Orchestrator thay vì Researcher cũ
-        val recoveryOrchestrator = dev.syhung.cocassistant.recovery.RecoveryOrchestrator(context, apiKey)
         val recoveryOrchestrator = dev.syhung.cocassistant.recovery.RecoveryOrchestrator(
             context, 
             apiKey, 
@@ -152,14 +151,10 @@ object CentralAgentLoop {
                     is dev.syhung.cocassistant.recovery.RecoveryResult.Branch -> {
                         onStatus("Phục hồi thành công (Tier 2 - Branching).")
                         driftDetector.reset()
+                    }
                     is dev.syhung.cocassistant.recovery.RecoveryResult.Critical -> {
                         onStatus("Phục hồi thất bại (Critical). Kích hoạt tự học (Research Loop)...")
                         AutonomousSkillResearchLoop.initiate(context, registry)
-                    }
-                    }
-                    is dev.syhung.cocassistant.recovery.RecoveryResult.Critical -> {
-                        onStatus("Phục hồi thất bại (Tier 3). Yêu cầu nghiên cứu lại hoặc can thiệp.")
-                        // TODO: Trigger AutonomousSkillResearchLoop
                     }
                 }
             }
