@@ -406,7 +406,7 @@ object CentralAgentLoop {
                 durationMs = if (args.has("durationMs")) args.optLong("durationMs") else null,
                 skillVersion = version
             )
-            when (val result = ActionExecutor.executeAwait(context, skills, request, fromState = currentScene.name, userApproved = true)) {
+            when (val result = ActionExecutor.executeAwait(context, skills, request, fromState = currentSceneProvider(), userApproved = true)) {
                 is ActionDispatchResult.Accepted -> JSONObject().put("accepted", true).put("skillId", result.skillId)
                 is ActionDispatchResult.Rejected -> error(result.reason)
             }
@@ -424,7 +424,7 @@ object CentralAgentLoop {
                 durationMs = args.optLong("durationMs", -1L),
                 skillVersion = version
             )
-            when (val result = ActionExecutor.executeAwait(context, skills, request, fromState = currentScene.name, userApproved = true)) {
+            when (val result = ActionExecutor.executeAwait(context, skills, request, fromState = currentSceneProvider(), userApproved = true)) {
                 is ActionDispatchResult.Accepted -> JSONObject().put("accepted", true).put("skillId", result.skillId)
                 is ActionDispatchResult.Rejected -> error(result.reason)
             }
@@ -436,7 +436,7 @@ object CentralAgentLoop {
                 durationMs = args.optLong("durationMs", -1L),
                 skillVersion = executionContext.optInt("skillVersion", 0)
             )
-            when (val result = ActionExecutor.executeAwait(context, skills, request, fromState = currentScene.name, userApproved = true)) {
+            when (val result = ActionExecutor.executeAwait(context, skills, request, fromState = currentSceneProvider(), userApproved = true)) {
                 is ActionDispatchResult.Accepted -> JSONObject().put("completed", true)
                 is ActionDispatchResult.Rejected -> error(result.reason)
             }
