@@ -6,6 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import dev.syhung.cocassistant.models.Skill
+import dev.syhung.cocassistant.models.LearnedSkill
+import dev.syhung.cocassistant.models.WorldState
+import dev.syhung.cocassistant.models.WorldLayoutAnchor
+import dev.syhung.cocassistant.models.AccountProfile
+import dev.syhung.cocassistant.models.ExecutionLog
+import dev.syhung.cocassistant.models.ResearchRecord
 import dev.syhung.cocassistant.database.entity.StateTransitionEntity
 import dev.syhung.cocassistant.database.entity.TemplateEntity
 import dev.syhung.cocassistant.database.entity.RecoveryPatternEntity
