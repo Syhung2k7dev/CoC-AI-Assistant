@@ -1,6 +1,7 @@
 package dev.syhung.cocassistant
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -52,10 +53,9 @@ private fun CoCAssistantApp() {
         BuiltinSkillCatalog.bootstrap(it) 
     } }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    var apiKey by remember { mutableStateOf("YOUR_API_KEY_HERE") }
+    var apiKey by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Sẵn sàng") }
-    // Removed: showQuickPanel
 
 
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -92,7 +92,7 @@ private fun CoCAssistantApp() {
         Scaffold(
             containerColor = Bg,
             floatingActionButton = {
-                FloatingActionButton(onClick = { showQuickPanel = true }, containerColor = Accent, contentColor = White) {
+                FloatingActionButton(onClick = { selectedTab = 2; status = "Mở bảng cài đặt và công cụ" }, containerColor = Accent, contentColor = White) {
                     Icon(Icons.Default.Dashboard, contentDescription = "Bảng điều khiển nhanh")
                 }
             },
@@ -224,6 +224,17 @@ private fun CoCAssistantApp() {
                         item {
                             PanelCard {
                                 Text("Sao lưu / Khôi phục CADSS", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                                Text("Sao lưu hoặc khôi phục dữ liệu CADSS cùng hình ảnh gốc, hình ảnh cắt và thông tin liên quan trong một tệp ZIP có phiên bản.", color = Muted, fontSize = 12.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { exportPicker.launch("coc-cadss-backup.zip") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+                                        Icon(Icons.Default.FileUpload, null); Spacer(Modifier.width(6.dp)); Text("Sao lưu")
+                                    }
+                                    OutlinedButton(onClick = { importPicker.launch(arrayOf("application/zip", "application/octet-stream")) }, modifier = Modifier.weight(1f)) {
+                                        Icon(Icons.Default.FileDownload, null); Spacer(Modifier.width(6.dp)); Text("Khôi phục")
+                                    }
+                                }
+                            }
+                        }
                         item {
                             PanelCard {
                                 Text("Tính năng nâng cao", fontWeight = FontWeight.Bold)
@@ -237,17 +248,6 @@ private fun CoCAssistantApp() {
                                     Text("Cấp quyền chụp màn hình")
                                 }
                                 Text("Cấp quyền để bot chụp ảnh ổn định hơn thông qua MediaProjection.", color = Muted, fontSize = 12.sp)
-                            }
-                        }
-                                Text("Sao lưu hoặc khôi phục dữ liệu CADSS cùng hình ảnh gốc, hình ảnh cắt và thông tin liên quan trong một tệp ZIP có phiên bản.", color = Muted, fontSize = 12.sp)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { exportPicker.launch("coc-cadss-backup.zip") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-                                        Icon(Icons.Default.FileUpload, null); Spacer(Modifier.width(6.dp)); Text("Sao lưu")
-                                    }
-                                    OutlinedButton(onClick = { importPicker.launch(arrayOf("application/zip", "application/octet-stream")) }, modifier = Modifier.weight(1f)) {
-                                        Icon(Icons.Default.FileDownload, null); Spacer(Modifier.width(6.dp)); Text("Khôi phục")
-                                    }
-                                }
                             }
                         }
                         item {

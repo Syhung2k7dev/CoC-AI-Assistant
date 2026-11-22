@@ -2,7 +2,7 @@ name: Android APK
 
 on:
   push:
-    branches: [ "main", "feature/**" ]
+    branches: [ "main", "feature/**", "fix/**" ]
   pull_request:
     branches: [ "main", "feature/**" ]
   workflow_dispatch:
