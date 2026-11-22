@@ -5,7 +5,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Point
 import dev.syhung.cocassistant.database.AppDatabase
 import dev.syhung.cocassistant.database.entity.ManualActionEntity
-import dev.syhung.cocassistant.accessibility.CoCAccessibilityService
 
 object ActionExecutor {
     
