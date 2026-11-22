@@ -53,7 +53,7 @@ object CentralAgentLoop {
         
         if (verifiedSkills.isEmpty()) {
             onStatus("Chưa có Skill VERIFIED. Chuyển sang chế độ TỰ HỌC (Autonomous Research)...")
-            AutonomousSkillResearchLoop.initiate(context, registry)
+            AutonomousSkillResearchLoop.researchNewGoal(context, apiKey, goal, registry, onStatus)
         } else {
             onStatus("Đã tải ${verifiedSkills.size} Skill đã xác minh. Bắt đầu phiên làm việc.")
         }
