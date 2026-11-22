@@ -12,7 +12,7 @@ class GameNavigationEngine(private val core: CoreEngine) {
     private val TAG = "GameNavigationEngine"
 
     suspend fun detectCurrentScene(): String {
-        return core.db.worldStateRepository().findNewestByTTL()?.sceneId ?: "UNKNOWN"
+        return core.db.worldStateRepository().findAll().firstOrNull()?.sceneId ?: "UNKNOWN"
     }
 
     suspend fun navigateTo(targetScene: String): Boolean {
