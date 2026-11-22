@@ -25,7 +25,7 @@ class CoCAccessibilityService : AccessibilityService(), GesturePerformer {
         super.onServiceConnected()
         
         // Khởi tạo CoreEngine khi service kết nối
-        val db = AppDatabase.getInstance(this) 
+        val db = AppDatabase.getDatabase(this) 
         coreEngine = CoreEngine(db, this)
         
         // Bootstrap: Cân chỉnh tỉ lệ màn hình
