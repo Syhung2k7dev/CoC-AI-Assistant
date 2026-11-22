@@ -34,20 +34,18 @@ class DeepResearchRunner(private val coreEngine: CoreEngine) {
         
         Log.d(TAG, "Research step: $depth")
         
-        // 1. Observe: Giả lập chụp màn hình (cần tích hợp MediaProjection thật vào đây sau)
-        // val bitmap = coreEngine.vision.captureScreen() 
-        // val visionResults = coreEngine.vision.processScreenshot(bitmap)
-        
-        // 2. Analyze: Kiểm tra xem đã tìm thấy gì chưa
-        // Ví dụ: Tìm nút Home, nếu thấy thì lưu vào Anchor
-        val foundAnchor = false // Giả định logic kiểm tra
-        if (foundAnchor) {
-            // 3. Learn: Lưu vào DB
-            // coreEngine.db.anchorRepository().insert(WorldLayoutAnchor("MAIN_BUTTON", 100, 100))
-            Log.i(TAG, "New anchor learned!")
-        } else {
-            // 4. Decide: Chưa thấy gì? Thử swipe màn hình để khám phá vùng khác
-            coreEngine.action.performSwipe(500, 500, 100, 500)
+        // 1. Observe: Chụp màn hình qua Vision Engine
+        coreEngine.vision.captureAndProcess { visionResults ->
+            Log.d(TAG, "Observe result: $visionResults")
+            
+            // 2. Analyze: Kiểm tra xem đã tìm thấy gì chưa
+            if (visionResults["STATUS"] == "LEARNING_REQUIRED" || visionResults.isEmpty()) {
+                // 3. Decide: Chưa thấy gì? Thử swipe màn hình để khám phá
+                coreEngine.action.performSwipe(500, 500, 200, 500)
+            } else {
+                // Giả định đã học được anchor
+                Log.i(TAG, "Found patterns, potential anchors learned.")
+            }
         }
 
         // Tạm dừng để game kịp phản hồi

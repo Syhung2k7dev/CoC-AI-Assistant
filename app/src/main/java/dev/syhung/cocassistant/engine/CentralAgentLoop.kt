@@ -1,6 +1,9 @@
 package dev.syhung.cocassistant.engine
 
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -16,6 +19,7 @@ enum class AgentState {
  */
 class CentralAgentLoop(private val core: CoreEngine) {
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
+    private val scope = CoroutineScope(Dispatchers.Default)
     private val TAG = "CentralAgentLoop"
     private var currentState: AgentState = AgentState.IDLE
     
@@ -24,7 +28,7 @@ class CentralAgentLoop(private val core: CoreEngine) {
 
     fun start() {
         Log.d(TAG, "Agent Loop Started")
-        scheduler.scheduleAtFixedRate({ runTick() }, 0, 5, TimeUnit.SECONDS)
+        scheduler.scheduleAtFixedRate({ runTick() }, 0, 2, TimeUnit.SECONDS)
     }
 
     fun setTarget(target: String) {
@@ -32,25 +36,30 @@ class CentralAgentLoop(private val core: CoreEngine) {
     }
 
     private fun runTick() {
-        when (currentState) {
-            AgentState.IDLE -> handleIdle()
-            AgentState.NAVIGATING -> handleNavigating()
-            AgentState.FARMING -> handleFarming()
-            AgentState.MAINTENANCE -> handleMaintenance()
-            AgentState.RECOVERING -> handleRecovering()
+        scope.launch {
+            try {
+                when (currentState) {
+                    AgentState.IDLE -> handleIdle()
+                    AgentState.NAVIGATING -> handleNavigating()
+                    AgentState.FARMING -> handleFarming()
+                    AgentState.MAINTENANCE -> handleMaintenance()
+                    AgentState.RECOVERING -> handleRecovering()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in tick: ${e.message}")
+            }
         }
     }
 
-    private fun handleIdle() {
+    private suspend fun handleIdle() {
         Log.d(TAG, "IDLE: Searching for tasks")
-        // Tự động kích hoạt nghiên cứu nếu target chưa xác định
         if (currentTarget == "UNKNOWN") {
             Log.i(TAG, "Target unknown, launching DeepResearch...")
             core.researchRunner.runResearch(1L, "DISCOVER_GAME_INTERFACE")
             return
         }
         
-        val worldState = kotlinx.coroutines.runBlocking { core.db.worldStateRepository().findBySceneId(currentTarget) }
+        val worldState = core.db.worldStateRepository().findBySceneId(currentTarget)
         if (worldState != null && worldState.busyBuilders == 0) {
             currentState = AgentState.NAVIGATING
         } else {
@@ -58,11 +67,9 @@ class CentralAgentLoop(private val core: CoreEngine) {
         }
     }
 
-    private fun handleNavigating() {
+    private suspend fun handleNavigating() {
         Log.d(TAG, "NAVIGATING: Moving to $currentTarget")
-        val navigated = kotlinx.coroutines.runBlocking {
-            core.nav.navigateTo(currentTarget)
-        }
+        val navigated = core.nav.navigateTo(currentTarget)
         if (navigated) {
             currentState = AgentState.FARMING
         } else {
@@ -70,20 +77,22 @@ class CentralAgentLoop(private val core: CoreEngine) {
         }
     }
 
-    private fun handleFarming() {
+    private suspend fun handleFarming() {
         Log.d(TAG, "FARMING: Performing action")
         core.action.performClick(500, 500)
         currentState = AgentState.IDLE
     }
 
-    private fun handleMaintenance() {
+    private suspend fun handleMaintenance() {
         Log.d(TAG, "MAINTENANCE: Sleeping")
+        // Logic check timer nâng cấp
         currentState = AgentState.IDLE
     }
 
-    private fun handleRecovering() {
+    private suspend fun handleRecovering() {
         Log.d(TAG, "RECOVERING: Resolving error")
         currentState = AgentState.IDLE
     }
 }
+
 

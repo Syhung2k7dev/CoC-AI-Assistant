@@ -59,4 +59,9 @@ class ActionExecutor(private val gesturePerformer: GesturePerformer) {
         }
     }
 }
+    fun performSkill(skill: dev.syhung.cocassistant.models.Skill) {
+        Log.d(TAG, "Executing skill: ${skill.name}")
+        // 1. Phân tích script
+        core.casl.executeScript(skill.caslScript)
+    }
 

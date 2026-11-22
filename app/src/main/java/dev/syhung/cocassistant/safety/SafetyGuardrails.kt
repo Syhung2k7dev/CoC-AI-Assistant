@@ -8,12 +8,16 @@ import android.graphics.Rect
  */
 object SafetyGuardrails {
     
-    // Vùng cấm ban đầu là rỗng. Sẽ được DeepResearch đúc kết và thêm vào sau.
-    private val unsafeZones = mutableListOf<Rect>()
+    // Định nghĩa các vùng cấm mặc định (Ví dụ: Nút Shop, Gem, Cài đặt)
+    private val unsafeZones = mutableListOf<Rect>().apply {
+        // Ví dụ tọa độ ước tính (Cần calibration thực tế)
+        add(Rect(0, 0, 100, 100)) // Top-left Shop button area
+        add(Rect(800, 0, 1000, 100)) // Top-right Settings
+    }
     
     fun isSafeAction(x: Int, y: Int, actionType: String): Boolean {
-        // Nếu danh sách chưa được học, mặc định an toàn (hoặc có cơ chế cảnh báo)
-        if (unsafeZones.isEmpty()) return true
+        // Không cho phép chi tiêu Gem (giả định tọa độ Gem là khu vực này)
+        if (actionType == "CLICK" && x > 900 && y < 100) return false
         
         return unsafeZones.none { it.contains(x, y) }
     }
@@ -22,3 +26,4 @@ object SafetyGuardrails {
         unsafeZones.add(rect)
     }
 }
+
