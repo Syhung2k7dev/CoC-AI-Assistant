@@ -102,9 +102,12 @@ object CentralAgentLoop {
         val executionNotes = mutableListOf<String>()
 
         while (true) {
+            if (AgentRunControl.isStopRequested()) {
+                return "Agent đã dừng theo yêu cầu người dùng. Không lên lịch thêm thao tác."
+            }
             cycle++
             val sessionExpired = SystemClock.elapsedRealtime() - sessionStartedAt >= MAX_SESSION_RUN_MS
-            if (sessionExpired && previousAction == "Chưa có hành động nào.") {
+            if (sessionExpired) {
                 return "Agent đã hết ngân sách thời gian phiên (30 phút) trước khi có hành động. Nhật ký: Không có thao tác."
             }
             onStatus("Vòng $cycle · Đang quan sát màn hình CoC…")
@@ -357,6 +360,9 @@ object CentralAgentLoop {
                         maxRepeat = 10,
                         maxTotalWaitMs = 45_000L
                     )
+                    if (AgentRunControl.isStopRequested()) {
+                        return "Agent đã dừng trước khi chạy Skill tiếp theo."
+                    }
                     val result = withTimeout(MAX_SKILL_RUN_MS) {
                         runtime.execute(script, JSONObject(), userApproved = true)
                     }
