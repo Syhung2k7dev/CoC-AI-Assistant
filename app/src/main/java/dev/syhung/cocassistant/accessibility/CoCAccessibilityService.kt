@@ -50,9 +50,9 @@ class CoCAccessibilityService : AccessibilityService(), GesturePerformer {
 
     override fun captureScreenshot(callback: (Bitmap?) -> Unit) {
         // Try MediaProjection first
-        val mediaFrame = AppForegroundService.latestFrame
-        if (mediaFrame != null && !mediaFrame.isRecycled) {
-            callback(mediaFrame.copy(Bitmap.Config.ARGB_8888, false))
+        val mediaFrame = AppForegroundService.copyLatestFrame()
+        if (mediaFrame != null) {
+            callback(mediaFrame)
             return
         }
         // Fallback to accessibility
