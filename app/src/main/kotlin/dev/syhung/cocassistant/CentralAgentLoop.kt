@@ -52,11 +52,24 @@ object CentralAgentLoop {
             .filter { it.status == SkillLifecycle.VERIFIED && registry.findVerifiedScript(it.id, it.version) != null }
         
         if (verifiedSkills.isEmpty()) {
-            onStatus("Chưa có Skill VERIFIED. Chuyển sang chế độ TỰ HỌC (Autonomous Research)...")
-            AutonomousSkillResearchLoop.researchNewGoal(context, apiKey, goal, registry, onStatus)
-        } else {
-            onStatus("Đã tải ${verifiedSkills.size} Skill đã xác minh. Bắt đầu phiên làm việc.")
+            onStatus("Chưa có Skill VERIFIED. Bắt đầu nghiên cứu có giới hạn để tạo bản nháp...")
+            return when (val outcome = AutonomousSkillResearchLoop.researchNewGoal(
+                context = context,
+                apiKey = apiKey,
+                goal = goal,
+                registry = registry,
+                onStatus = onStatus
+            )) {
+                is SkillDraftOutcome.Created -> {
+                    val dependencies = outcome.missingDependencies.joinToString(", ").ifBlank { "không có" }
+                    "Đã nghiên cứu và lưu Skill nháp '${outcome.skill.name}' (v${outcome.skill.version}). " +
+                        "Skill chưa được chạy tự động vì cần được xem xét, kiểm thử và xác minh trước. " +
+                        "Phụ thuộc chưa có: $dependencies."
+                }
+                is SkillDraftOutcome.Failed -> "Nghiên cứu chưa tạo được Skill: ${outcome.reason}"
+            }
         }
+        onStatus("Đã tải ${verifiedSkills.size} Skill đã xác minh. Bắt đầu phiên làm việc.")
         val inventory = verifiedSkills.joinToString("\n") {
             "id=${it.id}; version=${it.version}; name=${it.name}; description=${it.description}; " +
                 "capabilities=${it.capabilities}; inputs=${it.inputs}; outputs=${it.outputs}; " +
