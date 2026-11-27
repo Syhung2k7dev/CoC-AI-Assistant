@@ -51,7 +51,6 @@ private fun CoCAssistantApp() {
     val store = remember { CadssStore(context) }
     val skillRegistry = remember { AgentSkillRegistry(context).also { 
         BuiltinSkillCatalog.install(it)
-        BuiltinSkillCatalog.bootstrap(it) 
     } }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var apiKey by remember { mutableStateOf("") }
