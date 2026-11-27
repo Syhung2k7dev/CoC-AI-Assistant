@@ -1,6 +1,4 @@
 package dev.syhung.cocassistant
-import org.json.JSONArray
-import org.json.JSONObject
 
 /** Initial declarative catalog. Entries describe capabilities; they are not executable workflows. */
 object BuiltinSkillCatalog {
@@ -43,26 +41,4 @@ object BuiltinSkillCatalog {
         return added
     }
 
-    fun bootstrap(registry: AgentSkillRegistry) {
-        val primitives = all().filter { it.category == "primitive" || it.id == "screen.capture" }
-        primitives.forEach { skill ->
-            val existing = registry.find(skill.id)
-            if (existing == null || existing.status != SkillLifecycle.VERIFIED) {
-                // Save as DRAFT then verify
-                val draft = skill.copy(
-                    scriptJson = JSONObject()
-                        .put("format", "CASL")
-                        .put("schemaVersion", 1)
-                        .put("kind", "skill")
-                        .put("id", skill.id)
-                        .put("version", 1)
-                        .put("steps", JSONArray())
-                        .toString()
-                )
-                if (registry.saveCatalogSkill(draft)) {
-                   registry.completeTest(skill.id, 1, 1)
-                }
-            }
-        }
-    }
 }

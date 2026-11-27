@@ -22,9 +22,9 @@ import kotlin.math.roundToInt
  */
 object AutonomousSkillResearchLoop {
     private const val GAME_PACKAGE = "com.supercell.clashofclans"
-    private const val MAX_CYCLES = 120
+    private const val MAX_CYCLES = 8
     private const val MAX_SESSION_MS = 30 * 60_000L
-    private const val MAX_ACTIONS = 200
+    private const val MAX_ACTIONS = 8
     private const val MAX_IMAGE_CROPS_PER_CYCLE = 12
 
     data class Report(
@@ -156,7 +156,8 @@ object AutonomousSkillResearchLoop {
 
         try {
             while (cycle < MAX_CYCLES &&
-                SystemClock.elapsedRealtime() - started < MAX_SESSION_MS
+                SystemClock.elapsedRealtime() - started < MAX_SESSION_MS &&
+                !AgentRunControl.isStopRequested()
             ) {
                 cycle++
                 onStatus("Phiên ${sessionId.take(8)} · vòng $cycle · đang chụp màn hình CoC")
@@ -296,6 +297,9 @@ object AutonomousSkillResearchLoop {
                     screenAsset.optString("original"), cropAssets,
                     phash, ocr, lastAnalysis, executedAction, JSONObject().put("status", "planned")
                 )
+                if (AgentRunControl.isStopRequested()) {
+                    throw CancellationException("Nghiên cứu đã dừng theo yêu cầu người dùng.")
+                }
                 when (actionType) {
                     "tap" -> {
                         require(CoCAccessibilityService.isGameForeground(GAME_PACKAGE)) {

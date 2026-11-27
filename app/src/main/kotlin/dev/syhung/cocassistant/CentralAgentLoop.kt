@@ -52,11 +52,24 @@ object CentralAgentLoop {
             .filter { it.status == SkillLifecycle.VERIFIED && registry.findVerifiedScript(it.id, it.version) != null }
         
         if (verifiedSkills.isEmpty()) {
-            onStatus("Chưa có Skill VERIFIED. Chuyển sang chế độ TỰ HỌC (Autonomous Research)...")
-            AutonomousSkillResearchLoop.researchNewGoal(context, apiKey, goal, registry, onStatus)
-        } else {
-            onStatus("Đã tải ${verifiedSkills.size} Skill đã xác minh. Bắt đầu phiên làm việc.")
+            onStatus("Chưa có Skill VERIFIED. Bắt đầu nghiên cứu có giới hạn để tạo bản nháp...")
+            return when (val outcome = AutonomousSkillResearchLoop.researchNewGoal(
+                context = context,
+                apiKey = apiKey,
+                goal = goal,
+                registry = registry,
+                onStatus = onStatus
+            )) {
+                is SkillDraftOutcome.Created -> {
+                    val dependencies = outcome.missingDependencies.joinToString(", ").ifBlank { "không có" }
+                    "Đã nghiên cứu và lưu Skill nháp '${outcome.skill.name}' (v${outcome.skill.version}). " +
+                        "Skill chưa được chạy tự động vì cần được xem xét, kiểm thử và xác minh trước. " +
+                        "Phụ thuộc chưa có: $dependencies."
+                }
+                is SkillDraftOutcome.Failed -> "Nghiên cứu chưa tạo được Skill: ${outcome.reason}"
+            }
         }
+        onStatus("Đã tải ${verifiedSkills.size} Skill đã xác minh. Bắt đầu phiên làm việc.")
         val inventory = verifiedSkills.joinToString("\n") {
             "id=${it.id}; version=${it.version}; name=${it.name}; description=${it.description}; " +
                 "capabilities=${it.capabilities}; inputs=${it.inputs}; outputs=${it.outputs}; " +
@@ -89,9 +102,12 @@ object CentralAgentLoop {
         val executionNotes = mutableListOf<String>()
 
         while (true) {
+            if (AgentRunControl.isStopRequested()) {
+                return "Agent đã dừng theo yêu cầu người dùng. Không lên lịch thêm thao tác."
+            }
             cycle++
             val sessionExpired = SystemClock.elapsedRealtime() - sessionStartedAt >= MAX_SESSION_RUN_MS
-            if (sessionExpired && previousAction == "Chưa có hành động nào.") {
+            if (sessionExpired) {
                 return "Agent đã hết ngân sách thời gian phiên (30 phút) trước khi có hành động. Nhật ký: Không có thao tác."
             }
             onStatus("Vòng $cycle · Đang quan sát màn hình CoC…")
@@ -163,13 +179,13 @@ object CentralAgentLoop {
                 val logSummary = recentLogs.joinToString("; ") { "${it.optString("skillId")}=>${it.optString("result")}" }
                 JSONObject()
                     .put("village", village)
-                    .put("activeTimers", timers.length())
+                    .put("activeTimers", timers.optJSONArray("items")?.length() ?: timers.optInt("count", 0))
                     .put("strategy", globalStrategy)
                     .put("safetyRules", globalSafety)
                     .put("recentLogs", logSummary)
             }
             val villageJson = worldContext.optJSONObject("village")
-            val villageSummary = if (villageJson != null) {
+            val villageSummary = if (villageJson != null && villageJson.optBoolean("available", true)) {
                 "TH${villageJson.optInt("townHallLevel", 0)} | Vàng ${villageJson.optLong("gold", 0)} | Dầu ${villageJson.optLong("elixir", 0)} | Tím ${villageJson.optLong("darkElixir", 0)} | Gem ${villageJson.optInt("gems", 0)} | Thợ xây ${villageJson.optInt("builderBusy", 0)}/${villageJson.optInt("builderCount", 0)} | Timer đang chạy ${worldContext.optInt("activeTimers", 0)}"
             } else "Chưa có dữ liệu làng."
             val worldContextSummary = """
@@ -306,8 +322,12 @@ object CentralAgentLoop {
                         val navAction = NavigationRouter.route(currentScene, targetScene, sceneResult)
                         when (navAction) {
                             is NavigationAction.TapCoordinate -> {
-                                val (px, py) = HumanizedGestureBuilder.normalizedToPixelJittered(
-                                    navAction.normalizedX, navAction.normalizedY
+                                val displayMetrics = context.resources.displayMetrics
+                                val (px, py) = HumanizedGestureBuilder.normalizedToPixel(
+                                    navAction.normalizedX,
+                                    navAction.normalizedY,
+                                    displayMetrics.widthPixels,
+                                    displayMetrics.heightPixels
                                 )
                                 val step = AutomationStep.Tap(px.toFloat(), py.toFloat(), 150L)
                                 if (!CoCAccessibilityService.performSingleStep(step)) {
@@ -340,6 +360,9 @@ object CentralAgentLoop {
                         maxRepeat = 10,
                         maxTotalWaitMs = 45_000L
                     )
+                    if (AgentRunControl.isStopRequested()) {
+                        return "Agent đã dừng trước khi chạy Skill tiếp theo."
+                    }
                     val result = withTimeout(MAX_SKILL_RUN_MS) {
                         runtime.execute(script, JSONObject(), userApproved = true)
                     }

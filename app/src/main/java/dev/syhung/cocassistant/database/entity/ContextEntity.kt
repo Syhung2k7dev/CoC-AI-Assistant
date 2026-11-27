@@ -1,4 +1,4 @@
-package dev.syhung.cocassistant.db.entity
+package dev.syhung.cocassistant.database.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -7,7 +7,6 @@ import androidx.room.PrimaryKey
 data class ContextEntity(
     @PrimaryKey val key: String,
     val value: String,
-    val category: String, // Layer: SYSTEM, AGENT, WORLD_STATE, SKILL
+    val category: String,
     val updatedAt: Long = System.currentTimeMillis()
 )
-

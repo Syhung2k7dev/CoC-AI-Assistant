@@ -1,15 +1,15 @@
-package dev.syhung.cocassistant.db.entity
+package dev.syhung.cocassistant.database.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "execution_log")
-data class ExecutionLogEntity(
-    @PrimaryKey val id: Long = 0,
+@Entity(tableName = "agent_execution_log")
+data class AgentExecutionLogEntity(
+    @PrimaryKey val id: Long,
     val skillId: String,
     val actionType: String,
     val success: Boolean,
     val durationMs: Long,
-    val timestamp: Long = System.currentTimeMillis(),
+    val timestamp: Long,
     val errorDetails: String? = null
 )

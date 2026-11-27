@@ -11,6 +11,7 @@ import android.os.Looper
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
+import dev.syhung.cocassistant.safety.SafetyGuardrails
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -85,9 +86,14 @@ open class CoCAccessibilityService : AccessibilityService() {
 
     private fun dispatch(x1: Float, y1: Float, x2: Float, y2: Float, duration: Long) {
         val metrics = resources.displayMetrics
-        if (x1 !in 0f..metrics.widthPixels.toFloat() || x2 !in 0f..metrics.widthPixels.toFloat() ||
-            y1 !in 0f..metrics.heightPixels.toFloat() || y2 !in 0f..metrics.heightPixels.toFloat()) {
+        if (x1 < 0f || x2 < 0f || y1 < 0f || y2 < 0f ||
+            x1 >= metrics.widthPixels || x2 >= metrics.widthPixels ||
+            y1 >= metrics.heightPixels || y2 >= metrics.heightPixels) {
             stopWorkflow("Tọa độ ngoài màn hình. Workflow đã dừng.")
+            return
+        }
+        if (!isSafePixelPath(x1, y1, x2, y2, metrics.widthPixels, metrics.heightPixels)) {
+            stopWorkflow("Thao tác chạm vào vùng bảo vệ. Workflow đã dừng.")
             return
         }
         val path = Path().apply { moveTo(x1, y1); lineTo(x2, y2) }
@@ -144,6 +150,10 @@ open class CoCAccessibilityService : AccessibilityService() {
         suspendCancellableCoroutine { continuation ->
             handler.post {
                 if (!continuation.isActive) return@post
+                if (AgentRunControl.isStopRequested()) {
+                    continuation.resume(false)
+                    return@post
+                }
                 if (!isValid(step)) {
                     continuation.resume(false)
                     return@post
@@ -171,10 +181,11 @@ open class CoCAccessibilityService : AccessibilityService() {
                     }
                     is AutomationStep.Wait -> return@post
                 }
-                if (startX !in 0f..metrics.widthPixels.toFloat() ||
-                    endX !in 0f..metrics.widthPixels.toFloat() ||
-                    startY !in 0f..metrics.heightPixels.toFloat() ||
-                    endY !in 0f..metrics.heightPixels.toFloat()) {
+                if (startX < 0f || endX < 0f || startY < 0f || endY < 0f ||
+                    startX >= metrics.widthPixels || endX >= metrics.widthPixels ||
+                    startY >= metrics.heightPixels || endY >= metrics.heightPixels ||
+                    !isSafePixelPath(startX, startY, endX, endY, metrics.widthPixels, metrics.heightPixels)
+                ) {
                     continuation.resume(false)
                     return@post
                 }
@@ -192,6 +203,26 @@ open class CoCAccessibilityService : AccessibilityService() {
                 if (!accepted && continuation.isActive) continuation.resume(false)
             }
         }
+
+    private fun isSafePixelPath(
+        startX: Float,
+        startY: Float,
+        endX: Float,
+        endY: Float,
+        screenWidth: Int,
+        screenHeight: Int
+    ): Boolean {
+        if (screenWidth <= 0 || screenHeight <= 0) return false
+        val sx = (startX * 1000f / screenWidth).toInt().coerceIn(0, 1000)
+        val sy = (startY * 1000f / screenHeight).toInt().coerceIn(0, 1000)
+        val ex = (endX * 1000f / screenWidth).toInt().coerceIn(0, 1000)
+        val ey = (endY * 1000f / screenHeight).toInt().coerceIn(0, 1000)
+        return if (sx == ex && sy == ey) {
+            SafetyGuardrails.isSafeAction(sx, sy, "CLICK")
+        } else {
+            SafetyGuardrails.isSafeSwipe(sx, sy, ex, ey)
+        }
+    }
 
     private fun capture(callback: (Bitmap?) -> Unit) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) { callback(null); return }

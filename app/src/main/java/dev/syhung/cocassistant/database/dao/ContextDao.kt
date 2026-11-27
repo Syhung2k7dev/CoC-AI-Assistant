@@ -1,10 +1,10 @@
-package dev.syhung.cocassistant.db.dao
+package dev.syhung.cocassistant.database.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import dev.syhung.cocassistant.db.entity.ContextEntity
+import dev.syhung.cocassistant.database.entity.ContextEntity
 
 @Dao
 interface ContextDao {

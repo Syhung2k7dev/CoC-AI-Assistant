@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -142,6 +143,7 @@ fun CentralAgentStudio(
                         busy = true
                         messages.add(AgentChatMessage("user", "Chạy Agent: $goal"))
                         status = "Đang khởi động vòng lặp Agent…"
+                        AgentRunControl.beginRun()
                         agentJob = scope.launch {
                             try {
                                 val outcome = CentralAgentLoop.run(
@@ -157,6 +159,11 @@ fun CentralAgentStudio(
                                 messages.add(AgentChatMessage("agent", outcome))
                                 status = outcome.lineSequence().firstOrNull().orEmpty().take(180)
                                 onStatus(status)
+                            } catch (cancelled: CancellationException) {
+                                status = "Đã nhận yêu cầu dừng Agent."
+                                messages.add(AgentChatMessage("agent", status))
+                                onStatus(status)
+                                throw cancelled
                             } catch (error: Exception) {
                                 status = "Agent đã dừng an toàn: ${error.message ?: "lỗi không xác định"}"
                                 messages.add(AgentChatMessage("agent", status))
@@ -178,7 +185,7 @@ fun CentralAgentStudio(
                 if (agentJob != null) {
                     OutlinedButton(
                         onClick = {
-                            CoCAccessibilityService.stop()
+                            AgentRunControl.requestStop()
                             agentJob?.cancel()
                             status = "Đang dừng Agent theo yêu cầu…"
                             messages.add(AgentChatMessage("agent", status))
