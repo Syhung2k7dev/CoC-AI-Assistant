@@ -142,6 +142,7 @@ fun CentralAgentStudio(
                         busy = true
                         messages.add(AgentChatMessage("user", "Chạy Agent: $goal"))
                         status = "Đang khởi động vòng lặp Agent…"
+                        AgentRunControl.beginRun()
                         agentJob = scope.launch {
                             try {
                                 val outcome = CentralAgentLoop.run(
@@ -164,6 +165,7 @@ fun CentralAgentStudio(
                             } finally {
                                 busy = false
                                 agentJob = null
+                                AgentRunControl.endRun()
                             }
                         }
                     },
@@ -178,7 +180,7 @@ fun CentralAgentStudio(
                 if (agentJob != null) {
                     OutlinedButton(
                         onClick = {
-                            CoCAccessibilityService.stop()
+                            AgentRunControl.requestStop()
                             agentJob?.cancel()
                             status = "Đang dừng Agent theo yêu cầu…"
                             messages.add(AgentChatMessage("agent", status))
