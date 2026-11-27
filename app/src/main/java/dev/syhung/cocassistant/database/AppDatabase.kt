@@ -176,6 +176,12 @@ abstract class AppDatabase : RoomDatabase() {
          * Missing or incompatible source tables are skipped safely.
          */
         private fun importAgentDataOnce(context: Context, target: SupportSQLiteDatabase) {
+            // Room does not run migrations for a brand-new install, so ensure
+            // the non-entity import marker table exists in both creation paths.
+            target.execSQL(
+                "CREATE TABLE IF NOT EXISTS `legacy_imports` (" +
+                    "`importKey` TEXT NOT NULL, `importedAt` INTEGER NOT NULL, PRIMARY KEY(`importKey`))"
+            )
             val marker = target.query(
                 "SELECT importKey FROM legacy_imports WHERE importKey = '$IMPORT_KEY'"
             )
