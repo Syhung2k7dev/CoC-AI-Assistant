@@ -22,7 +22,7 @@ class EditOverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        dao = AppDatabase.getInstance(this).manualScriptDao()
+        dao = AppDatabase.getDatabase(this).manualScriptDao()
     }
 
     fun addHandle(action: ManualActionEntity) {

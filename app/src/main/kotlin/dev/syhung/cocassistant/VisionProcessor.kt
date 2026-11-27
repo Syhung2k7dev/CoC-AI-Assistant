@@ -54,26 +54,43 @@ object VisionProcessor {
 
     fun findAnchor(frame: Bitmap, templateBitmap: Bitmap): Point? {
         check(OpenCVLoader.initLocal()) { "OpenCV not initialized" }
-        
+        if (frame.isRecycled || templateBitmap.isRecycled ||
+            templateBitmap.width > frame.width || templateBitmap.height > frame.height) return null
+
         val frameMat = Mat()
         val templateMat = Mat()
-        Utils.bitmapToMat(frame, frameMat)
-        Utils.bitmapToMat(templateBitmap, templateMat)
-        
         val frameGray = Mat()
         val templateGray = Mat()
-        Imgproc.cvtColor(frameMat, frameGray, Imgproc.COLOR_RGBA2GRAY)
-        Imgproc.cvtColor(templateMat, templateGray, Imgproc.COLOR_RGBA2GRAY)
-        
         val result = Mat()
-        Imgproc.matchTemplate(frameGray, templateGray, result, Imgproc.TM_CCOEFF_NORMED)
-        
-        val minMaxLoc = Core.minMaxLoc(result)
-        
-        return if (minMaxLoc.maxVal > 0.8) {
-            Point(minMaxLoc.maxLoc.x.toInt() + templateMat.cols() / 2, minMaxLoc.maxLoc.y.toInt() + templateMat.rows() / 2)
-        } else {
-            null
+        try {
+            Utils.bitmapToMat(frame, frameMat)
+            Utils.bitmapToMat(templateBitmap, templateMat)
+            val frameCode = when (frameMat.channels()) {
+                4 -> Imgproc.COLOR_RGBA2GRAY
+                3 -> Imgproc.COLOR_RGB2GRAY
+                else -> -1
+            }
+            val templateCode = when (templateMat.channels()) {
+                4 -> Imgproc.COLOR_RGBA2GRAY
+                3 -> Imgproc.COLOR_RGB2GRAY
+                else -> -1
+            }
+            if (frameCode < 0 || templateCode < 0) return null
+            Imgproc.cvtColor(frameMat, frameGray, frameCode)
+            Imgproc.cvtColor(templateMat, templateGray, templateCode)
+            if (templateGray.cols() > frameGray.cols() || templateGray.rows() > frameGray.rows()) return null
+            Imgproc.matchTemplate(frameGray, templateGray, result, Imgproc.TM_CCOEFF_NORMED)
+            val match = Core.minMaxLoc(result)
+            if (!match.maxVal.isFinite() || match.maxVal < 0.80) return null
+            return Point(
+                match.maxLoc.x.toInt() + templateMat.cols() / 2,
+                match.maxLoc.y.toInt() + templateMat.rows() / 2
+            )
+        } finally {
+            frameMat.release()
+            templateMat.release()
+            frameGray.release()
+            templateGray.release()
+            result.release()
         }
-    }
-}
+    }}

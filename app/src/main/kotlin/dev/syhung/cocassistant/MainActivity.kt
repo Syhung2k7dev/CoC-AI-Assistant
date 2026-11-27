@@ -2,6 +2,7 @@ package dev.syhung.cocassistant
 
 import android.os.Bundle
 import android.content.Intent
+import dev.syhung.cocassistant.service.AppForegroundService
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent

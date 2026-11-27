@@ -12,7 +12,7 @@ import java.io.ByteArrayOutputStream
  * Quản lý Template cho Vision Engine
  */
 class TemplateManager(context: Context) {
-    private val db = AppDatabase.getInstance(context)
+    private val db = AppDatabase.getDatabase(context)
     private val dao = db.templateDao()
 
     suspend fun saveTemplate(id: String, label: String, bitmap: Bitmap) = withContext(Dispatchers.IO) {
