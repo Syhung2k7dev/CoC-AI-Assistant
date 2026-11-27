@@ -34,7 +34,7 @@ Hệ thống đã chuyển đổi sang mô hình **Unified Self-Learning Loop**:
 
 Dự án sử dụng cơ chế tự động hóa quy trình CI/CD qua GitHub Actions. Mọi thay đổi cấu trúc Database (Migration) đều được quản lý chặt chẽ.
 
- > **Lưu ý về database:** Ứng dụng dùng một Room database chính (schema v8). Migration v7→v8 bổ sung context và execution log, đồng thời nhập các bảng đang dùng từ database agent cũ nếu tệp nguồn tồn tại. Tệp database cũ được giữ nguyên làm bản dự phòng; không dùng destructive migration. Cần chạy kiểm thử migration trên thiết bị trước khi phát hành.
+> **Lưu ý về database:** Ứng dụng dùng một Room database chính (schema v8). Migration v7→v8 bổ sung context và execution log, đồng thời nhập các bảng đang dùng từ database agent cũ nếu tệp nguồn tồn tại. Tệp database cũ được giữ nguyên làm bản dự phòng; không dùng destructive migration. Cần chạy kiểm thử migration trên thiết bị trước khi phát hành.
 
 ---
 *Dự án dành cho mục đích nghiên cứu và tự động hóa cá nhân.*
