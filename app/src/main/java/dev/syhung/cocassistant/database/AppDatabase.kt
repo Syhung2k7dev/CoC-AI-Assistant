@@ -34,8 +34,6 @@ import dev.syhung.cocassistant.database.dao.AgentExecutionLogDao
 import dev.syhung.cocassistant.repositories.WorldStateRepository
 import dev.syhung.cocassistant.repositories.AnchorRepository
 import dev.syhung.cocassistant.repositories.ResearchRecordRepository
-import java.io.File
-
 /**
  * Canonical Room database for the application.
  *
