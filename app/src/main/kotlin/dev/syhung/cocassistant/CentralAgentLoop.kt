@@ -306,8 +306,12 @@ object CentralAgentLoop {
                         val navAction = NavigationRouter.route(currentScene, targetScene, sceneResult)
                         when (navAction) {
                             is NavigationAction.TapCoordinate -> {
-                                val (px, py) = HumanizedGestureBuilder.normalizedToPixelJittered(
-                                    navAction.normalizedX, navAction.normalizedY
+                                val displayMetrics = context.resources.displayMetrics
+                                val (px, py) = HumanizedGestureBuilder.normalizedToPixel(
+                                    navAction.normalizedX,
+                                    navAction.normalizedY,
+                                    displayMetrics.widthPixels,
+                                    displayMetrics.heightPixels
                                 )
                                 val step = AutomationStep.Tap(px.toFloat(), py.toFloat(), 150L)
                                 if (!CoCAccessibilityService.performSingleStep(step)) {
