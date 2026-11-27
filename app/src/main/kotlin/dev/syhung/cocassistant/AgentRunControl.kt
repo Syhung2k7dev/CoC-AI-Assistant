@@ -13,6 +13,10 @@ object AgentRunControl {
         stopRequested.set(false)
     }
 
+    fun endRun() {
+        stopRequested.set(false)
+    }
+
     fun requestStop() {
         stopRequested.set(true)
         CoCAccessibilityService.stop()
