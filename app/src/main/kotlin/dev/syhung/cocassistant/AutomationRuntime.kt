@@ -150,6 +150,10 @@ open class CoCAccessibilityService : AccessibilityService() {
         suspendCancellableCoroutine { continuation ->
             handler.post {
                 if (!continuation.isActive) return@post
+                if (AgentRunControl.isStopRequested()) {
+                    continuation.resume(false)
+                    return@post
+                }
                 if (!isValid(step)) {
                     continuation.resume(false)
                     return@post
