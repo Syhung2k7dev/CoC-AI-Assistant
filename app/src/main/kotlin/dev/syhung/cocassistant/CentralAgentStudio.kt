@@ -165,7 +165,6 @@ fun CentralAgentStudio(
                             } finally {
                                 busy = false
                                 agentJob = null
-                                AgentRunControl.endRun()
                             }
                         }
                     },
