@@ -22,9 +22,9 @@ import kotlin.math.roundToInt
  */
 object AutonomousSkillResearchLoop {
     private const val GAME_PACKAGE = "com.supercell.clashofclans"
-    private const val MAX_CYCLES = 120
+    private const val MAX_CYCLES = 8
     private const val MAX_SESSION_MS = 30 * 60_000L
-    private const val MAX_ACTIONS = 200
+    private const val MAX_ACTIONS = 8
     private const val MAX_IMAGE_CROPS_PER_CYCLE = 12
 
     data class Report(
