@@ -2,7 +2,7 @@
 
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)]()
 [![Language](https://img.shields.io/badge/Language-Kotlin-blue.svg)]()
-[![Build Status](https://github.com/Syhung2k7dev/Android-AI-Automation/actions/workflows/android-build.yml/badge.svg)](https://github.com/Syhung2k7dev/Android-AI-Automation/actions)
+[![Build Status](https://github.com/Syhung2k7dev/CoC-AI-Assistant/actions/workflows/android-build.yml/badge.svg)](https://github.com/Syhung2k7dev/CoC-AI-Assistant/actions)
 
 **CoC AI Assistant** là giải pháp tự động hóa thông minh cho Clash of Clans, sử dụng mô hình ngôn ngữ lớn (LLM) và Vision-based Action Engine để thực hiện các thao tác tự động hóa với độ chính xác cao và khả năng thích nghi tốt.
 
@@ -34,7 +34,7 @@ Hệ thống đã chuyển đổi sang mô hình **Unified Self-Learning Loop**:
 
 Dự án sử dụng cơ chế tự động hóa quy trình CI/CD qua GitHub Actions. Mọi thay đổi cấu trúc Database (Migration) đều được quản lý chặt chẽ.
 
-> **Lưu ý:** Sau khi update code, hãy chắc chắn đã thực hiện Migration Database (Version 6) để tránh lỗi runtime.
+> **Lưu ý:** Dự án hiện có hai Room database lịch sử với schema riêng. Không tự ý xóa database hoặc dùng destructive migration; mọi thay đổi schema phải đi kèm migration tương ứng và cần được kiểm tra trước khi phát hành.
 
 ---
 *Dự án dành cho mục đích nghiên cứu và tự động hóa cá nhân.*
