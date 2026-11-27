@@ -23,6 +23,7 @@ object ActionExecutor {
         fromState: String? = null,
         userApproved: Boolean
     ): ActionDispatchResult {
+        if (AgentRunControl.isStopRequested()) return ActionDispatchResult.Rejected("Agent đã nhận yêu cầu dừng.")
         if (!userApproved) return ActionDispatchResult.Rejected("Thao tác chưa được người dùng phê duyệt.")
         if (!request.validate()) return ActionDispatchResult.Rejected("Yêu cầu thao tác không hợp lệ.")
         val skill = registry.find(request.skillId, request.skillVersion)
@@ -78,6 +79,7 @@ object ActionExecutor {
     }
 
     suspend fun executeAction(context: Context, frame: Bitmap, action: ManualActionEntity): Boolean {
+        if (AgentRunControl.isStopRequested()) return false
         val finalPoint = if (action.anchorId != null) {
             val template = AppDatabase.getDatabase(context).templateDao().getTemplateById(action.anchorId)
                 ?: return false
@@ -103,6 +105,7 @@ object ActionExecutor {
     }
 
     suspend fun performGenericAction(context: Context, type: String, argsJson: String): Boolean {
+        if (AgentRunControl.isStopRequested()) return false
         val args = runCatching { JSONObject(argsJson) }.getOrNull() ?: return false
         val step = when (type.uppercase()) {
             "TAP" -> {
