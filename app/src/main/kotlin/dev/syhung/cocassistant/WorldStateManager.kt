@@ -7,8 +7,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import dev.syhung.cocassistant.db.AppDatabase
-import dev.syhung.cocassistant.db.entity.ContextEntity
+import dev.syhung.cocassistant.database.AppDatabase
+import dev.syhung.cocassistant.database.entity.ContextEntity
 
 /**
  * Room-backed access to world/session context.
@@ -57,9 +57,7 @@ class WorldStateManager(
     suspend fun getRecentExecutionLogs(count: Int): List<JSONObject> {
         if (count <= 0) return emptyList()
         return withContext(Dispatchers.IO) {
-            db.executionLogDao().getAllExecutionLogs()
-                .sortedByDescending { it.timestamp }
-                .take(count.coerceAtMost(100))
+            db.agentExecutionLogDao().getRecentExecutionLogs(count.coerceAtMost(100))
                 .map { log ->
                     JSONObject()
                         .put("id", log.id)
