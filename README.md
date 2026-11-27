@@ -28,7 +28,7 @@ Hệ thống đã chuyển đổi sang mô hình **Unified Self-Learning Loop**:
 - **Gradle:** 8.9 (Plugin 8.7.3)
 - **Min SDK:** 23 (Android 6.0+)
 - **Compile SDK:** 35
-- **Dependencies:** Room, Jetpack Compose, OpenCV, Gemini SDK.
+- **Dependencies:** Room, Jetpack Compose, OpenCV, ML Kit Text Recognition và Gemini REST API adapter.
 
 ## 🧪 Kiểm thử & Phát triển
 
