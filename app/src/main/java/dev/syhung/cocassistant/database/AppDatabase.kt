@@ -206,7 +206,7 @@ abstract class AppDatabase : RoomDatabase() {
                         put("importKey", IMPORT_KEY)
                         put("importedAt", System.currentTimeMillis())
                     }
-                    target.insert("legacy_imports", androidx.sqlite.db.SupportSQLiteDatabase.CONFLICT_REPLACE, markerValues)
+                    target.insert("legacy_imports", PlatformSQLiteDatabase.CONFLICT_REPLACE, markerValues)
                     target.setTransactionSuccessful()
                 } finally {
                     target.endTransaction()
@@ -228,7 +228,7 @@ abstract class AppDatabase : RoomDatabase() {
                         put("category", cursor.getString(2))
                         put("updatedAt", cursor.getLong(3))
                     }
-                    target.insert("contexts", androidx.sqlite.db.SupportSQLiteDatabase.CONFLICT_REPLACE, values)
+                    target.insert("contexts", PlatformSQLiteDatabase.CONFLICT_REPLACE, values)
                 }
             }
         }
@@ -249,7 +249,7 @@ abstract class AppDatabase : RoomDatabase() {
                         put("timestamp", cursor.getLong(5))
                         if (cursor.isNull(6)) putNull("errorDetails") else put("errorDetails", cursor.getString(6))
                     }
-                    target.insert("agent_execution_log", androidx.sqlite.db.SupportSQLiteDatabase.CONFLICT_REPLACE, values)
+                    target.insert("agent_execution_log", PlatformSQLiteDatabase.CONFLICT_REPLACE, values)
                 }
             }
         }
