@@ -3,27 +3,32 @@ package dev.syhung.cocassistant.safety
 import android.graphics.Rect
 
 /**
- * SafetyGuardrails - Bộ lọc bảo vệ.
- * Ban đầu trống (Learning mode), sẽ được cập nhật khi Agent khám phá ra các vùng nguy hiểm.
+ * Conservative normalized-coordinate denylist.
+ * Coordinates are in HVCS 0..1000 space; invalid input is rejected.
  */
 object SafetyGuardrails {
-    
-    // Định nghĩa các vùng cấm mặc định (Ví dụ: Nút Shop, Gem, Cài đặt)
-    private val unsafeZones = mutableListOf<Rect>().apply {
-        // Ví dụ tọa độ ước tính (Cần calibration thực tế)
-        add(Rect(0, 0, 100, 100)) // Top-left Shop button area
-        add(Rect(800, 0, 1000, 100)) // Top-right Settings
-    }
-    
+    private val unsafeZones = mutableListOf(
+        Rect(0, 0, 100, 100),
+        Rect(800, 0, 1000, 100)
+    )
+
+    @Synchronized
     fun isSafeAction(x: Int, y: Int, actionType: String): Boolean {
-        // Không cho phép chi tiêu Gem (giả định tọa độ Gem là khu vực này)
-        if (actionType == "CLICK" && x > 900 && y < 100) return false
-        
+        if (x !in 0..1000 || y !in 0..1000) return false
+        if (actionType.uppercase() !in setOf("CLICK", "SWIPE")) return false
+        if (actionType.equals("CLICK", ignoreCase = true) && x > 900 && y < 100) return false
         return unsafeZones.none { it.contains(x, y) }
     }
 
+    @Synchronized
     fun addUnsafeZone(rect: Rect) {
-        unsafeZones.add(rect)
+        require(!rect.isEmpty) { "Vùng bảo vệ phải có diện tích dương." }
+        require(rect.left >= 0 && rect.top >= 0 && rect.right <= 1000 && rect.bottom <= 1000) {
+            "Vùng bảo vệ phải nằm trong tọa độ HVCS 0..1000."
+        }
+        unsafeZones.add(Rect(rect))
     }
-}
 
+    @Synchronized
+    fun getUnsafeZones(): List<Rect> = unsafeZones.map { Rect(it) }
+}
