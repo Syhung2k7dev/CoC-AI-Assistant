@@ -110,13 +110,14 @@ class AppForegroundService : Service() {
                 if (pixelStride <= 0) return@setOnImageAvailableListener
                 val rowPadding = plane.rowStride - pixelStride * width
                 val paddedWidth = width + (rowPadding / pixelStride)
-                paddedBitmap = Bitmap.createBitmap(
+                val padded = Bitmap.createBitmap(
                     paddedWidth,
                     height,
                     Bitmap.Config.ARGB_8888
                 )
-                paddedBitmap.copyPixelsFromBuffer(plane.buffer)
-                val frame = Bitmap.createBitmap(paddedBitmap, 0, 0, width, height)
+                paddedBitmap = padded
+                padded.copyPixelsFromBuffer(plane.buffer)
+                val frame = Bitmap.createBitmap(padded, 0, 0, width, height)
                 publishFrame(frame)
             } catch (error: Exception) {
                 Log.e(TAG, "Unable to convert projection image.", error)
