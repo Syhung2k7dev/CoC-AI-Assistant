@@ -163,13 +163,13 @@ object CentralAgentLoop {
                 val logSummary = recentLogs.joinToString("; ") { "${it.optString("skillId")}=>${it.optString("result")}" }
                 JSONObject()
                     .put("village", village)
-                    .put("activeTimers", timers.length())
+                    .put("activeTimers", timers.optJSONArray("items")?.length() ?: timers.optInt("count", 0))
                     .put("strategy", globalStrategy)
                     .put("safetyRules", globalSafety)
                     .put("recentLogs", logSummary)
             }
             val villageJson = worldContext.optJSONObject("village")
-            val villageSummary = if (villageJson != null) {
+            val villageSummary = if (villageJson != null && villageJson.optBoolean("available", true)) {
                 "TH${villageJson.optInt("townHallLevel", 0)} | Vàng ${villageJson.optLong("gold", 0)} | Dầu ${villageJson.optLong("elixir", 0)} | Tím ${villageJson.optLong("darkElixir", 0)} | Gem ${villageJson.optInt("gems", 0)} | Thợ xây ${villageJson.optInt("builderBusy", 0)}/${villageJson.optInt("builderCount", 0)} | Timer đang chạy ${worldContext.optInt("activeTimers", 0)}"
             } else "Chưa có dữ liệu làng."
             val worldContextSummary = """
